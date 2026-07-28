@@ -1,6 +1,7 @@
 import React from 'react';
 import { Listing } from '../types';
-import { Bed, Bath, Maximize, MapPin, Calendar, Heart } from 'lucide-react';
+import { Bed, Bath, Maximize, MapPin, Calendar, Heart, Sparkles } from 'lucide-react';
+import PropertyStatusBadge from './PropertyStatusBadge';
 
 interface PropertyCardProps {
   key?: string;
@@ -9,20 +10,45 @@ interface PropertyCardProps {
   onClick: () => void;
   isFavorited: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
+  distanceKm?: number | null;
 }
 
-export default function PropertyCard({ listing, isSelected, onClick, isFavorited, onToggleFavorite }: PropertyCardProps) {
+export default function PropertyCard({ listing, isSelected, onClick, isFavorited, onToggleFavorite, distanceKm }: PropertyCardProps) {
   // Dynamic colors for different housing types
-  const typeColors = {
-    room: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-    studio: 'bg-purple-50 text-purple-700 border-purple-100',
-    apartment: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  const typeColors: Record<string, string> = {
+    'single-room': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'self-contained': 'bg-purple-50 text-purple-700 border-purple-200',
+    '1-bedroom-flat': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    '2-bedroom-flat': 'bg-sky-50 text-sky-700 border-sky-200',
+    '3plus-bedroom-flat': 'bg-blue-50 text-blue-700 border-blue-200',
+    'duplex': 'bg-violet-50 text-violet-700 border-violet-200',
+    'penthouse': 'bg-amber-50 text-amber-800 border-amber-200',
+    'bungalow': 'bg-orange-50 text-orange-700 border-orange-200',
+    'townhouse': 'bg-teal-50 text-teal-700 border-teal-200',
+    'villa': 'bg-rose-50 text-rose-700 border-rose-200',
+    'shared-apartment': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    'office-commercial': 'bg-slate-100 text-slate-800 border-slate-300',
+    'room': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'studio': 'bg-purple-50 text-purple-700 border-purple-200',
+    'apartment': 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
-  const typeLabels = {
-    room: 'Shared Room',
-    studio: 'Private Studio',
-    apartment: 'Entire Apartment',
+  const typeLabels: Record<string, string> = {
+    'single-room': 'Single Room',
+    'self-contained': 'Self-Contained',
+    '1-bedroom-flat': '1 Bed Flat',
+    '2-bedroom-flat': '2 Bed Flat',
+    '3plus-bedroom-flat': '3+ Bed Flat',
+    'duplex': 'Duplex / Maisonette',
+    'penthouse': 'Penthouse',
+    'bungalow': 'Bungalow',
+    'townhouse': 'Townhouse',
+    'villa': 'Luxury Villa',
+    'shared-apartment': 'Shared Flat',
+    'office-commercial': 'Commercial Office',
+    'room': 'Single Room',
+    'studio': 'Self-Contained',
+    'apartment': 'Apartment',
   };
 
   return (
@@ -57,10 +83,19 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </button>
 
         {/* Floating Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm ${typeColors[listing.type]}`}>
-            {typeLabels[listing.type]}
-          </span>
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm ${typeColors[listing.type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+              {typeLabels[listing.type] || listing.type}
+            </span>
+            <PropertyStatusBadge status={listing.status} size="sm" />
+          </div>
+          {listing.annualDiscountPercentage && listing.annualDiscountPercentage > 0 && (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border shadow-xs bg-emerald-600 text-white border-emerald-500 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300 shrink-0" />
+              <span>Save {listing.annualDiscountPercentage}% Yearly</span>
+            </span>
+          )}
         </div>
 
         {/* Floating Price */}
@@ -78,9 +113,16 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
             {listing.title}
           </h3>
           
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span className="line-clamp-1">{listing.location}</span>
+          <div className="flex items-center justify-between gap-1 text-xs text-slate-500">
+            <div className="flex items-center gap-1 min-w-0">
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+              <span className="line-clamp-1">{listing.location}</span>
+            </div>
+            {distanceKm !== undefined && distanceKm !== null && (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full shrink-0">
+                {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm} km`}
+              </span>
+            )}
           </div>
         </div>
 

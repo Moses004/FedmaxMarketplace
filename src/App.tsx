@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Listing, User } from './types';
+import { Listing, User, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
 import { 
   getListings, getCurrentUser, login, logout, getBookings, getFavorites, toggleFavorite,
   getListingViews, incrementListingViews
@@ -10,11 +10,16 @@ import PropertyDetails from './components/PropertyDetails';
 import BookingsView from './components/BookingsView';
 import AddListingModal from './components/AddListingModal';
 import LandlordDashboard from './components/LandlordDashboard';
+import AuthModal from './components/AuthModal';
+import EditProfileModal from './components/EditProfileModal';
+import PromotionalBanner from './components/PromotionalBanner';
+import Footer from './components/Footer';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, 
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, LogOut, Check,
-  BarChart3
+  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck
 } from 'lucide-react';
+import { LAUNCH_REGIONS, getDistanceKm, getCurrentUserCoordinates } from './utils/location';
 
 export default function App() {
   // Core App Views
@@ -24,10 +29,13 @@ export default function App() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // Filter States
+  // Filter & Region States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState<'all' | 'madrid' | 'barcelona'>('all');
-  const [selectedType, setSelectedType] = useState<'all' | 'room' | 'studio' | 'apartment'>('all');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('all');
+  const [userGeoLocation, setUserGeoLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(null);
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [maxPrice, setMaxPrice] = useState<number>(2000);
   const [minBedrooms, setMinBedrooms] = useState<string>('all');
 
@@ -38,6 +46,12 @@ export default function App() {
   const [authRole, setAuthRole] = useState<'guest' | 'landlord'>('guest');
   const [authName, setAuthName] = useState('');
   const [showAuthDropdown, setShowAuthDropdown] = useState(false);
+
+  // Full Sign Up / Auth Modal States
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [authModalRole, setAuthModalRole] = useState<'guest' | 'landlord'>('guest');
+  const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
 
   // Map Coordinates State
   const [mapCenter, setMapCenter] = useState({ lat: 40.4167, lng: -3.7037 }); // Madrid default
@@ -81,16 +95,38 @@ export default function App() {
     }
   }, [listings]);
 
-  // Update map center when city changes
-  useEffect(() => {
-    if (selectedCity === 'madrid') {
+  // Handler when region is selected
+  const handleSelectRegion = (regionId: string) => {
+    setSelectedRegionId(regionId);
+    if (regionId === 'all') {
       setMapCenter({ lat: 40.4167, lng: -3.7037 });
-      setMapZoom(13);
-    } else if (selectedCity === 'barcelona') {
-      setMapCenter({ lat: 41.3851, lng: 2.1734 });
-      setMapZoom(13);
+      setMapZoom(12);
+      setMaxDistanceKm(null);
+    } else {
+      const region = LAUNCH_REGIONS.find((r) => r.id === regionId);
+      if (region) {
+        setMapCenter({ lat: region.center.lat, lng: region.center.lng });
+        setMapZoom(region.zoom);
+      }
     }
-  }, [selectedCity]);
+  };
+
+  // Handler for GPS "Near Me"
+  const handleGetUserLocation = async () => {
+    setIsLocatingUser(true);
+    try {
+      const coords = await getCurrentUserCoordinates();
+      setUserGeoLocation(coords);
+      setMapCenter({ lat: coords.lat, lng: coords.lng });
+      setMapZoom(13);
+      setSelectedRegionId('near_me');
+      if (!maxDistanceKm) setMaxDistanceKm(25);
+    } catch (err) {
+      console.warn("User geolocation error:", err);
+    } finally {
+      setIsLocatingUser(false);
+    }
+  };
 
   // Quick Login Utility
   const handleQuickLogin = (email: string, role: 'guest' | 'landlord', name: string) => {
@@ -120,23 +156,57 @@ export default function App() {
     refreshData();
   };
 
-  // Filter calculations
-  const filteredListings = listings.filter((listing) => {
+  // Filter & Distance calculations
+  const currentRegionObj = LAUNCH_REGIONS.find((r) => r.id === selectedRegionId);
+
+  const listingsWithDistance = listings.map((listing) => {
+    let distanceKm: number | null = null;
+    if (userGeoLocation) {
+      distanceKm = getDistanceKm(userGeoLocation.lat, userGeoLocation.lng, listing.lat, listing.lng);
+    } else if (currentRegionObj) {
+      distanceKm = getDistanceKm(currentRegionObj.center.lat, currentRegionObj.center.lng, listing.lat, listing.lng);
+    }
+    return { listing, distanceKm };
+  });
+
+  const filteredItems = listingsWithDistance.filter(({ listing, distanceKm }) => {
     // Search query filter
     const matchesSearch = 
       listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listing.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // City filter
-    const matchesCity = 
-      selectedCity === 'all' || 
-      listing.location.toLowerCase().includes(selectedCity);
+    // Region & Location filter
+    let matchesRegion = true;
+    if (selectedRegionId === 'near_me') {
+      if (maxDistanceKm && distanceKm !== null) {
+        matchesRegion = distanceKm <= maxDistanceKm;
+      }
+    } else if (selectedRegionId !== 'all') {
+      const region = LAUNCH_REGIONS.find(r => r.id === selectedRegionId);
+      if (region) {
+        const queryLower = region.name.toLowerCase();
+        const matchesName = listing.location.toLowerCase().includes(queryLower) ||
+          (region.country === 'Nigeria' && listing.location.toLowerCase().includes('lagos')) ||
+          (region.country === 'United Kingdom' && listing.location.toLowerCase().includes('london')) ||
+          (region.country === 'Germany' && listing.location.toLowerCase().includes('berlin'));
+        const matchesProximity = distanceKm !== null && distanceKm <= 60;
+        matchesRegion = matchesName || matchesProximity;
+      }
+    }
 
-    // Housing Type filter
+    // Explicit distance threshold check
+    if (maxDistanceKm !== null && distanceKm !== null && matchesRegion) {
+      matchesRegion = distanceKm <= maxDistanceKm;
+    }
+
+    // Housing Type & Category filter
     const matchesType = 
       selectedType === 'all' || 
-      listing.type === selectedType;
+      listing.type === selectedType ||
+      (selectedType === 'single-room' && (listing.type === 'room' || listing.type === 'single-room')) ||
+      (selectedType === 'self-contained' && (listing.type === 'studio' || listing.type === 'self-contained')) ||
+      (selectedType === '1-bedroom-flat' && (listing.type === 'apartment' || listing.type === '1-bedroom-flat'));
 
     // Price filter
     const matchesPrice = listing.price <= maxPrice;
@@ -149,7 +219,7 @@ export default function App() {
       (minBedrooms === '2' && listing.bedrooms === 2) ||
       (minBedrooms === '3+' && listing.bedrooms >= 3);
 
-    return matchesSearch && matchesCity && matchesType && matchesPrice && matchesBedrooms;
+    return matchesSearch && matchesRegion && matchesType && matchesPrice && matchesBedrooms;
   });
 
   // Select a property card & scroll/zoom to it
@@ -179,8 +249,8 @@ export default function App() {
               <Building className="w-5.5 h-5.5 stroke-[2.5]" />
             </div>
             <div>
-              <span className="font-display font-black text-xl tracking-tight text-slate-800">Fedmax</span>
-              <span className="text-[10px] text-emerald-600 font-bold block -mt-1 uppercase tracking-wider">Marketplace</span>
+              <span className="font-display font-black text-xl tracking-tight text-slate-800">Rentora</span>
+              <span className="text-[10px] text-emerald-600 font-bold block -mt-1 uppercase tracking-wider">RealEstate</span>
             </div>
           </div>
 
@@ -244,132 +314,107 @@ export default function App() {
             {/* Profile Avatar / Quick Switch Button */}
             <button
               onClick={() => setShowAuthDropdown(!showAuthDropdown)}
-              className="flex items-center gap-2 bg-slate-50 border border-slate-200 hover:border-slate-300 p-1.5 pr-3.5 rounded-xl transition-colors text-left"
+              className="flex items-center gap-2 bg-slate-50 border border-slate-200 hover:border-slate-300 p-1.5 pr-3.5 rounded-xl transition-colors text-left cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-bold text-xs uppercase">
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs">
                 {currentUser?.name ? currentUser.name.slice(0, 2) : 'G'}
               </div>
               <div className="hidden lg:block">
                 <span className="font-bold text-slate-700 text-xs block leading-tight">
                   {currentUser?.name || 'Guest User'}
                 </span>
-                <span className="text-[10px] text-slate-400 block font-medium -mt-0.5">
-                  Identity: {currentUser?.role === 'landlord' ? 'Landlord' : 'Tenant'}
+                <span className="text-[10px] text-emerald-600 font-bold block -mt-0.5">
+                  {currentUser?.role === 'landlord' ? 'Landlord / Owner' : 'Tenant / Guest'}
+                  {currentUser?.city ? ` • ${currentUser.city}` : ''}
                 </span>
               </div>
             </button>
 
             {/* Auth Identity Dropdown Panel */}
             {showAuthDropdown && (
-              <div className="absolute right-0 top-full mt-2.5 w-[280px] bg-white border border-slate-100 rounded-2xl shadow-xl p-4 space-y-4 z-50">
-                <div className="space-y-1">
-                  <h4 className="font-bold text-slate-800 text-sm">Testing Identities</h4>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Fedmax supports separate guest and landlord states. Choose an identity to test booking submissions & owner approvals!
-                  </p>
-                </div>
-
-                {/* Preset Profiles */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Select Preset Profile</span>
-                  
-                  {/* Guest Profile */}
-                  <button
-                    onClick={() => handleQuickLogin('mosesarchibong004@gmail.com', 'guest', 'Moses Archibong')}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left border transition-all ${
-                      currentUser?.email === 'mosesarchibong004@gmail.com' && currentUser.role === 'guest'
-                        ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-300'
-                        : 'bg-slate-50/50 hover:bg-slate-50 border-slate-100'
-                    }`}
-                  >
-                    <div>
-                      <span className="font-bold text-slate-700 text-xs block">Moses Archibong (Tenant)</span>
-                      <span className="text-[10px] text-slate-400 block">mosesarchibong004@gmail.com</span>
+              <div className="absolute right-0 top-full mt-2.5 w-[310px] bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 space-y-3 z-50 animate-fade-in">
+                {/* Current Active Account Card */}
+                {currentUser ? (
+                  <div className="bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Logged In Account</span>
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                        currentUser.role === 'landlord' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {currentUser.role === 'landlord' ? 'Landlord / Owner' : 'Tenant / Guest'}
+                      </span>
                     </div>
-                    {currentUser?.email === 'mosesarchibong004@gmail.com' && currentUser.role === 'guest' && (
-                      <Check className="w-4 h-4 text-emerald-600" />
-                    )}
-                  </button>
 
-                  {/* Landlord Profile */}
-                  <button
-                    onClick={() => handleQuickLogin('landlord@fedmax.com', 'landlord', 'Carlos Silva')}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left border transition-all ${
-                      currentUser?.email === 'landlord@fedmax.com' && currentUser.role === 'landlord'
-                        ? 'bg-indigo-50/50 border-indigo-300 ring-1 ring-indigo-300'
-                        : 'bg-slate-50/50 hover:bg-slate-50 border-slate-100'
-                    }`}
-                  >
                     <div>
-                      <span className="font-bold text-slate-700 text-xs block">Carlos Silva (Landlord)</span>
-                      <span className="text-[10px] text-slate-400 block">landlord@fedmax.com</span>
+                      <span className="font-extrabold text-slate-900 text-xs block truncate">{currentUser.name}</span>
+                      <span className="text-[11px] text-slate-500 block truncate">{currentUser.email}</span>
                     </div>
-                    {currentUser?.email === 'landlord@fedmax.com' && currentUser.role === 'landlord' && (
-                      <Check className="w-4 h-4 text-indigo-600" />
-                    )}
-                  </button>
-                </div>
 
-                {/* Custom Sign-in Form */}
-                <form onSubmit={handleCustomLogin} className="border-t border-slate-100 pt-3 space-y-2.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Custom Login</span>
-                  <div className="space-y-1.5">
-                    <input
-                      type="text"
-                      placeholder="Name"
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                    <input
-                      type="email"
-                      required
-                      placeholder="Email Address"
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                    {(currentUser.city || currentUser.country) && (
+                      <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 mt-1 truncate">
+                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span className="truncate">{[currentUser.city, currentUser.state, currentUser.country].filter(Boolean).join(', ')}</span>
+                      </span>
+                    )}
+
+                    {/* Edit Profile Button */}
                     <button
-                      type="button"
-                      onClick={() => setAuthRole('guest')}
-                      className={`py-1 rounded font-bold text-[10px] border transition-all ${
-                        authRole === 'guest'
-                          ? 'bg-slate-800 border-slate-800 text-white'
-                          : 'bg-white border-slate-200 text-slate-500'
-                      }`}
+                      onClick={() => {
+                        setShowAuthDropdown(false);
+                        setShowEditProfileModal(true);
+                      }}
+                      className="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      As Tenant
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthRole('landlord')}
-                      className={`py-1 rounded font-bold text-[10px] border transition-all ${
-                        authRole === 'landlord'
-                          ? 'bg-slate-800 border-slate-800 text-white'
-                          : 'bg-white border-slate-200 text-slate-500'
-                      }`}
-                    >
-                      As Landlord
+                      <UserIcon className="w-3.5 h-3.5" />
+                      <span>Edit &amp; Update Profile</span>
                     </button>
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm"
-                  >
-                    Authenticate
-                  </button>
-                </form>
+                ) : (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
+                    You are browsing as Guest. Sign up or log in to manage your profile.
+                  </div>
+                )}
 
-                {/* Sign Out */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full py-2 hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-dashed border-rose-100"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Log Out State</span>
-                </button>
+                {/* Sign Up / Log In options without hardcoded demo user switcher */}
+                <div className="space-y-2 border-t border-slate-100 pt-2.5">
+                  <button
+                    onClick={() => {
+                      setShowAuthDropdown(false);
+                      setAuthModalMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  >
+                    <UserPlus className="w-4 h-4 text-emerald-400" />
+                    <span>Create New Account</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowAuthDropdown(false);
+                      setAuthModalMode('login');
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-slate-500" />
+                    <span>Log In to Existing Account</span>
+                  </button>
+                </div>
+
+                {/* Log Out */}
+                {currentUser && (
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setShowAuthDropdown(false);
+                    }}
+                    className="w-full py-2 hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-dashed border-rose-200 cursor-pointer mt-1"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Log Out</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -438,7 +483,7 @@ export default function App() {
             {/* SEARCH AND FILTERS BAR */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 lg:p-5 space-y-4">
               
-              {/* Row 1: Search and City Toggle */}
+              {/* Row 1: Search and Region Selector */}
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
@@ -446,44 +491,35 @@ export default function App() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by neighborhood, street, metro, or home name..."
+                    placeholder="Search by city, neighborhood, street, metro, or home title..."
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 focus:bg-white border border-slate-200/80 rounded-2xl text-xs text-slate-700 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
                   />
                 </div>
 
-                {/* City filters */}
-                <div className="flex bg-slate-100/80 p-1 rounded-2xl shrink-0">
-                  <button
-                    onClick={() => setSelectedCity('all')}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      selectedCity === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    All Spain
-                  </button>
-                  <button
-                    onClick={() => setSelectedCity('madrid')}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      selectedCity === 'madrid' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    Madrid
-                  </button>
-                  <button
-                    onClick={() => setSelectedCity('barcelona')}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      selectedCity === 'barcelona' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    Barcelona
-                  </button>
-                </div>
+                {/* GPS Locate Me Button */}
+                <button
+                  type="button"
+                  onClick={handleGetUserLocation}
+                  disabled={isLocatingUser}
+                  className={`px-3.5 py-2.5 border rounded-2xl text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
+                    selectedRegionId === 'near_me'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                      : 'bg-white border-slate-200/80 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50'
+                  }`}
+                >
+                  {isLocatingUser ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                  ) : (
+                    <LocateFixed className="w-4 h-4 text-emerald-500" />
+                  )}
+                  <span className="hidden sm:inline">Near Me</span>
+                </button>
 
                 {/* Filter Panel Toggle */}
                 <button
                   onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-                  className={`p-2.5 px-4 border rounded-2xl text-xs font-bold flex items-center gap-2 shrink-0 transition-colors ${
-                    showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000
+                  className={`p-2.5 px-4 border rounded-2xl text-xs font-bold flex items-center gap-2 shrink-0 transition-colors cursor-pointer ${
+                    showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000 || maxDistanceKm !== null
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                   }`}
@@ -493,28 +529,134 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Horizontal Launch Region Pills Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-2 no-scrollbar border-t border-slate-100/80">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide shrink-0 mr-1 flex items-center gap-1">
+                  <Globe className="w-3 h-3 text-slate-400" />
+                  <span>Markets:</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectRegion('all')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    selectedRegionId === 'all'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>🌍 All Launch Markets</span>
+                </button>
+
+                {LAUNCH_REGIONS.map((region) => {
+                  const isActive = selectedRegionId === region.id;
+                  // Calculate listings in this region
+                  const regionCount = listings.filter(l => 
+                    l.location.toLowerCase().includes(region.name.toLowerCase()) ||
+                    (region.country === 'Nigeria' && l.location.toLowerCase().includes('lagos')) ||
+                    (region.country === 'United Kingdom' && l.location.toLowerCase().includes('london')) ||
+                    (region.country === 'Germany' && l.location.toLowerCase().includes('berlin'))
+                  ).length;
+
+                  return (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => handleSelectRegion(region.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      <span>{region.flag} {region.name}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {regionCount}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Distance Radius Filter Selector (shown when Near Me or Radius active) */}
+              {(selectedRegionId === 'near_me' || maxDistanceKm !== null) && (
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100/80 animate-fade-in">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide shrink-0 flex items-center gap-1">
+                    <Navigation className="w-3 h-3 text-emerald-600" />
+                    <span>Distance Radius:</span>
+                  </span>
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                    {[5, 10, 25, 50, 100, null].map((radius) => (
+                      <button
+                        key={radius === null ? 'any' : radius}
+                        type="button"
+                        onClick={() => setMaxDistanceKm(radius)}
+                        className={`px-3 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                          maxDistanceKm === radius
+                            ? 'bg-emerald-700 text-white border-emerald-700'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'
+                        }`}
+                      >
+                        {radius === null ? 'Any Distance' : `≤ ${radius} km`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Horizontal Category Pill Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 no-scrollbar border-t border-slate-100/80">
+                <button
+                  type="button"
+                  onClick={() => setSelectedType('all')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
+                    selectedType === 'all'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                  }`}
+                >
+                  All Categories
+                </button>
+                {PROPERTY_CATEGORY_OPTIONS.map((cat) => {
+                  const isActive = selectedType === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedType(cat.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
+                        isActive
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Row 2: Secondary Filters Drawer Panel */}
               {(showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3.5 border-t border-slate-50 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3.5 border-t border-slate-100 animate-fade-in">
                   
-                  {/* Filter Property Type */}
+                  {/* Filter Property Type Dropdown */}
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Housing Type</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(['all', 'room', 'studio', 'apartment'] as const).map(t => (
-                        <button
-                          key={t}
-                          onClick={() => setSelectedType(t)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border capitalize transition-all ${
-                            selectedType === t
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white border-slate-100 hover:border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {t === 'all' ? 'All categories' : t}
-                        </button>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Property Category Filter</span>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => setSelectedType(e.target.value)}
+                      className="w-full text-xs font-bold p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="all">All Real Estate Categories</option>
+                      {PROPERTY_CATEGORY_OPTIONS.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.label} ({cat.description})
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
                   {/* Filter Price Slider */}
@@ -570,25 +712,34 @@ export default function App() {
               {/* Left Column: Property Feed */}
               <div className="lg:col-span-7 flex flex-col h-full overflow-hidden">
                 <div className="flex justify-between items-baseline mb-3">
-                  <h3 className="font-display font-black text-slate-800 text-lg">
-                    Homes in {selectedCity === 'all' ? 'Spain' : selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)}
+                  <h3 className="font-display font-black text-slate-800 text-lg flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-emerald-600" />
+                    <span>
+                      {selectedRegionId === 'near_me'
+                        ? 'Homes Near Your GPS Location'
+                        : selectedRegionId === 'all'
+                        ? 'All Active Launch Markets'
+                        : `Homes in ${currentRegionObj?.name || selectedRegionId} ${currentRegionObj?.flag || ''}`}
+                    </span>
                   </h3>
-                  <span className="text-xs text-slate-400 font-semibold">{filteredListings.length} properties found</span>
+                  <span className="text-xs text-slate-400 font-semibold">{filteredItems.length} properties found</span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin">
-                  {filteredListings.length === 0 ? (
+                  {filteredItems.length === 0 ? (
                     <div className="text-center py-20 bg-white border border-slate-100 rounded-3xl space-y-2">
                       <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
                       <h4 className="font-bold text-slate-700 text-sm">No rentals matches your search</h4>
-                      <p className="text-xs text-slate-400">Try adjusting your pricing filters, location query, or category criteria.</p>
+                      <p className="text-xs text-slate-400">Try adjusting your pricing filters, region, or distance radius.</p>
                       <button
                         onClick={() => {
-                          setSelectedCity('all');
+                          setSelectedRegionId('all');
                           setSelectedType('all');
                           setMaxPrice(2000);
                           setSearchQuery('');
                           setMinBedrooms('all');
+                          setMaxDistanceKm(null);
+                          setUserGeoLocation(null);
                         }}
                         className="mt-3 py-1.5 px-4 bg-slate-900 text-white font-bold text-xs rounded-xl"
                       >
@@ -597,10 +748,11 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {filteredListings.map((listing) => (
+                      {filteredItems.map(({ listing, distanceKm }) => (
                         <PropertyCard
                           key={listing.id}
                           listing={listing}
+                          distanceKm={distanceKm}
                           isSelected={selectedListing?.id === listing.id}
                           onClick={() => handleSelectListing(listing)}
                           isFavorited={favorites.includes(listing.id)}
@@ -619,7 +771,7 @@ export default function App() {
               {/* Right Column: Interactive Map */}
               <div className="lg:col-span-5 h-[400px] lg:h-full shrink-0">
                 <PropertyMap
-                  listings={filteredListings}
+                  listings={filteredItems.map(item => item.listing)}
                   selectedListing={selectedListing}
                   onSelectListing={handleSelectListing}
                   center={mapCenter}
@@ -628,6 +780,15 @@ export default function App() {
               </div>
 
             </div>
+
+            {/* PROMOTIONAL BANNER SECTION */}
+            <PromotionalBanner
+              onListPropertyClick={() => setShowAddModal(true)}
+              onExploreClick={() => {
+                setSelectedType('all');
+                setSelectedRegionId('all');
+              }}
+            />
 
           </div>
         ) : currentTab === 'dashboard' ? (
@@ -642,6 +803,7 @@ export default function App() {
               incrementListingViews(listing.id);
             }}
             onRefreshData={refreshData}
+            onEditProfileClick={() => setShowEditProfileModal(true)}
           />
         ) : (
           
@@ -655,6 +817,20 @@ export default function App() {
         )}
       </main>
 
+      {/* COMPREHENSIVE FOOTER SECTION */}
+      <Footer
+        onSelectType={(type) => {
+          setSelectedType(type);
+          setCurrentTab('explore');
+        }}
+        onOpenAuth={(role) => {
+          setAuthModalRole(role);
+          setAuthModalMode('signup');
+          setShowAuthModal(true);
+        }}
+        onListPropertyClick={() => setShowAddModal(true)}
+      />
+
       {/* POPUP: PROPERTY DETAIL DRAWER MODAL */}
       {selectedListing && (
         <PropertyDetails
@@ -667,7 +843,9 @@ export default function App() {
             refreshData();
           }}
           onSwitchToGuest={() => {
-            handleQuickLogin('mosesarchibong004@gmail.com', 'guest', 'Moses Archibong');
+            setAuthModalRole('guest');
+            setAuthModalMode('login');
+            setShowAuthModal(true);
           }}
         />
       )}
@@ -682,6 +860,29 @@ export default function App() {
           }}
         />
       )}
+
+      {/* POPUP: EDIT PROFILE MODAL */}
+      <EditProfileModal
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        currentUser={currentUser}
+        onSaveSuccess={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          refreshData();
+        }}
+      />
+
+      {/* POPUP: COMPREHENSIVE SIGN UP & AUTH MODAL */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialRole={authModalRole}
+        initialMode={authModalMode}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          refreshData();
+        }}
+      />
 
     </div>
   );

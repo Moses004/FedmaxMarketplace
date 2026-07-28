@@ -1,4 +1,4 @@
-import { Listing, Booking, User, BookingMessage } from '../types';
+import { Listing, Booking, User, BookingMessage, PropertyReview, PayoutAccount, PayoutTransaction } from '../types';
 
 // Seed Listings
 const INITIAL_LISTINGS: Listing[] = [
@@ -7,6 +7,7 @@ const INITIAL_LISTINGS: Listing[] = [
     title: 'Bright Premium Room near Plaza Mayor',
     description: 'Fully furnished, exterior room in a newly renovated shared apartment. Outstanding location in the historical center of Madrid, just a 2-minute walk from Plaza Mayor and Sol. Features a comfortable double bed, spacious wardrobe, desk, chair, and private balcony. Fully equipped shared kitchen, high-speed Wi-Fi, and weekly cleaning of common areas included.',
     price: 650,
+    annualDiscountPercentage: 10,
     type: 'room',
     location: 'Calle Mayor, 12, 28013 Madrid, Spain',
     lat: 40.4165,
@@ -27,6 +28,7 @@ const INITIAL_LISTINGS: Listing[] = [
     title: 'Modern Cozy Studio near Retiro Park',
     description: 'Beautiful, bright self-contained studio apartment located in the prestigious Salamanca district, right next to Retiro Park. Perfect for young professionals or students who value privacy and prime location. Comes with a private fully-equipped kitchenette, private modern bathroom, double bed, smart TV, dining area, and plenty of smart storage spaces.',
     price: 1100,
+    annualDiscountPercentage: 10,
     type: 'studio',
     location: 'Calle de Alcalá, 84, 28009 Madrid, Spain',
     lat: 40.4215,
@@ -121,6 +123,86 @@ const INITIAL_LISTINGS: Listing[] = [
     ],
     landlordId: 'landlord-2',
     availableFrom: '2026-09-10'
+  },
+  {
+    id: 'list-7',
+    title: 'Self-Contained Executive Studio Unit',
+    description: 'Fully self-contained private apartment unit with its own private ensuite bathroom, dedicated kitchen nook, air conditioning, and biometric smart lock access. Ideal for privacy-focused professionals.',
+    price: 980,
+    type: 'self-contained',
+    location: 'Calle de Velázquez, 45, 28001 Madrid, Spain',
+    lat: 40.4281,
+    lng: -3.6832,
+    bedrooms: 0,
+    bathrooms: 1,
+    size: 30,
+    amenities: ['Private Ensuite Bathroom', 'Smart Lock', 'Private Kitchenette', 'Air Conditioning', 'High-Speed Wi-Fi'],
+    images: [
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-8',
+    title: 'Luxury Top-Floor Penthouse with Terrace',
+    description: 'Breathtaking 2-bedroom penthouse residence with a 45sqm private wrap-around terrace boasting 360-degree skyline views of Madrid. High ceilings, designer fireplace, rainfall bath, and private elevator landing.',
+    price: 2400,
+    type: 'penthouse',
+    location: 'Paseo de la Castellana, 110, 28046 Madrid, Spain',
+    lat: 40.4485,
+    lng: -3.6912,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 110,
+    amenities: ['Private Skyline Terrace', 'Fireplace', 'Rainfall Shower', 'Private Elevator', '24/7 Doorman', 'Underground Parking'],
+    images: [
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-2',
+    availableFrom: '2026-09-01'
+  },
+  {
+    id: 'list-9',
+    title: 'Modern Two-Story Duplex Flat in Chamberí',
+    description: 'Elegant split-level duplex apartment featuring double-height ceiling floor-to-ceiling windows, lower living salon with kitchen and upper mezzanine bedroom suite with walk-in wardrobe.',
+    price: 1750,
+    type: 'duplex',
+    location: 'Calle de Santa Engracia, 60, 28010 Madrid, Spain',
+    lat: 40.4350,
+    lng: -3.7000,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 85,
+    amenities: ['Double-Height Windows', 'Mezzanine Suite', 'Walk-in Closet', 'Dishwasher', 'Central Heating', 'High-Speed Wi-Fi'],
+    images: [
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-15'
+  },
+  {
+    id: 'list-10',
+    title: 'Contemporary Commercial Office Space in Tech Hub',
+    description: 'Fully serviced commercial office floor with meeting room, high-speed fiber internet, reception desk, kitchenette, and ergonomic workstation setups. Ideal for growing teams or remote tech agencies.',
+    price: 2100,
+    type: 'office-commercial',
+    location: 'Carrer de Tànger, 86, 08018 Barcelona, Spain',
+    lat: 41.4020,
+    lng: 2.1930,
+    bedrooms: 0,
+    bathrooms: 2,
+    size: 140,
+    amenities: ['24/7 Security', 'Fiber Optic Wi-Fi', 'Conference Room', 'Kitchenette', 'Air Conditioning', 'Elevator Access'],
+    images: [
+      'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-2',
+    availableFrom: '2026-08-01'
   }
 ];
 
@@ -160,9 +242,45 @@ const INITIAL_BOOKINGS: Booking[] = [
 
 // Seed Users
 const INITIAL_USERS: User[] = [
-  { id: 'guest-1', name: 'Moses Archibong', email: 'mosesarchibong004@gmail.com', role: 'guest' },
-  { id: 'landlord-1', name: 'Carlos Silva', email: 'landlord@fedmax.com', role: 'landlord' },
-  { id: 'landlord-2', name: 'Marta Gomez', email: 'marta@gothic.com', role: 'landlord' }
+  { 
+    id: 'guest-1', 
+    name: 'Moses Archibong', 
+    email: 'mosesarchibong004@gmail.com', 
+    role: 'guest',
+    phone: '+234 801 234 5678',
+    country: 'Nigeria',
+    state: 'Lagos State',
+    city: 'Lagos',
+    postalCode: '100001',
+    streetAddress: '12 Victoria Island Expressway',
+    preferredMoveInRegion: 'Spain'
+  },
+  { 
+    id: 'landlord-1', 
+    name: 'Carlos Silva', 
+    email: 'landlord@rentora.com', 
+    role: 'landlord',
+    phone: '+34 612 345 678',
+    country: 'Spain',
+    state: 'Community of Madrid',
+    city: 'Madrid',
+    postalCode: '28013',
+    streetAddress: 'Calle Mayor, 12',
+    taxId: 'ES-12345678Z'
+  },
+  { 
+    id: 'landlord-2', 
+    name: 'Marta Gomez', 
+    email: 'marta@gothic.com', 
+    role: 'landlord',
+    phone: '+34 699 876 543',
+    country: 'Spain',
+    state: 'Catalonia',
+    city: 'Barcelona',
+    postalCode: '08002',
+    streetAddress: 'Carrer del Bisbe, 5',
+    taxId: 'ES-98765432Y'
+  }
 ];
 
 // Safe storage wrapper (supports sandboxed environments where localStorage might throw)
@@ -216,7 +334,11 @@ initializeStore();
 export function getListings(): Listing[] {
   try {
     const raw = storage.getItem(LISTINGS_KEY);
-    return raw ? JSON.parse(raw) : INITIAL_LISTINGS;
+    const parsed: Listing[] = raw ? JSON.parse(raw) : INITIAL_LISTINGS;
+    return parsed.map(l => ({
+      ...l,
+      status: l.status || (l.id === 'list-1' ? 'new' : l.id === 'list-3' ? 'rented' : l.id === 'list-10' ? 'unavailable' : 'available')
+    }));
   } catch {
     return INITIAL_LISTINGS;
   }
@@ -232,7 +354,8 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
   const newListing: Listing = {
     ...listing,
     id: `list-${Date.now()}`,
-    landlordId: currentUser ? currentUser.id : 'landlord-1'
+    landlordId: currentUser ? currentUser.id : 'landlord-1',
+    status: listing.status || 'new'
   };
   listings.unshift(newListing);
   saveListings(listings);
@@ -312,13 +435,38 @@ export function addBookingMessage(bookingId: string, message: { senderId: string
   return newMessage;
 }
 
-export function confirmBookingPayment(bookingId: string, leaseSignedName: string): Booking | null {
+export function confirmBookingPayment(
+  bookingId: string, 
+  leaseSignedName: string, 
+  paymentMethod: 'safepay' | 'paystack' = 'safepay',
+  paymentReference?: string
+): Booking | null {
   const bookings = getBookings();
   const index = bookings.findIndex(b => b.id === bookingId);
   if (index !== -1) {
     bookings[index].status = 'confirmed';
     bookings[index].leaseSignedName = leaseSignedName;
     bookings[index].leaseSignedDate = new Date().toISOString().split('T')[0];
+    bookings[index].paymentMethod = paymentMethod;
+    bookings[index].paymentReference = paymentReference || `REF-${paymentMethod.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    saveBookings(bookings);
+    return bookings[index];
+  }
+  return null;
+}
+
+export function refundBooking(
+  bookingId: string, 
+  refundReason?: string, 
+  refundReference?: string
+): Booking | null {
+  const bookings = getBookings();
+  const index = bookings.findIndex(b => b.id === bookingId);
+  if (index !== -1) {
+    bookings[index].status = 'refunded';
+    bookings[index].refundReason = refundReason || 'Refund requested by landlord via Paystack API';
+    bookings[index].refundReference = refundReference || `RFD-PAYSTACK-${Date.now().toString(36).toUpperCase()}`;
+    bookings[index].refundedAt = new Date().toISOString();
     saveBookings(bookings);
     return bookings[index];
   }
@@ -370,6 +518,53 @@ export function getCurrentUser(): User | null {
   } catch {
     return null;
   }
+}
+
+export function registerUser(payload: Partial<User> & { name: string; email: string; role: 'guest' | 'landlord' }): User {
+  const users = getUsers();
+  const existingIdx = users.findIndex(u => u.email.toLowerCase() === payload.email.toLowerCase());
+
+  let user: User;
+  if (existingIdx !== -1) {
+    user = {
+      ...users[existingIdx],
+      ...payload,
+      email: payload.email.toLowerCase(),
+    };
+    users[existingIdx] = user;
+  } else {
+    user = {
+      id: `${payload.role}-${Date.now()}`,
+      ...payload,
+      email: payload.email.toLowerCase(),
+    };
+    users.push(user);
+  }
+
+  storage.setItem(USERS_KEY, JSON.stringify(users));
+  storage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  return user;
+}
+
+export function updateUserProfile(updatedData: Partial<User> & { id: string }): User {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === updatedData.id);
+
+  let updatedUser: User;
+  if (index !== -1) {
+    updatedUser = {
+      ...users[index],
+      ...updatedData
+    };
+    users[index] = updatedUser;
+  } else {
+    updatedUser = updatedData as User;
+    users.push(updatedUser);
+  }
+
+  storage.setItem(USERS_KEY, JSON.stringify(users));
+  storage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+  return updatedUser;
 }
 
 export function login(email: string, role: 'guest' | 'landlord', name?: string): User {
@@ -432,4 +627,155 @@ export function incrementListingViews(listingId: string): number {
   storage.setItem(VIEWS_KEY, JSON.stringify(views));
   return views[listingId];
 }
+
+const REVIEWS_KEY = 'fedmax_property_reviews';
+
+const INITIAL_REVIEWS: PropertyReview[] = [
+  {
+    id: 'rev-seed-1',
+    listingId: 'list-1',
+    bookingId: 'book-seed-1',
+    guestId: 'guest-1',
+    guestName: 'Elena Rostova',
+    rating: 5,
+    comment: 'Exceptional room! Super clean, brilliant location right next to Sol, and the landlord was extremely helpful throughout my stay.',
+    createdAt: '2026-07-10T11:20:00Z'
+  }
+];
+
+export function getReviews(): PropertyReview[] {
+  try {
+    const raw = storage.getItem(REVIEWS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load reviews:', e);
+  }
+  storage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
+  return INITIAL_REVIEWS;
+}
+
+export function getReviewsForListing(listingId: string): PropertyReview[] {
+  return getReviews().filter(r => r.listingId === listingId);
+}
+
+export function getReviewForBooking(bookingId: string): PropertyReview | null {
+  const reviews = getReviews();
+  return reviews.find(r => r.bookingId === bookingId) || null;
+}
+
+export function saveOrUpdateReview(reviewData: Omit<PropertyReview, 'id' | 'createdAt'>): PropertyReview {
+  const reviews = getReviews();
+  const existingIdx = reviews.findIndex(r => r.bookingId === reviewData.bookingId);
+  const now = new Date().toISOString();
+
+  if (existingIdx !== -1) {
+    const updatedReview: PropertyReview = {
+      ...reviews[existingIdx],
+      rating: reviewData.rating,
+      comment: reviewData.comment,
+      createdAt: now
+    };
+    reviews[existingIdx] = updatedReview;
+    storage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+    return updatedReview;
+  } else {
+    const newReview: PropertyReview = {
+      ...reviewData,
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: now
+    };
+    reviews.unshift(newReview);
+    storage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+    return newReview;
+  }
+}
+
+// LANDLORD PAYOUT & WITHDRAWAL STORE MANAGEMENT
+const PAYOUT_ACCOUNT_KEY_PREFIX = 'fedmax_payout_account_';
+const PAYOUT_TRANSACTIONS_KEY_PREFIX = 'fedmax_payout_txs_';
+
+export function getPayoutAccount(landlordId: string): PayoutAccount | null {
+  try {
+    const raw = storage.getItem(`${PAYOUT_ACCOUNT_KEY_PREFIX}${landlordId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load payout account:', e);
+  }
+  
+  // Default seed payout account for default landlord using Paystack API Direct Withdrawal
+  const defaultAccount: PayoutAccount = {
+    method: 'paystack_bank',
+    accountHolderName: 'Carlos Rodriguez',
+    bankNameOrService: 'Guaranty Trust Bank (Paystack API Direct)',
+    accountNumberOrIban: '0123456789',
+    bankCode: '058',
+    recipientCode: 'RCP_5k82x091z0a',
+    isVerified: true,
+    verificationStatus: 'verified',
+    verifiedAt: '2026-07-01T10:00:00Z',
+    autoPayoutEnabled: false
+  };
+  return defaultAccount;
+}
+
+export function savePayoutAccount(landlordId: string, account: PayoutAccount): PayoutAccount {
+  storage.setItem(`${PAYOUT_ACCOUNT_KEY_PREFIX}${landlordId}`, JSON.stringify(account));
+  return account;
+}
+
+export function getPayoutTransactions(landlordId: string): PayoutTransaction[] {
+  try {
+    const raw = storage.getItem(`${PAYOUT_TRANSACTIONS_KEY_PREFIX}${landlordId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load payout transactions:', e);
+  }
+
+  // Seed initial completed payout transaction
+  const initialTxs: PayoutTransaction[] = [
+    {
+      id: 'tx-seed-1',
+      landlordId,
+      amount: 1200,
+      method: 'paystack_bank',
+      accountDetails: '0123****89 (GTBank via Paystack Direct)',
+      status: 'completed',
+      requestedAt: '2026-07-01T10:15:00Z',
+      processedAt: '2026-07-01T10:15:28Z',
+      referenceCode: 'TRF_982410582910',
+      note: 'Paystack Hosted API Direct Commercial Bank Transfer'
+    }
+  ];
+  storage.setItem(`${PAYOUT_TRANSACTIONS_KEY_PREFIX}${landlordId}`, JSON.stringify(initialTxs));
+  return initialTxs;
+}
+
+export function createPayoutTransaction(
+  landlordId: string, 
+  amount: number, 
+  account: PayoutAccount
+): PayoutTransaction {
+  const txs = getPayoutTransactions(landlordId);
+  const now = new Date().toISOString();
+  const dateStr = now.slice(0,10).replace(/-/g, '');
+  const refCode = `PAY-${dateStr}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const newTx: PayoutTransaction = {
+    id: `tx-${Date.now()}`,
+    landlordId,
+    amount,
+    method: account.method,
+    accountDetails: `${account.bankNameOrService} (${account.accountNumberOrIban.slice(-4) ? '**** ' + account.accountNumberOrIban.slice(-4) : account.accountNumberOrIban})`,
+    status: 'completed', // Instant simulation or completed processing
+    requestedAt: now,
+    processedAt: now,
+    referenceCode: refCode,
+    note: `Withdrawal to ${account.accountHolderName}`
+  };
+
+  txs.unshift(newTx);
+  storage.setItem(`${PAYOUT_TRANSACTIONS_KEY_PREFIX}${landlordId}`, JSON.stringify(txs));
+  return newTx;
+}
+
 

@@ -3,7 +3,73 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    
+    <!-- Primary Meta Tags -->
+    <title>Rentora RealEstate | Verified Property Rentals & Marketplace</title>
+    <meta name="title" content="Rentora RealEstate | Verified Property Rentals & Marketplace" />
+    <meta name="description" content="Rentora RealEstate connects verified tenants and landlords across Europe and globally. Find luxury apartments, long-term rentals, studio flats, and verified homes with instant online lease verification and direct payouts." />
+    <meta name="keywords" content="Rentora, Rentora RealEstate, property rentals, apartments for rent, verified landlords, rental marketplace, Madrid rentals, Barcelona apartments, Lagos property, long term rentals, Paystack direct payouts" />
+    <meta name="author" content="Rentora RealEstate Inc." />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="theme-color" content="#0f172a" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2310b981'/><path d='M30 75 V45 L50 25 L70 45 V75 H55 V55 H45 V75 Z' fill='%230f172a'/><circle cx='50' cy='40' r='5' fill='%2310b981'/></svg>" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rentora RealEstate" />
+    <meta property="og:title" content="Rentora RealEstate | Verified Property Rentals & Marketplace" />
+    <meta property="og:description" content="Discover and rent verified properties worldwide. Secure lease agreements, real-time map discovery, and direct landlord payouts powered by Rentora." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Rentora RealEstate | Verified Property Rentals & Marketplace" />
+    <meta property="twitter:description" content="Discover and rent verified properties worldwide. Secure lease agreements, real-time map discovery, and direct landlord payouts." />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80" />
+
+    <!-- Paystack SDK -->
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+
+    <!-- Structured Data (JSON-LD) for Google SEO Indexing -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "#organization",
+          "name": "Rentora RealEstate",
+          "url": "https://rentora-realestate.com",
+          "logo": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=500&q=80",
+          "description": "Global verified real estate and property rental marketplace.",
+          "email": "support@rentora.com"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "#website",
+          "url": "https://rentora-realestate.com",
+          "name": "Rentora RealEstate",
+          "description": "Verified property rentals, luxury apartments, and long-term accommodation marketplace.",
+          "publisher": { "@id": "#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://rentora-realestate.com/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "RealEstateAgent",
+          "@id": "#realestateagent",
+          "name": "Rentora RealEstate Market",
+          "image": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
+          "priceRange": "€€€",
+          "description": "Connecting verified tenants and landlords with digital leases and secure payments."
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

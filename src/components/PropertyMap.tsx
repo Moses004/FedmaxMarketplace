@@ -4,13 +4,25 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { Listing } from '../types';
 import { MapPin, Info, Compass, ZoomIn, ZoomOut, Search, Home, Building, Bed } from 'lucide-react';
 
-const getListingIcon = (type: 'room' | 'apartment' | 'studio', className = "w-3.5 h-3.5") => {
+const getListingIcon = (type: string, className = "w-3.5 h-3.5") => {
   switch (type) {
+    case 'single-room':
     case 'room':
+    case 'shared-apartment':
       return <Bed className={className} />;
+    case 'self-contained':
     case 'studio':
+    case 'office-commercial':
       return <Building className={className} />;
+    case '1-bedroom-flat':
+    case '2-bedroom-flat':
+    case '3plus-bedroom-flat':
     case 'apartment':
+    case 'duplex':
+    case 'penthouse':
+    case 'bungalow':
+    case 'townhouse':
+    case 'villa':
     default:
       return <Home className={className} />;
   }
@@ -50,7 +62,7 @@ const hasValidKey =
   GOOGLE_MAPS_API_KEY.startsWith('AIzaSy') &&
   !isPlaceholderKey(GOOGLE_MAPS_API_KEY);
 
-// Custom minimal light silver map styles matching Fedmax premium branding
+// Custom minimal light silver map styles matching Rentora RealEstate premium branding
 const SILVER_MAP_STYLE = [
   {
     "elementType": "geometry",
@@ -213,7 +225,7 @@ function PropertyMapInner({
 
   return (
     <Map
-      id="fedmax_listings_map"
+      id="rentora_listings_map"
       defaultCenter={center}
       defaultZoom={zoom}
       center={center}

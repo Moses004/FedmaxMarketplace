@@ -1,5 +1,5 @@
 {
-  "name": "Fedmax",
+  "name": "Rentora RealEstate",
   "description": "A premium real estate marketplace with live Google Maps integration, Firestore persistence, user authentication, and booking flows.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
