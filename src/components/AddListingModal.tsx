@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createListing } from '../services/store';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
 import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert } from 'lucide-react';
-import { searchAddressSuggestions, GeocodedAddress } from '../utils/location';
+import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 
 interface AddListingModalProps {
@@ -34,6 +34,9 @@ const PRESET_AMENITIES = [
 
 export default function AddListingModal({ onClose, onListingCreated }: AddListingModalProps) {
   const [step, setStep] = useState(1);
+  const [country, setCountry] = useState('Nigeria');
+  const [stateName, setStateName] = useState('Lagos State');
+  const [cityName, setCityName] = useState('Lagos');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState(700);
@@ -51,6 +54,10 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [annualDiscountPercentage, setAnnualDiscountPercentage] = useState(10);
   const [customLat, setCustomLat] = useState<number | null>(null);
   const [customLng, setCustomLng] = useState<number | null>(null);
+  const [modalCountry, setModalCountry] = useState<string>('Spain');
+  const [modalState, setModalState] = useState<string>('all');
+  const [modalCity, setModalCity] = useState<string>('all');
+  const [modalArea, setModalArea] = useState<string>('all');
   const [addressSuggestions, setAddressSuggestions] = useState<GeocodedAddress[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -321,6 +328,9 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         annualDiscountPercentage,
         type,
         location: location.trim(),
+        country,
+        state: stateName,
+        city: cityName,
         lat,
         lng,
         bedrooms,
@@ -515,13 +525,131 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                     </div>
                   )}
 
+                  {/* Structured Location Selector Helper */}
+                  <div className="mt-2.5 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                      Or Quick Select Region / Neighborhood Hierarchy:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {/* Country */}
+                      <div>
+                        <select
+                          value={modalCountry}
+                          onChange={(e) => {
+                            const c = e.target.value;
+                            setModalCountry(c);
+                            setModalState('all');
+                            setModalCity('all');
+                            setModalArea('all');
+                            setLocation(`${c}`);
+                            clearFieldError('location');
+                          }}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                        >
+                          {GLOBAL_COUNTRIES.map(c => (
+                            <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* State */}
+                      <div>
+                        {(() => {
+                          const states = getStatesForCountry(modalCountry);
+                          return (
+                            <select
+                              value={modalState}
+                              onChange={(e) => {
+                                const st = e.target.value;
+                                setModalState(st);
+                                setModalCity('all');
+                                setModalArea('all');
+                                setLocation(st !== 'all' ? `${st}, ${modalCountry}` : modalCountry);
+                                clearFieldError('location');
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                            >
+                              <option value="all">Select State ({states.length})</option>
+                              {states.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                      </div>
+
+                      {/* City */}
+                      <div>
+                        {(() => {
+                          const cities = getCitiesForState(modalCountry, modalState);
+                          return (
+                            <select
+                              value={modalCity}
+                              onChange={(e) => {
+                                const ct = e.target.value;
+                                setModalCity(ct);
+                                setModalArea('all');
+                                const parts = [ct !== 'all' ? ct : '', modalState !== 'all' ? modalState : '', modalCountry].filter(Boolean);
+                                setLocation(parts.join(', '));
+                                clearFieldError('location');
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                            >
+                              <option value="all">Select City ({cities.length})</option>
+                              {cities.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Sub-areas / Neighborhood Chips */}
+                    {(() => {
+                      const areas = getAreasForCity(modalCountry, modalState, modalCity);
+                      if (areas.length === 0) return null;
+                      return (
+                        <div className="pt-1">
+                          <span className="text-[10px] font-bold text-slate-500 block mb-1">Select Neighborhood / Sub-area:</span>
+                          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                            {areas.map(ar => (
+                              <button
+                                key={`chip-modal-${ar}`}
+                                type="button"
+                                onClick={() => {
+                                  setModalArea(ar);
+                                  const parts = [
+                                    ar,
+                                    modalCity !== 'all' ? modalCity : '',
+                                    modalState !== 'all' ? modalState : '',
+                                    modalCountry
+                                  ].filter(Boolean);
+                                  setLocation(parts.join(', '));
+                                  clearFieldError('location');
+                                }}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border cursor-pointer ${
+                                  modalArea === ar
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/80'
+                                }`}
+                              >
+                                {ar}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   {fieldErrors.location ? (
                     <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{fieldErrors.location}</span>
                     </p>
                   ) : (
-                    <span className="text-[10px] text-slate-400 mt-1 block">Type address or city to geocode exact map location coordinates automatically.</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">Type address, select region dropdowns or click neighborhood chips to auto-fill property location.</span>
                   )}
                 </div>
               </div>

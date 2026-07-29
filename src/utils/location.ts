@@ -1,3 +1,13 @@
+export interface CityDetail {
+  name: string;
+  areas?: string[];
+}
+
+export interface StateDetail {
+  name: string;
+  cities: CityDetail[];
+}
+
 export interface CountryData {
   code: string;
   name: string;
@@ -5,170 +15,979 @@ export interface CountryData {
   phoneCode: string;
   majorStates: string[];
   popularCities: string[];
+  stateHierarchy?: StateDetail[];
 }
 
 export const GLOBAL_COUNTRIES: CountryData[] = [
-  {
-    code: 'ES',
-    name: 'Spain',
-    flag: '🇪🇸',
-    phoneCode: '+34',
-    majorStates: ['Community of Madrid', 'Catalonia', 'Andalusia', 'Valencian Community', 'Basque Country', 'Galicia'],
-    popularCities: ['Madrid', 'Barcelona', 'Valencia', 'Seville', 'Malaga', 'Bilbao', 'Zaragoza', 'Alicante']
-  },
   {
     code: 'NG',
     name: 'Nigeria',
     flag: '🇳🇬',
     phoneCode: '+234',
-    majorStates: ['Lagos State', 'Federal Capital Territory (Abuja)', 'Rivers State', 'Oyo State', 'Kano State', 'Enugu State', 'Anambra State'],
-    popularCities: ['Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu', 'Asaba', 'Abeokuta']
+    majorStates: [
+      'Lagos State',
+      'Federal Capital Territory (Abuja)',
+      'Rivers State',
+      'Oyo State',
+      'Kano State',
+      'Enugu State',
+      'Anambra State',
+      'Delta State',
+      'Ogun State',
+      'Edo State',
+      'Kaduna State',
+      'Akwa Ibom State',
+      'Cross River State',
+      'Kwara State',
+      'Ondo State',
+      'Osun State',
+      'Imo State',
+      'Abia State',
+      'Benue State',
+      'Plateau State',
+      'Katsina State',
+      'Sokoto State',
+      'Bayelsa State',
+      'Kogi State',
+      'Ekiti State',
+      'Nasarawa State',
+      'Borno State',
+      'Bauchi State',
+      'Adamawa State',
+      'Zamfara State',
+      'Kebbi State',
+      'Taraba State',
+      'Gombe State',
+      'Niger State',
+      'Yobe State',
+      'Jigawa State',
+      'Ebonyi State'
+    ],
+    popularCities: [
+      'Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu', 'Awka', 'Asaba', 
+      'Abeokuta', 'Benin City', 'Kaduna', 'Uyo', 'Calabar', 'Ilorin', 'Akure', 'Osogbo', 
+      'Owerri', 'Umuahia', 'Makurdi', 'Jos', 'Abakaliki', 'Yenagoa', 'Lokoja', 'Ado-Ekiti',
+      'Lafia', 'Maiduguri', 'Bauchi', 'Yola', 'Gusau', 'Birnin Kebbi', 'Jalingo', 'Gombe', 'Minna', 'Damaturu', 'Dutse'
+    ],
+    stateHierarchy: [
+      {
+        name: 'Lagos State',
+        cities: [
+          { name: 'Lekki', areas: ['Lekki Phase 1', 'Chevron', 'Ikate', 'Agungi', 'Osapa London', 'Sangotedo', 'Abijo', 'Elegushi', 'Ikota'] },
+          { name: 'Ikeja', areas: ['Ikeja GRA', 'Allen Avenue', 'Toyin Street', 'Oregun', 'Maryland', 'Agidingbi', 'Computer Village', 'Alausa'] },
+          { name: 'Victoria Island', areas: ['Oniru', 'Akin Adesola', 'Ahmadu Bello Way', 'Victoria Island Extension', 'Kofo Abayomi'] },
+          { name: 'Ikoyi', areas: ['Old Ikoyi', 'Parkview Estate', 'Banana Island', 'Bourdillon Road', 'Glover Road', 'Osborne Foreshore'] },
+          { name: 'Ajah', areas: ['Badore', 'Addo Road', 'Abraham Adesanya', 'Langbasa', 'Oke-Ira', 'Sangotedo Axis'] },
+          { name: 'Yaba', areas: ['Akoka', 'Alagomeji', 'Onike', 'Sabo', 'Commercial Avenue', 'Abule Oja', 'Tejuosho'] },
+          { name: 'Surulere', areas: ['Bode Thomas', 'Adeniran Ogunsanya', 'Ojuelegba', 'Stadium Area', 'Aguda', 'Ijesha', 'Itire'] },
+          { name: 'Magodo', areas: ['Magodo Phase 1 (Isheri)', 'Magodo GRA Phase 2 (Shangisha)', 'CMD Road'] },
+          { name: 'Festac Town', areas: ['1st Avenue', '21 Road', '7th Avenue', 'Mile 2', 'Festac Extension', 'Amuwo Odofin'] },
+          { name: 'Ikorodu', areas: ['Ikorodu Central', 'Agric', 'Ebute', 'Ikorodu GRA', 'Ipakodo', 'Imota'] },
+          { name: 'Epe', areas: ['Epe Town', 'Alaro City', 'Epe Marina', 'Mojoda'] },
+          { name: 'Ojodu / Berger', areas: ['Ojodu Berger', 'Omole Phase 1 & 2', 'River Valley Estate', 'Denro', 'Akute Border'] },
+          { name: 'Badagry', areas: ['Badagry Town', 'Suntan Beach Axis', 'Ajara', 'Aradagun'] }
+        ]
+      },
+      {
+        name: 'Federal Capital Territory (Abuja)',
+        cities: [
+          { name: 'Maitama', areas: ['Gana Street', 'Maitama Extension', 'Transcorp Axis', 'Aguiyi Ironsi', 'Nile Street'] },
+          { name: 'Asokoro', areas: ['Yakubu Gowon Way', 'Guzape Border', 'Diplomatic Zone', 'Protea Axis', 'Tyrwhitt'] },
+          { name: 'Wuse', areas: ['Wuse II', 'Aminu Kano Crescent', 'Adetokunbo Ademola', 'Wuse Zone 1 - 7'] },
+          { name: 'Garki', areas: ['Garki 1', 'Garki 2', 'Area 1 - 11', 'Garki International Market'] },
+          { name: 'Gwarinpa', areas: ['1st Avenue', '3rd Avenue', '5th Avenue', 'Gwarinpa Extension', 'Setraco'] },
+          { name: 'Jabi & Utako', areas: ['Jabi Lake', 'Jabi District', 'Utako Market Axis', 'Ebitu Ukiwe'] },
+          { name: 'Lugbe & Lokogoma', areas: ['Lugbe Federal Housing', 'Airport Road', 'Lokogoma Estate', 'Sunnyvale Estate', 'Pyakasa'] },
+          { name: 'Guzape & Katampe', areas: ['Guzape Phase 1 & 2', 'Katampe Main', 'Katampe Extension'] },
+          { name: 'Kubwa & Dawaki', areas: ['Kubwa Phase 4', 'Dawaki Rockview', 'Dutse', 'Bwari Axis'] },
+          { name: 'Apo & Durumi', areas: ['Apo Legislative Quarters', 'Apo Resettlement', 'Durumi District'] }
+        ]
+      },
+      {
+        name: 'Rivers State',
+        cities: [
+          { name: 'Port Harcourt', areas: ['GRA Phase 1', 'GRA Phase 2', 'GRA Phase 3', 'D-Line', 'Old PH Township', 'Borokiri', 'Diobu'] },
+          { name: 'Obio-Akpor', areas: ['Trans Amadi Industrial Layout', 'Rumuokoro', 'Peter Odili Road', 'Woji', 'Ada George', 'Choba', 'Rumuola', 'Elelenwo'] },
+          { name: 'Eleme & Oyigbo', areas: ['Eleme Petrochemical Axis', 'Oyigbo Express Way', 'Onne Port Zone'] },
+          { name: 'Ikwerre & Emohua', areas: ['Aluu', 'Isiokpo', 'Emohua Town'] },
+          { name: 'Bonny Island', areas: ['Bonny Town', 'NLNG Resident Area'] }
+        ]
+      },
+      {
+        name: 'Oyo State',
+        cities: [
+          { name: 'Ibadan North & Central', areas: ['Bodija Old', 'Bodija New', 'Agodi GRA', 'Samonda', 'Sango', 'UI Area', 'Yemetu'] },
+          { name: 'Ibadan South & West', areas: ['Oluyole Estate', 'Ring Road', 'Challenge', 'Dugbe Commercial Hub', 'Iyaganku GRA', 'Jericho GRA', 'Akobo', 'Ologuneru', 'Eleyele'] },
+          { name: 'Ogbomoso', areas: ['Oja Igbo', 'Takie', 'Under G', 'General Area'] },
+          { name: 'Oyo Town', areas: ['Owode Oyo', 'Isale Oyo', 'Oyo East'] },
+          { name: 'Iseyin', areas: ['Iseyin Central', 'Oja Oba'] }
+        ]
+      },
+      {
+        name: 'Kano State',
+        cities: [
+          { name: 'Kano Municipal & Fagge', areas: ['Fagge', 'Sabon Gari', 'Sharada Industrial Estate', 'Kano City Wall', 'Kurmi Market'] },
+          { name: 'Nasarawa & Tarauni', areas: ['Nasarawa GRA', 'Brigade', 'Bompai GRA', 'Tarauni', 'Farm Centre'] },
+          { name: 'Dala & Gwale', areas: ['Goron Dutse', 'Dorayi', 'Kabuga', 'Bayero University Axis'] },
+          { name: 'Wudil', areas: ['Wudil Town', 'KUST Campus Area'] }
+        ]
+      },
+      {
+        name: 'Enugu State',
+        cities: [
+          { name: 'Enugu Urban', areas: ['Independence Layout', 'GRA Enugu', 'New Haven', 'Trans-Ekulu', 'Abakpa Nike', 'Achara Layout', 'Obiagu', 'Ogui', 'Maryland Enugu'] },
+          { name: 'Nsukka', areas: ['University Road', 'Odenigbo', 'Ovoko', 'GRA Nsukka'] },
+          { name: 'Udi & Oji River', areas: ['Udi Town', 'Oji River Central'] }
+        ]
+      },
+      {
+        name: 'Anambra State',
+        cities: [
+          { name: 'Awka', areas: ['Agu-Awka GRA', 'Amawbia', 'Ifite Awka', 'Temp Site', 'Okpuno'] },
+          { name: 'Onitsha', areas: ['GRA Onitsha', 'Fegge', '3-3 Nkwelle', 'Upper Iweka', 'Awada', 'Woliwo'] },
+          { name: 'Nnewi', areas: ['Otolo Nnewi', 'Umudim', 'Uruagu', 'Nnewichi'] },
+          { name: 'Ekwulobia', areas: ['Ekwulobia Urban', 'Federal Poly Axis'] }
+        ]
+      },
+      {
+        name: 'Delta State',
+        cities: [
+          { name: 'Asaba', areas: ['GRA Asaba', 'Okpanam Road', 'Nnebisi Road', 'Cable Point', 'Anwai Road', 'Core Area'] },
+          { name: 'Warri & Effurun', areas: ['Effurun', 'Enerhen', 'GRA Warri', 'Airport Road Warri', 'PTI Road', 'Ogunu', 'Edjeba'] },
+          { name: 'Sapele & Agbor', areas: ['Sapele Town', 'Agbor Obi', 'Boji Boji Owa'] },
+          { name: 'Ughelli', areas: ['Ughelli Central', 'Otovwodo'] }
+        ]
+      },
+      {
+        name: 'Ogun State',
+        cities: [
+          { name: 'Abeokuta', areas: ['Ibara GRA', 'Oke-Mosan', 'Kuto', 'Ibara Housing Estate', 'Onikolobo', 'Adigbe', 'Ita-Eko'] },
+          { name: 'Ota & Border Towns', areas: ['Arepo Estate', 'Mowe', 'Ibafo', 'Ota Industrial Estate', 'Sango Ota', 'Agbara Estate'] },
+          { name: 'Ijebu-Ode', areas: ['GRA Ijebu Ode', 'Igbeba', 'Molipa'] },
+          { name: 'Sagamu', areas: ['GRA Sagamu', 'Sabon Gari Sagamu', 'Makun'] }
+        ]
+      },
+      {
+        name: 'Edo State',
+        cities: [
+          { name: 'Benin City', areas: ['GRA Benin', 'Uselu', 'Airport Road Benin', 'Sapele Road Benin', 'Ekenwan Road', 'Ring Road', 'Upper Sakponba', 'Ikpoba Hill'] },
+          { name: 'Ekpoma & Auchi', areas: ['Ambrose Alli University Axis', 'Auchi Central', 'Sabo Auchi'] },
+          { name: 'Uromi', areas: ['Uromi Central', 'Market Road'] }
+        ]
+      },
+      {
+        name: 'Kaduna State',
+        cities: [
+          { name: 'Kaduna South & North', areas: ['Barnawa', 'Malali GRA', 'Kaduna GRA', 'Sabon Tasha', 'Narayi', 'Ungwan Rimi', 'Kabala Costain', 'Kakuri'] },
+          { name: 'Zaria', areas: ['Samaru (ABU Axis)', 'Sabon Gari Zaria', 'Tudun Wada Zaria', 'Zaria City'] },
+          { name: 'Kafanchan', areas: ['Kafanchan Urban', 'College Road'] }
+        ]
+      },
+      {
+        name: 'Akwa Ibom State',
+        cities: [
+          { name: 'Uyo', areas: ['Ewet Housing Estate', 'Osongama Estate', 'Shelter Afrique', 'Udoudoma Avenue', 'Aka Road', 'Abak Road', 'Ikot Ekpene Road'] },
+          { name: 'Eket & Oron', areas: ['Eket Housing', 'Qua Iboe Axis', 'Oron Beach Road'] },
+          { name: 'Ikot Ekpene', areas: ['Ikot Ekpene Plaza', 'Abak Road Axis'] }
+        ]
+      },
+      {
+        name: 'Cross River State',
+        cities: [
+          { name: 'Calabar', areas: ['State Housing Estate', 'Federal Housing', 'Calabar GRA', 'Marian Road', 'Calabar South', 'Murtala Mohammed Highway'] },
+          { name: 'Ikom & Ogoja', areas: ['Ikom Town', 'Ogoja Urban'] },
+          { name: 'Obudu', areas: ['Obudu Town', 'Cattle Ranch Route'] }
+        ]
+      },
+      {
+        name: 'Kwara State',
+        cities: [
+          { name: 'Ilorin', areas: ['GRA Ilorin', 'Fate Road', 'Tanke (Unilorin Axis)', 'Taiwo Road', 'Offa Garage', 'Adewole Housing Estate', 'Challenge Ilorin'] },
+          { name: 'Offa', areas: ['Offa Town', 'Federal Poly Axis'] },
+          { name: 'Omu-Aran', areas: ['Landmark Univ Axis', 'Central Omu-Aran'] }
+        ]
+      },
+      {
+        name: 'Ondo State',
+        cities: [
+          { name: 'Akure', areas: ['Alagbaka GRA', 'Ijapo Estate', 'Oba Ile', 'Ondo Road Akure', 'FUTA Axis'] },
+          { name: 'Ondo Town', areas: ['Ondo GRA', 'Yaba Ondo', 'Oke-Ogbo'] },
+          { name: 'Owo & Ikare', areas: ['Owo Central', 'Ikare-Akoko Market'] }
+        ]
+      },
+      {
+        name: 'Osun State',
+        cities: [
+          { name: 'Osogbo', areas: ['Alekuwodo', 'Ogo-Oluwa', 'GRA Osogbo', 'Gbongan Road', 'Powerline'] },
+          { name: 'Ile-Ife', areas: ['OAU Campus Axis', 'Mayfair', 'Asherifa', 'Lagere', 'Parakin'] },
+          { name: 'Ede & Ilesa', areas: ['Federal Poly Ede Area', 'Ilesa Central', 'Roundabout'] }
+        ]
+      },
+      {
+        name: 'Imo State',
+        cities: [
+          { name: 'Owerri', areas: ['Ikenegbu Layout', 'World Bank Housing Estate', 'Owerri GRA', 'New Owerri', 'Orji (FUTO/IMSIAxis)', 'Works Layout', 'Douglas Road'] },
+          { name: 'Orlu', areas: ['Orlu Town', 'Banana Junction'] },
+          { name: 'Okigwe', areas: ['Okigwe Urban', 'Expressway Axis'] }
+        ]
+      },
+      {
+        name: 'Abia State',
+        cities: [
+          { name: 'Umuahia', areas: ['World Bank Umuahia', 'GRA Umuahia', 'Bank Road', 'Bende Road'] },
+          { name: 'Aba', areas: ['Aba GRA', 'Faulks Road', 'Ariaria Market Axis', 'Ogbor Hill', 'Umungasi'] },
+          { name: 'Ohafia', areas: ['Ohafia Urban', 'Asaga'] }
+        ]
+      },
+      {
+        name: 'Benue State',
+        cities: [
+          { name: 'Makurdi', areas: ['High Level', 'Wurukum', 'GRA Makurdi', 'North Bank', 'Kanshio'] },
+          { name: 'Gboko', areas: ['Gboko Central', 'Yandev'] },
+          { name: 'Otukpo', areas: ['Otukpo Town', 'Enugu Road'] }
+        ]
+      },
+      {
+        name: 'Plateau State',
+        cities: [
+          { name: 'Jos & Bukuru', areas: ['Rayfield GRA', 'Anglo Jos', 'Lamingo', 'Bukuru', 'Jos Main Market Axis', 'Farin Gada (UNIJOS Axis)'] },
+          { name: 'Pankshin', areas: ['Pankshin Urban', 'Federal College Area'] }
+        ]
+      },
+      {
+        name: 'Katsina State',
+        cities: [
+          { name: 'Katsina City', areas: ['GRA Katsina', 'Kofar Kaura', 'Dutsin-Ma Road', 'Kofar Kwaya'] },
+          { name: 'Daura & Funtua', areas: ['Daura Central', 'Funtua Express'] }
+        ]
+      },
+      {
+        name: 'Sokoto State',
+        cities: [
+          { name: 'Sokoto City', areas: ['GRA Sokoto', 'Guiwa Lowcost', 'Runjin Sambo', 'Gawon Nama', 'Sultan Palace Axis'] }
+        ]
+      },
+      {
+        name: 'Bayelsa State',
+        cities: [
+          { name: 'Yenagoa', areas: ['Amarata', 'Ovom', 'Onopa', 'GRA Yenagoa', 'Kpansia', 'Opolo'] }
+        ]
+      },
+      {
+        name: 'Kogi State',
+        cities: [
+          { name: 'Lokoja', areas: ['GRA Lokoja', 'Ganaja Village', 'Lokongoma Phase 1 & 2', 'Adankolo'] },
+          { name: 'Okene & Anyigba', areas: ['Okene Central', 'Anyigba (KSU Axis)'] }
+        ]
+      },
+      {
+        name: 'Ekiti State',
+        cities: [
+          { name: 'Ado-Ekiti', areas: ['GRA Ado Ekiti', 'Adebayo', 'Nova', 'Ajilosun', 'Ikere Road'] },
+          { name: 'Ikere & Oye', areas: ['Ikere Town', 'Oye-Ekiti (FUOYE Axis)'] }
+        ]
+      },
+      {
+        name: 'Nasarawa State',
+        cities: [
+          { name: 'Lafia', areas: ['GRA Lafia', 'College of Agriculture Axis', 'Tudun Gwandara'] },
+          { name: 'Karu & Mararaba', areas: ['Mararaba', 'Nyanya Border', 'Masaka', 'New Karu', 'Keffi Town'] }
+        ]
+      },
+      {
+        name: 'Borno State',
+        cities: [
+          { name: 'Maiduguri', areas: ['GRA Maiduguri', 'Bulumkutu', 'Post Office Axis', 'University of Maiduguri Axis', 'Gomari'] }
+        ]
+      },
+      {
+        name: 'Bauchi State',
+        cities: [
+          { name: 'Bauchi City', areas: ['GRA Bauchi', 'Yelwa (ATBU Axis)', 'Ahmadu Bello Way', 'Federal Lowcost'] }
+        ]
+      },
+      {
+        name: 'Adamawa State',
+        cities: [
+          { name: 'Yola', areas: ['Jimeta GRA', 'Yola Town', 'Karewa', 'Dougirei', 'Bekaji'] },
+          { name: 'Mubi', areas: ['Mubi Urban', 'Federal Poly Axis'] }
+        ]
+      },
+      {
+        name: 'Zamfara State',
+        cities: [
+          { name: 'Gusau', areas: ['GRA Gusau', 'Canteen Area', 'Samaru Gusau'] }
+        ]
+      },
+      {
+        name: 'Kebbi State',
+        cities: [
+          { name: 'Birnin Kebbi', areas: ['GRA Birnin Kebbi', 'Dukku Barracks Axis', 'Bayan Kara'] }
+        ]
+      },
+      {
+        name: 'Taraba State',
+        cities: [
+          { name: 'Jalingo', areas: ['GRA Jalingo', 'Mile Six', 'Magami', 'Dorowa'] }
+        ]
+      },
+      {
+        name: 'Gombe State',
+        cities: [
+          { name: 'Gombe City', areas: ['GRA Gombe', 'Tumfure', 'Commercial Area', 'Federal Lowcost Gombe'] }
+        ]
+      },
+      {
+        name: 'Niger State',
+        cities: [
+          { name: 'Minna', areas: ['GRA Minna', 'Bosso (FUTMinna Axis)', 'Tunga', 'Chanchaga'] },
+          { name: 'Suleja', areas: ['Suleja Town', 'Madalla'] }
+        ]
+      },
+      {
+        name: 'Yobe State',
+        cities: [
+          { name: 'Damaturu', areas: ['GRA Damaturu', 'Gujba Road', 'Nayinawa'] }
+        ]
+      },
+      {
+        name: 'Jigawa State',
+        cities: [
+          { name: 'Dutse & Hadejia', areas: ['GRA Dutse', 'Takur Site', 'Federal University Axis', 'Hadejia Town'] }
+        ]
+      },
+      {
+        name: 'Ebonyi State',
+        cities: [
+          { name: 'Abakaliki', areas: ['CAS Campus Axis', 'Azuiyiokwu', 'Mile 50', 'Presco', 'Kpirikpiri'] }
+        ]
+      }
+    ]
+  },
+  {
+    code: 'ES',
+    name: 'Spain',
+    flag: '🇪🇸',
+    phoneCode: '+34',
+    majorStates: ['Community of Madrid', 'Catalonia', 'Andalusia', 'Valencian Community', 'Basque Country', 'Galicia', 'Balearic Islands', 'Canary Islands'],
+    popularCities: ['Madrid', 'Barcelona', 'Valencia', 'Seville', 'Malaga', 'Bilbao', 'Zaragoza', 'Alicante', 'Palma de Mallorca', 'Las Palmas'],
+    stateHierarchy: [
+      {
+        name: 'Community of Madrid',
+        cities: [
+          { name: 'Madrid', areas: ['Salamanca', 'Malasaña', 'Retiro', 'Chamberí', 'Sol - Centro', 'Moncloa-Aravaca', 'Chamartín', 'Tetuán', 'Arganzuela', 'Vallecas'] },
+          { name: 'Alcobendas & Sanse', areas: ['La Moraleja', 'El Encinar de los Reyes', 'Alcobendas Centro', 'San Sebastián de los Reyes'] },
+          { name: 'Pozuelo & Majadahonda', areas: ['Pozuelo de Alarcón', 'Monteclaro', 'Majadahonda Centro', 'Las Rozas de Madrid'] },
+          { name: 'Getafe & Leganés', areas: ['Getafe Central', 'El Bercial', 'Leganés Central', 'Zarzaquemada'] }
+        ]
+      },
+      {
+        name: 'Catalonia',
+        cities: [
+          { name: 'Barcelona', areas: ['Eixample Esquerra', 'Eixample Dret', 'Gràcia', 'Barceloneta', 'El Born', 'Barri Gòtic', 'Poblenou', 'Sarrià - Sant Gervasi', 'Les Corts', 'Sants'] },
+          { name: 'Badalona & Hospitalet', areas: ['Hospitalet de Llobregat', 'Badalona Centre', 'Gornal', 'Bellvitge'] },
+          { name: 'Sitges & Costa Garraf', areas: ['Sitges Centre', 'Terramar', 'Levantina', 'Castelldefels Platja'] }
+        ]
+      },
+      {
+        name: 'Andalusia',
+        cities: [
+          { name: 'Seville', areas: ['Barrio Santa Cruz', 'Triana', 'Nervión', 'Macarena', 'Los Remedios', 'Alameda'] },
+          { name: 'Málaga & Costa del Sol', areas: ['Centro Histórico', 'La Malagueta', 'Teatinos', 'Marbella Puerto Banús', 'Estepona', 'Benalmádena', 'Fuengirola'] }
+        ]
+      },
+      {
+        name: 'Valencian Community',
+        cities: [
+          { name: 'Valencia', areas: ['Ruzafa', 'El Carmen', 'Ciutat Vella', 'Eshampla', 'El Cabanyal', 'Algirós'] },
+          { name: 'Alicante & Costa Blanca', areas: ['Postiguet Beach', 'Playa de San Juan', 'Benidorm Centre'] }
+        ]
+      },
+      {
+        name: 'Basque Country',
+        cities: [
+          { name: 'Bilbao & San Sebastián', areas: ['Abando', 'Casco Viejo', 'Indautxu', 'La Concha Beach San Sebastián'] }
+        ]
+      },
+      {
+        name: 'Balearic Islands',
+        cities: [
+          { name: 'Palma de Mallorca & Ibiza', areas: ['Santa Catalina', 'Old Town Palma', 'Ibiza Town', 'Sant Antoni'] }
+        ]
+      },
+      {
+        name: 'Canary Islands',
+        cities: [
+          { name: 'Las Palmas & Tenerife', areas: ['Las Canteras Beach', 'Vegueta', 'Santa Cruz de Tenerife', 'Costa Adeje'] }
+        ]
+      }
+    ]
   },
   {
     code: 'GB',
     name: 'United Kingdom',
     flag: '🇬🇧',
     phoneCode: '+44',
-    majorStates: ['Greater London', 'Greater Manchester', 'West Midlands', 'Scotland', 'Wales', 'Northern Ireland'],
-    popularCities: ['London', 'Manchester', 'Birmingham', 'Edinburgh', 'Glasgow', 'Bristol', 'Leeds', 'Liverpool']
+    majorStates: ['Greater London', 'Greater Manchester', 'West Midlands', 'Scotland', 'Wales', 'Northern Ireland', 'West Yorkshire', 'Merseyside'],
+    popularCities: ['London', 'Manchester', 'Birmingham', 'Edinburgh', 'Glasgow', 'Bristol', 'Leeds', 'Liverpool', 'Cardiff', 'Belfast'],
+    stateHierarchy: [
+      {
+        name: 'Greater London',
+        cities: [
+          { name: 'Central & West London', areas: ['Mayfair', 'Kensington', 'Chelsea', 'Notting Hill', 'Soho', 'Westminster', 'Marylebone', 'Fulham', 'Chiswick'] },
+          { name: 'East & North London', areas: ['Shoreditch', 'Hackney', 'Canary Wharf', 'Stratford', 'Islington', 'Camden Town', 'Hampstead', 'Greenwich'] },
+          { name: 'South London', areas: ['Brixton', 'Clapham', 'Wimbledon', 'Richmond', 'Battersea', 'Peckham'] }
+        ]
+      },
+      {
+        name: 'Greater Manchester',
+        cities: [
+          { name: 'Manchester', areas: ['Northern Quarter', 'Ancoats', 'Spinningfields', 'Deansgate', 'Castlefield', 'Salford Quays', 'Didsbury', 'Chorlton'] }
+        ]
+      },
+      {
+        name: 'West Midlands',
+        cities: [
+          { name: 'Birmingham', areas: ['Jewellery Quarter', 'Digbeth', 'Edgbaston', 'Moseley', 'Sutton Coldfield', 'City Centre'] }
+        ]
+      },
+      {
+        name: 'Scotland',
+        cities: [
+          { name: 'Edinburgh', areas: ['Old Town', 'New Town', 'Leith', 'Stockbridge', 'Bruntsfield', 'Morningside'] },
+          { name: 'Glasgow', areas: ['West End', 'Merchant City', 'Finnieston', 'Shawlands', 'Kelvinside'] }
+        ]
+      },
+      {
+        name: 'Merseyside & West Yorkshire',
+        cities: [
+          { name: 'Liverpool', areas: ['Ropewalks', 'Baltic Triangle', 'Waterfront', 'Albert Dock', 'Aigburth'] },
+          { name: 'Leeds', areas: ['Headingley', 'Chapel Allerton', 'City Centre', 'Roundhay'] }
+        ]
+      }
+    ]
   },
   {
     code: 'DE',
     name: 'Germany',
     flag: '🇩🇪',
     phoneCode: '+49',
-    majorStates: ['Berlin', 'Bavaria', 'North Rhine-Westphalia', 'Baden-Württemberg', 'Hesse', 'Hamburg'],
-    popularCities: ['Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Düsseldorf', 'Stuttgart']
+    majorStates: ['Berlin', 'Bavaria', 'North Rhine-Westphalia', 'Baden-Württemberg', 'Hesse', 'Hamburg', 'Saxony', 'Lower Saxony'],
+    popularCities: ['Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Düsseldorf', 'Stuttgart', 'Leipzig', 'Dresden'],
+    stateHierarchy: [
+      {
+        name: 'Berlin',
+        cities: [
+          { name: 'Berlin', areas: ['Mitte', 'Kreuzberg', 'Neukölln', 'Prenzlauer Berg', 'Friedrichshain', 'Charlottenburg', 'Schöneberg', 'Moabit'] }
+        ]
+      },
+      {
+        name: 'Bavaria',
+        cities: [
+          { name: 'Munich', areas: ['Altstadt-Lehel', 'Schwabing', 'Maxvorstadt', 'Glockenbachviertel', 'Bogenhausen', 'Sendling'] }
+        ]
+      },
+      {
+        name: 'North Rhine-Westphalia',
+        cities: [
+          { name: 'Cologne & Düsseldorf', areas: ['Ehrenfeld Cologne', 'Belgisches Viertel', 'Altstadt Düsseldorf', 'Medienhafen', 'Oberkassel'] }
+        ]
+      },
+      {
+        name: 'Hesse',
+        cities: [
+          { name: 'Frankfurt', areas: ['Westend', 'Nordend', 'Sachsenhausen', 'Bornheim', 'Bahnhofsviertel'] }
+        ]
+      }
+    ]
   },
   {
     code: 'US',
     name: 'United States',
     flag: '🇺🇸',
     phoneCode: '+1',
-    majorStates: ['California', 'New York', 'Texas', 'Florida', 'Illinois', 'Washington', 'Massachusetts'],
-    popularCities: ['New York', 'Los Angeles', 'Chicago', 'Miami', 'Austin', 'San Francisco', 'Seattle', 'Boston']
+    majorStates: ['California', 'New York', 'Texas', 'Florida', 'Illinois', 'Washington', 'Massachusetts', 'Georgia', 'Pennsylvania', 'Colorado'],
+    popularCities: ['New York', 'Los Angeles', 'Chicago', 'Miami', 'Austin', 'San Francisco', 'Seattle', 'Boston', 'Atlanta', 'Denver'],
+    stateHierarchy: [
+      {
+        name: 'New York',
+        cities: [
+          { name: 'New York City', areas: ['Manhattan (SoHo, Upper East Side, Tribeca, Harlem)', 'Brooklyn (Williamsburg, DUMBO, Bushwick)', 'Queens (Astoria, Long Island City)', 'The Bronx', 'Staten Island'] }
+        ]
+      },
+      {
+        name: 'California',
+        cities: [
+          { name: 'Los Angeles', areas: ['Santa Monica', 'Venice Beach', 'Beverly Hills', 'Hollywood', 'Downtown LA', 'Pasadena', 'Silver Lake'] },
+          { name: 'San Francisco', areas: ['Mission District', 'SoMa', 'Pacific Heights', 'Marina', 'North Beach', 'Nob Hill'] }
+        ]
+      },
+      {
+        name: 'Florida',
+        cities: [
+          { name: 'Miami', areas: ['South Beach', 'Wynwood', 'Brickell', 'Coconut Grove', 'Coral Gables', 'Design District'] }
+        ]
+      },
+      {
+        name: 'Texas',
+        cities: [
+          { name: 'Austin & Houston', areas: ['South Congress Austin', 'East Austin', 'Downtown Houston', 'The Heights Houston', 'Montrose'] }
+        ]
+      },
+      {
+        name: 'Illinois',
+        cities: [
+          { name: 'Chicago', areas: ['The Loop', 'Lincoln Park', 'Wicker Park', 'River North', 'Logan Square', 'Hyde Park'] }
+        ]
+      }
+    ]
   },
   {
     code: 'FR',
     name: 'France',
     flag: '🇫🇷',
     phoneCode: '+33',
-    majorStates: ['Île-de-France', 'Provence-Alpes-Côte d\'Azur', 'Auvergne-Rhône-Alpes', 'Occitanie'],
-    popularCities: ['Paris', 'Lyon', 'Marseille', 'Nice', 'Toulouse', 'Bordeaux', 'Lille']
+    majorStates: ['Île-de-France', 'Provence-Alpes-Côte d\'Azur', 'Auvergne-Rhône-Alpes', 'Occitanie', 'Nouvelle-Aquitaine', 'Hauts-de-France'],
+    popularCities: ['Paris', 'Lyon', 'Marseille', 'Nice', 'Toulouse', 'Bordeaux', 'Lille', 'Nantes', 'Strasbourg'],
+    stateHierarchy: [
+      {
+        name: 'Île-de-France',
+        cities: [
+          { name: 'Paris', areas: ['Le Marais (1st-4th Arr.)', 'Quartier Latin (5th)', 'Saint-Germain-des-Prés (6th)', 'Eiffel Tower Area (7th)', 'Champs-Élysées (8th)', 'Montmartre (18th)', 'Belleville (20th)'] }
+        ]
+      },
+      {
+        name: 'Provence-Alpes-Côte d\'Azur',
+        cities: [
+          { name: 'Nice & Marseille', areas: ['Promenade des Anglais Nice', 'Le Vieux-Port Marseille', 'Le Panier', 'Cannes Croisette'] }
+        ]
+      }
+    ]
   },
   {
     code: 'CA',
     name: 'Canada',
     flag: '🇨🇦',
     phoneCode: '+1',
-    majorStates: ['Ontario', 'Quebec', 'British Columbia', 'Alberta', 'Nova Scotia'],
-    popularCities: ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton']
+    majorStates: ['Ontario', 'Quebec', 'British Columbia', 'Alberta', 'Nova Scotia', 'Manitoba', 'Saskatchewan'],
+    popularCities: ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton', 'Halifax', 'Winnipeg'],
+    stateHierarchy: [
+      {
+        name: 'Ontario',
+        cities: [
+          { name: 'Toronto', areas: ['Downtown Toronto', 'Yorkville', 'Kensington Market', 'Liberty Village', 'Leslieville', 'North York', 'Scarborough', 'Mississauga'] },
+          { name: 'Ottawa', areas: ['ByWard Market', 'The Glebe', 'Centretown', 'Westboro'] }
+        ]
+      },
+      {
+        name: 'British Columbia',
+        cities: [
+          { name: 'Vancouver', areas: ['Downtown Vancouver', 'Yaletown', 'Kitsilano', 'Gastown', 'West End', 'Burnaby', 'Richmond'] }
+        ]
+      },
+      {
+        name: 'Quebec',
+        cities: [
+          { name: 'Montreal', areas: ['Old Montreal', 'Le Plateau-Mont-Royal', 'Mile End', 'Downtown Montreal', 'Griffintown'] }
+        ]
+      }
+    ]
   },
   {
     code: 'IT',
     name: 'Italy',
     flag: '🇮🇹',
     phoneCode: '+39',
-    majorStates: ['Lazio', 'Lombardy', 'Tuscany', 'Veneto', 'Campania', 'Piedmont'],
-    popularCities: ['Rome', 'Milan', 'Florence', 'Venice', 'Naples', 'Turin', 'Bologna']
+    majorStates: ['Lazio', 'Lombardy', 'Tuscany', 'Veneto', 'Campania', 'Piedmont', 'Emilia-Romagna', 'Sicily'],
+    popularCities: ['Rome', 'Milan', 'Florence', 'Venice', 'Naples', 'Turin', 'Bologna', 'Palermo'],
+    stateHierarchy: [
+      {
+        name: 'Lazio',
+        cities: [
+          { name: 'Rome', areas: ['Trastevere', 'Centro Storico', 'Prati', 'Monti', 'Testaccio', 'EUR'] }
+        ]
+      },
+      {
+        name: 'Lombardy',
+        cities: [
+          { name: 'Milan', areas: ['Brera', 'Navigli', 'Porta Nuova', 'Isola', 'Duomo Centre', 'Porta Romana'] }
+        ]
+      }
+    ]
   },
   {
     code: 'NL',
     name: 'Netherlands',
     flag: '🇳🇱',
     phoneCode: '+31',
-    majorStates: ['North Holland', 'South Holland', 'Utrecht', 'North Brabant'],
-    popularCities: ['Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht', 'Eindhoven']
+    majorStates: ['North Holland', 'South Holland', 'Utrecht', 'North Brabant', 'Gelderland'],
+    popularCities: ['Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht', 'Eindhoven', 'Groningen'],
+    stateHierarchy: [
+      {
+        name: 'North Holland',
+        cities: [
+          { name: 'Amsterdam', areas: ['Jordaan', 'De Pijp', 'Amsterdam-Centrum', 'Oud-West', 'Zuidas', 'Amsterdam-Noord'] }
+        ]
+      }
+    ]
   },
   {
     code: 'PT',
     name: 'Portugal',
     flag: '🇵🇹',
     phoneCode: '+351',
-    majorStates: ['Lisbon District', 'Porto District', 'Faro (Algarve)', 'Braga'],
-    popularCities: ['Lisbon', 'Porto', 'Faro', 'Braga', 'Coimbra']
+    majorStates: ['Lisbon District', 'Porto District', 'Faro (Algarve)', 'Braga', 'Setúbal', 'Coimbra'],
+    popularCities: ['Lisbon', 'Porto', 'Faro', 'Braga', 'Coimbra', 'Cascais'],
+    stateHierarchy: [
+      {
+        name: 'Lisbon District',
+        cities: [
+          { name: 'Lisbon', areas: ['Alfama', 'Chiado', 'Bairro Alto', 'Principe Real', 'Parque das Nações', 'Belém', 'Cascais'] }
+        ]
+      },
+      {
+        name: 'Porto District',
+        cities: [
+          { name: 'Porto', areas: ['Ribeira', 'Foz do Douro', 'Cedofeita', 'Bonfim', 'Vila Nova de Gaia'] }
+        ]
+      }
+    ]
   },
   {
     code: 'IE',
     name: 'Ireland',
     flag: '🇮🇪',
     phoneCode: '+353',
-    majorStates: ['County Dublin', 'County Cork', 'County Galway', 'County Limerick'],
-    popularCities: ['Dublin', 'Cork', 'Galway', 'Limerick']
+    majorStates: ['County Dublin', 'County Cork', 'County Galway', 'County Limerick', 'County Waterford'],
+    popularCities: ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford'],
+    stateHierarchy: [
+      {
+        name: 'County Dublin',
+        cities: [
+          { name: 'Dublin', areas: ['Temple Bar', 'Ranelagh', 'Ballsbridge', 'Portobello', 'Clontarf', 'Rathmines'] }
+        ]
+      }
+    ]
   },
   {
     code: 'GH',
     name: 'Ghana',
     flag: '🇬🇭',
     phoneCode: '+233',
-    majorStates: ['Greater Accra', 'Ashanti Region', 'Central Region', 'Western Region'],
-    popularCities: ['Accra', 'Kumasi', 'Cape Coast', 'Takoradi', 'Tema']
+    majorStates: ['Greater Accra', 'Ashanti Region', 'Central Region', 'Western Region', 'Eastern Region', 'Northern Region'],
+    popularCities: ['Accra', 'Kumasi', 'Cape Coast', 'Takoradi', 'Tema', 'Tamale'],
+    stateHierarchy: [
+      {
+        name: 'Greater Accra',
+        cities: [
+          { name: 'Accra', areas: ['East Legon', 'Cantonments', 'Osu', 'Airport Residential', 'Spintex', 'Labone', 'Dzorwulu', 'Ridge'] },
+          { name: 'Tema', areas: ['Community 1 - 12', 'Tema Comm 25', 'Sakumono'] }
+        ]
+      },
+      {
+        name: 'Ashanti Region',
+        cities: [
+          { name: 'Kumasi', areas: ['Nhyiaeso', 'Asokwa', 'Ahodwo', 'KNUST Campus Axis', 'Bantama'] }
+        ]
+      }
+    ]
   },
   {
     code: 'KE',
     name: 'Kenya',
     flag: '🇰🇪',
     phoneCode: '+254',
-    majorStates: ['Nairobi County', 'Mombasa County', 'Nakuru County', 'Kisumu County'],
-    popularCities: ['Nairobi', 'Mombasa', 'Nakuru', 'Kisumu', 'Eldoret']
+    majorStates: ['Nairobi County', 'Mombasa County', 'Nakuru County', 'Kisumu County', 'Uasin Gishu County', 'Kiambu County'],
+    popularCities: ['Nairobi', 'Mombasa', 'Nakuru', 'Kisumu', 'Eldoret', 'Thika'],
+    stateHierarchy: [
+      {
+        name: 'Nairobi County',
+        cities: [
+          { name: 'Nairobi', areas: ['Kilimani', 'Westlands', 'Lavington', 'Karen', 'Kileleshwa', 'Upper Hill', 'Parklands', 'Gigiri'] }
+        ]
+      },
+      {
+        name: 'Mombasa County',
+        cities: [
+          { name: 'Mombasa', areas: ['Nyali', 'Bamburi', 'Tudor', 'Mombasa Island', 'Shanzu'] }
+        ]
+      }
+    ]
   },
   {
     code: 'ZA',
     name: 'South Africa',
     flag: '🇿🇦',
     phoneCode: '+27',
-    majorStates: ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape'],
-    popularCities: ['Cape Town', 'Johannesburg', 'Durban', 'Pretoria', 'Gqeberha']
+    majorStates: ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Mpumalanga'],
+    popularCities: ['Cape Town', 'Johannesburg', 'Durban', 'Pretoria', 'Gqeberha', 'Bloemfontein'],
+    stateHierarchy: [
+      {
+        name: 'Western Cape',
+        cities: [
+          { name: 'Cape Town', areas: ['Camps Bay', 'Sea Point', 'Green Point', 'Constantia', 'CBD', 'Woodstock', 'Claremont'] }
+        ]
+      },
+      {
+        name: 'Gauteng',
+        cities: [
+          { name: 'Johannesburg & Sandton', areas: ['Sandton', 'Rosebank', 'Midrand', 'Soweto', 'Fourways', 'Melville'] },
+          { name: 'Pretoria', areas: ['Menlyn', 'Brooklyn', 'Hatfield', 'Centurion'] }
+        ]
+      }
+    ]
   },
   {
     code: 'AE',
     name: 'United Arab Emirates',
     flag: '🇦🇪',
     phoneCode: '+971',
-    majorStates: ['Dubai', 'Abu Dhabi', 'Sharjah'],
-    popularCities: ['Dubai', 'Abu Dhabi', 'Sharjah']
+    majorStates: ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+    popularCities: ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman'],
+    stateHierarchy: [
+      {
+        name: 'Dubai',
+        cities: [
+          { name: 'Dubai City', areas: ['Dubai Marina', 'Downtown Dubai', 'Palm Jumeirah', 'Business Bay', 'Jumeirah Beach Residence (JBR)', 'Jumeirah Village Circle (JVC)', 'Dubai Hills'] }
+        ]
+      },
+      {
+        name: 'Abu Dhabi',
+        cities: [
+          { name: 'Abu Dhabi City', areas: ['Corniche', 'Al Reem Island', 'Yas Island', 'Saadiyat Island', 'Al Raha'] }
+        ]
+      }
+    ]
   },
   {
     code: 'AU',
     name: 'Australia',
     flag: '🇦🇺',
     phoneCode: '+61',
-    majorStates: ['New South Wales', 'Victoria', 'Queensland', 'Western Australia'],
-    popularCities: ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide']
+    majorStates: ['New South Wales', 'Victoria', 'Queensland', 'Western Australia', 'South Australia', 'Tasmania'],
+    popularCities: ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Hobart'],
+    stateHierarchy: [
+      {
+        name: 'New South Wales',
+        cities: [
+          { name: 'Sydney', areas: ['Bondi Beach', 'Surry Hills', 'Manly', 'Paddington', 'Sydney CBD', 'Darlinghurst', 'Parramatta'] }
+        ]
+      },
+      {
+        name: 'Victoria',
+        cities: [
+          { name: 'Melbourne', areas: ['Fitzroy', 'St Kilda', 'Southbank', 'Carlton', 'Richmond', 'South Yarra', 'Brunswick'] }
+        ]
+      }
+    ]
   },
   {
     code: 'IN',
     name: 'India',
     flag: '🇮🇳',
     phoneCode: '+91',
-    majorStates: ['Maharashtra', 'Karnataka', 'Delhi NCT', 'Tamil Nadu', 'Telangana'],
-    popularCities: ['Mumbai', 'Bengaluru', 'New Delhi', 'Chennai', 'Hyderabad', 'Pune']
+    majorStates: ['Maharashtra', 'Karnataka', 'Delhi NCT', 'Tamil Nadu', 'Telangana', 'West Bengal', 'Gujarat'],
+    popularCities: ['Mumbai', 'Bengaluru', 'New Delhi', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata', 'Ahmedabad'],
+    stateHierarchy: [
+      {
+        name: 'Maharashtra',
+        cities: [
+          { name: 'Mumbai', areas: ['Bandra West', 'Juhu', 'South Mumbai (Colaba)', 'Powai', 'Worli', 'Andheri West'] },
+          { name: 'Pune', areas: ['Koregaon Park', 'Baner', 'Kothrud', 'Viman Nagar'] }
+        ]
+      },
+      {
+        name: 'Karnataka',
+        cities: [
+          { name: 'Bengaluru', areas: ['Indiranagar', 'Koramangala', 'Whitefield', 'HSR Layout', 'Jayanagar', 'MG Road'] }
+        ]
+      }
+    ]
   },
   {
     code: 'BR',
     name: 'Brazil',
     flag: '🇧🇷',
     phoneCode: '+55',
-    majorStates: ['São Paulo', 'Rio de Janeiro', 'Minas Gerais', 'Bahia'],
-    popularCities: ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Salvador', 'Brasília']
+    majorStates: ['São Paulo', 'Rio de Janeiro', 'Minas Gerais', 'Bahia', 'Paraná', 'Rio Grande do Sul'],
+    popularCities: ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Salvador', 'Brasília', 'Curitiba'],
+    stateHierarchy: [
+      {
+        name: 'São Paulo',
+        cities: [
+          { name: 'São Paulo City', areas: ['Jardins', 'Pinheiros', 'Itaim Bibi', 'Vila Madalena', 'Moema', 'Paulista'] }
+        ]
+      },
+      {
+        name: 'Rio de Janeiro',
+        cities: [
+          { name: 'Rio de Janeiro City', areas: ['Ipanema', 'Copacabana', 'Leblon', 'Botafogo', 'Santa Teresa', 'Barra da Tijuca'] }
+        ]
+      }
+    ]
   },
   {
     code: 'MX',
     name: 'Mexico',
     flag: '🇲🇽',
     phoneCode: '+52',
-    majorStates: ['Mexico City', 'Jalisco', 'Nuevo León', 'Quintana Roo'],
-    popularCities: ['Mexico City', 'Guadalajara', 'Monterrey', 'Cancún', 'Puebla']
+    majorStates: ['Mexico City', 'Jalisco', 'Nuevo León', 'Quintana Roo', 'Puebla', 'Yucatán'],
+    popularCities: ['Mexico City', 'Guadalajara', 'Monterrey', 'Cancún', 'Puebla', 'Mérida'],
+    stateHierarchy: [
+      {
+        name: 'Mexico City',
+        cities: [
+          { name: 'Mexico City', areas: ['Polanco', 'Condesa', 'Roma Norte', 'Santa Fe', 'Coyoacán', 'Juárez'] }
+        ]
+      }
+    ]
   },
   {
     code: 'JP',
     name: 'Japan',
     flag: '🇯🇵',
     phoneCode: '+81',
-    majorStates: ['Tokyo Metropolis', 'Osaka Prefecture', 'Kyoto Prefecture', 'Kanagawa'],
-    popularCities: ['Tokyo', 'Osaka', 'Kyoto', 'Yokohama', 'Fukuoka']
+    majorStates: ['Tokyo Metropolis', 'Osaka Prefecture', 'Kyoto Prefecture', 'Kanagawa', 'Aichi', 'Hokkaido'],
+    popularCities: ['Tokyo', 'Osaka', 'Kyoto', 'Yokohama', 'Nagoya', 'Sapporo'],
+    stateHierarchy: [
+      {
+        name: 'Tokyo Metropolis',
+        cities: [
+          { name: 'Tokyo', areas: ['Shibuya', 'Shinjuku', 'Minato (Roppongi)', 'Ginza', 'Akihabara', 'Asakusa', 'Ebisu', 'Harajuku'] }
+        ]
+      },
+      {
+        name: 'Osaka Prefecture',
+        cities: [
+          { name: 'Osaka', areas: ['Umeda', 'Namba', 'Shinsaibashi', 'Dotonbori', 'Abeno'] }
+        ]
+      }
+    ]
   }
 ];
+
+/**
+ * Return list of states for a country, guaranteeing complete coverage
+ */
+export function getStatesForCountry(countryName: string): string[] {
+  const countryObj = GLOBAL_COUNTRIES.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+  if (!countryObj) return [];
+
+  const stateSet = new Set<string>();
+
+  // Add states from hierarchy first
+  if (countryObj.stateHierarchy && countryObj.stateHierarchy.length > 0) {
+    countryObj.stateHierarchy.forEach(s => stateSet.add(s.name));
+  }
+
+  // Add majorStates so no official state is missing
+  if (countryObj.majorStates && countryObj.majorStates.length > 0) {
+    countryObj.majorStates.forEach(s => stateSet.add(s));
+  }
+
+  return Array.from(stateSet);
+}
+
+/**
+ * Return list of cities for a given country and state
+ */
+export function getCitiesForState(countryName: string, stateName: string): string[] {
+  const countryObj = GLOBAL_COUNTRIES.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+  if (!countryObj) return [];
+
+  // If state is 'all' or empty, return all unique cities across stateHierarchy + popularCities
+  if (!stateName || stateName === 'all') {
+    const citySet = new Set<string>();
+    if (countryObj.stateHierarchy) {
+      countryObj.stateHierarchy.forEach(st => {
+        st.cities.forEach(c => citySet.add(c.name));
+      });
+    }
+    countryObj.popularCities.forEach(c => {
+      const cleanName = c.split(' (')[0].trim();
+      citySet.add(cleanName);
+    });
+    return Array.from(citySet);
+  }
+
+  // Clean state string for comparison
+  const cleanState = stateName.toLowerCase()
+    .replace(/state|territory|county|region|province|district|prefecture|metropolis/gi, '')
+    .trim();
+
+  if (countryObj.stateHierarchy) {
+    const stateObj = countryObj.stateHierarchy.find(s => {
+      const sClean = s.name.toLowerCase()
+        .replace(/state|territory|county|region|province|district|prefecture|metropolis/gi, '')
+        .trim();
+      return sClean === cleanState || s.name.toLowerCase().includes(cleanState) || cleanState.includes(sClean);
+    });
+
+    if (stateObj && stateObj.cities.length > 0) {
+      return stateObj.cities.map(c => c.name);
+    }
+  }
+
+  // Fallback: search popularCities
+  const cleanStateName = stateName.replace(/ (State|County|Region|Province|Territory|District|Prefecture)/gi, '').trim();
+  const filteredPopular = countryObj.popularCities.filter(c => c.toLowerCase().includes(cleanStateName.toLowerCase()));
+  if (filteredPopular.length > 0) {
+    return filteredPopular.map(c => c.split(' (')[0].trim());
+  }
+
+  // Final fallback to clean state name as city
+  return [cleanStateName];
+}
+
+/**
+ * Return list of neighborhood areas for a given city in a state.
+ * If cityName is 'all', returns all areas within the selected state or country.
+ */
+export function getAreasForCity(countryName: string, stateName: string, cityName: string): string[] {
+  const countryObj = GLOBAL_COUNTRIES.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+  if (!countryObj) return [];
+
+  const areaSet = new Set<string>();
+
+  if (countryObj.stateHierarchy) {
+    for (const st of countryObj.stateHierarchy) {
+      // Check state match if stateName is provided and not 'all'
+      if (stateName && stateName !== 'all') {
+        const cleanState = stateName.toLowerCase()
+          .replace(/state|territory|county|region|province|district|prefecture|metropolis/gi, '')
+          .trim();
+        const sClean = st.name.toLowerCase()
+          .replace(/state|territory|county|region|province|district|prefecture|metropolis/gi, '')
+          .trim();
+        if (sClean !== cleanState && !st.name.toLowerCase().includes(cleanState) && !cleanState.includes(sClean)) {
+          continue; // skip state if not matched
+        }
+      }
+
+      for (const cityObj of st.cities) {
+        if (!cityName || cityName === 'all' || 
+            cityObj.name.toLowerCase() === cityName.toLowerCase() || 
+            cityName.toLowerCase().includes(cityObj.name.toLowerCase()) ||
+            cityObj.name.toLowerCase().includes(cityName.toLowerCase())) {
+          if (cityObj.areas && cityObj.areas.length > 0) {
+            cityObj.areas.forEach(a => areaSet.add(a));
+          }
+        }
+      }
+    }
+  }
+
+  // Also extract parenthetical sub-areas from popularCities if relevant
+  if (cityName && cityName !== 'all') {
+    const popMatch = countryObj.popularCities.find(c => c.toLowerCase().startsWith(cityName.toLowerCase()));
+    if (popMatch && popMatch.includes('(') && popMatch.includes(')')) {
+      const areasStr = popMatch.substring(popMatch.indexOf('(') + 1, popMatch.indexOf(')'));
+      areasStr.split(',').forEach(a => areaSet.add(a.trim()));
+    }
+  }
+
+  return Array.from(areaSet);
+}
 
 /**
  * Filter countries by search term
@@ -286,7 +1105,7 @@ export const LAUNCH_REGIONS: LaunchRegion[] = [
     flag: '🇳🇬',
     center: { lat: 6.5244, lng: 3.3792 },
     zoom: 12,
-    popularNeighborhoods: ['Victoria Island', 'IkoYi', 'Lekki Phase 1', 'Ikeja GRA', 'Surulere', 'Yaba']
+    popularNeighborhoods: ['Victoria Island', 'Ikoyi', 'Lekki Phase 1', 'Ikeja GRA', 'Surulere', 'Yaba']
   },
   {
     id: 'london',

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Listing, User, Booking } from '../types';
 import { createBooking, getCurrentUser, getReviewsForListing } from '../services/store';
+import { sendLandlordBookingNotification } from '../services/emailService';
 import PropertyStatusBadge from './PropertyStatusBadge';
 import { 
-  X, Check, Bed, Bath, Maximize, MapPin, Calendar, 
+  X, Check, Bed, Bath, Maximize, MapPin, Calendar, Mail,
   Tv, Wifi, Wind, ShieldCheck, Flame, Briefcase, Sparkles, AlertCircle, RefreshCw,
   Share2, TrendingUp, Send, MessageSquare, ChevronLeft, ChevronRight, Star,
   Bus, ShoppingBag, GraduationCap, ExternalLink, Compass, Store, Navigation, Search,
@@ -331,6 +332,7 @@ export default function PropertyDetails({
   const [endDate, setEndDate] = useState('2026-12-31');
   const [personalMessage, setPersonalMessage] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   // Calculate booking length (in months)
@@ -398,10 +400,10 @@ export default function PropertyDetails({
     if (!currentUser) return;
 
     setBookingStatus('submitting');
+    setEmailNotice(null);
     
-    // Simulate API delay
-    setTimeout(() => {
-      createBooking({
+    setTimeout(async () => {
+      const newBooking = createBooking({
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images[0],
@@ -416,11 +418,37 @@ export default function PropertyDetails({
         effectiveMonthlyPrice: effectivePrice,
         annualDiscountPercentage: annualDiscountPct,
       });
+
+      // Dispatch automated landlord email alert
+      const emailRes = await sendLandlordBookingNotification({
+        bookingId: newBooking.id,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingImage: listing.images[0],
+        listingPrice: listing.price,
+        guestName: currentUser.name,
+        guestEmail: currentUser.email,
+        guestPhone: currentUser.phone || '',
+        landlordEmail: listing.landlordEmail || 'landlord@rentora.com',
+        landlordName: listing.landlordName || 'Carlos Silva',
+        startDate,
+        endDate,
+        billingCycle,
+        totalAmount,
+        messageNote: personalMessage || undefined,
+      });
+
+      if (emailRes.success) {
+        setEmailNotice(`Email notification dispatched to landlord (${emailRes.recipient || listing.landlordEmail || 'Carlos Silva'})`);
+      } else {
+        setEmailNotice(`Booking saved. Note: ${emailRes.message}`);
+      }
+
       setBookingStatus('success');
       setTimeout(() => {
         onBookingCreated();
-      }, 2000);
-    }, 1200);
+      }, 3000);
+    }, 1000);
   };
 
   // Map amenities to beautiful icons
@@ -1271,8 +1299,14 @@ export default function PropertyDetails({
                 <div className="space-y-1">
                   <h4 className="font-bold text-emerald-800 text-base">Request Submitted!</h4>
                   <p className="text-xs text-emerald-600 leading-relaxed">
-                    The owner Carlos has been notified and will review your {billingCycle} booking shortly.
+                    The landlord has been notified via email and will review your {billingCycle} booking shortly.
                   </p>
+                  {emailNotice && (
+                    <div className="mt-3 text-[11px] font-bold bg-emerald-100/80 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl flex items-center justify-center gap-2 shadow-2xs">
+                      <Mail className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>{emailNotice}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

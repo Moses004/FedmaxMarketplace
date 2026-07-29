@@ -247,23 +247,33 @@ function PropertyMapInner({
             onClick={() => onSelectListing(listing)}
             ref={(el) => setMarkerRef(el, listing.id)}
           >
-            <div
-              style={{ width: '82px', height: '36px' }}
-              className={`relative group rounded-full font-bold text-xs shadow-xl transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer border ${
-                isSelected
-                  ? 'bg-indigo-600 text-white scale-110 border-indigo-500 ring-4 ring-indigo-500/20 z-50 shadow-indigo-500/30'
-                  : 'bg-white text-slate-800 hover:bg-indigo-50 hover:border-indigo-300 border-slate-200 z-10'
-              }`}
-            >
-              <div className={`p-1 rounded-full ${isSelected ? 'bg-indigo-500 text-amber-300' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'} transition-colors duration-200`}>
-                {getListingIcon(listing.type, "w-3 h-3")}
+            <div className="relative flex items-center justify-center">
+              {/* Pulsing Beacon Animation for Selected Property Marker */}
+              {isSelected && (
+                <>
+                  <div className="absolute -inset-5 bg-indigo-500/40 rounded-full animate-ping pointer-events-none" />
+                  <div className="absolute -inset-3 bg-indigo-400/35 rounded-full animate-pulse pointer-events-none" />
+                </>
+              )}
+
+              <div
+                style={{ width: '84px', height: '38px' }}
+                className={`relative group rounded-full font-bold text-xs shadow-xl transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer border ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white scale-110 border-indigo-400 ring-4 ring-indigo-500/30 z-50 shadow-indigo-500/40'
+                    : 'bg-white text-slate-800 hover:bg-indigo-50 hover:border-indigo-300 border-slate-200 z-10'
+                }`}
+              >
+                <div className={`p-1 rounded-full ${isSelected ? 'bg-indigo-500 text-amber-300 animate-pulse' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'} transition-colors duration-200`}>
+                  {getListingIcon(listing.type, "w-3 h-3")}
+                </div>
+                <span className="font-extrabold text-[11px]">€{listing.price}</span>
+                
+                {/* A small arrow tail indicating map pin */}
+                <div className={`absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 border-r border-b ${
+                  isSelected ? 'bg-indigo-600 border-indigo-400' : 'bg-white border-slate-200 group-hover:bg-indigo-50 group-hover:border-indigo-300'
+                }`} />
               </div>
-              <span className="font-extrabold text-[11px]">€{listing.price}</span>
-              
-              {/* A small arrow tail indicating map pin */}
-              <div className={`absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 border-r border-b ${
-                isSelected ? 'bg-indigo-600 border-indigo-500' : 'bg-white border-slate-200 group-hover:bg-indigo-50 group-hover:border-indigo-300'
-              }`} />
             </div>
           </AdvancedMarker>
         );
@@ -444,9 +454,12 @@ export default function PropertyMap({
               }}
               className="z-20 transition-all duration-200 cursor-pointer"
             >
-              {/* Pulsing Highlight Circle */}
+              {/* Dual Pulsing Beacon Halo for Selected Marker */}
               {isSelected && (
-                <div className="absolute -inset-4 bg-indigo-500/30 rounded-full animate-ping pointer-events-none" />
+                <>
+                  <div className="absolute -inset-5 bg-indigo-500/40 rounded-full animate-ping pointer-events-none" />
+                  <div className="absolute -inset-3 bg-indigo-400/35 rounded-full animate-pulse pointer-events-none" />
+                </>
               )}
 
               {/* Custom Pin with Icon & Price */}

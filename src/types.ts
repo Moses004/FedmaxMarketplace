@@ -21,10 +21,13 @@ export interface Listing {
   id: string;
   title: string;
   description: string;
-  price: number; // in EUR per month
+  price: number; // in local currency or EUR per month
   annualDiscountPercentage?: number; // percentage discount if tenant pays annually (e.g. 10 for 10% off)
   type: PropertyType;
   location: string;
+  country?: string; // e.g. "Nigeria", "Spain", "United Kingdom"
+  state?: string;   // e.g. "Lagos State", "FCT Abuja", "Community of Madrid"
+  city?: string;    // e.g. "Lagos", "Abuja", "Madrid"
   lat: number;
   lng: number;
   bedrooms: number;
@@ -33,6 +36,8 @@ export interface Listing {
   amenities: string[];
   images: string[];
   landlordId: string;
+  landlordEmail?: string;
+  landlordName?: string;
   availableFrom: string;
   status?: ListingStatus;
 }

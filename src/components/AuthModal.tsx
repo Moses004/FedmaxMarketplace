@@ -3,7 +3,8 @@ import { User } from '../types';
 import { registerUser, login } from '../services/store';
 import { 
   GLOBAL_COUNTRIES, CountryData, searchCountries, 
-  getDynamicMarketsForCountry, searchAddressSuggestions, GeocodedAddress, LAUNCH_REGIONS
+  getDynamicMarketsForCountry, searchAddressSuggestions, GeocodedAddress, LAUNCH_REGIONS,
+  getStatesForCountry, getCitiesForState
 } from '../utils/location';
 import { 
   X, User as UserIcon, Building, Mail, Phone, MapPin, 
@@ -480,53 +481,67 @@ export default function AuthModal({
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                   {/* Dynamic State Chips */}
-                  {selectedCountryObj.majorStates.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedCountryObj.majorStates.slice(0, 3).map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          onClick={() => setStateRegion(st)}
-                          className="text-[9.5px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold cursor-pointer"
-                        >
-                          + {st}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const states = getStatesForCountry(country);
+                    if (states.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {states.slice(0, 4).map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => {
+                              setStateRegion(st);
+                              const cities = getCitiesForState(country, st);
+                              if (cities.length > 0) {
+                                setCity(cities[0]);
+                              }
+                            }}
+                            className="text-[9.5px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold cursor-pointer transition-colors"
+                          >
+                            + {st}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-600 block mb-1">
-                    City / Town <span className="text-rose-500">*</span>
+                    City / District <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Madrid, Barcelona, London"
+                    placeholder="e.g. Madrid, Lekki, London"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
-                  {/* Dynamic City Chips */}
-                  {selectedCountryObj.popularCities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedCountryObj.popularCities.slice(0, 3).map((ct) => (
-                        <button
-                          key={ct}
-                          type="button"
-                          onClick={() => {
-                            setCity(ct);
-                            setPreferredMoveInRegion(`${ct}, ${country}`);
-                            setMarketSearchInput(`${ct}, ${country}`);
-                          }}
-                          className="text-[9.5px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold cursor-pointer"
-                        >
-                          + {ct}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {/* Dynamic City Chips derived from state selection */}
+                  {(() => {
+                    const cities = getCitiesForState(country, stateRegion);
+                    if (cities.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {cities.slice(0, 4).map((ct) => (
+                          <button
+                            key={ct}
+                            type="button"
+                            onClick={() => {
+                              setCity(ct);
+                              setPreferredMoveInRegion(`${ct}, ${country}`);
+                              setMarketSearchInput(`${ct}, ${country}`);
+                            }}
+                            className="text-[9.5px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold cursor-pointer transition-colors"
+                          >
+                            + {ct}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
