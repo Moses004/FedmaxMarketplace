@@ -21,7 +21,9 @@ export interface Listing {
   id: string;
   title: string;
   description: string;
-  price: number; // in local currency or EUR per month
+  price: number; // Universal price in USD per month
+  currency?: string; // Regional currency code (e.g. "NGN", "EUR", "GBP", "USD")
+  localPrice?: number; // Price in regional currency per month (e.g. 1250000 NGN)
   annualDiscountPercentage?: number; // percentage discount if tenant pays annually (e.g. 10 for 10% off)
   type: PropertyType;
   location: string;
@@ -35,6 +37,7 @@ export interface Listing {
   size: number; // in sqm
   amenities: string[];
   images: string[];
+  videoUrl?: string;
   landlordId: string;
   landlordEmail?: string;
   landlordName?: string;

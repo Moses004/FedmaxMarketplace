@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { updateUserProfile } from '../services/store';
+import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { 
   GLOBAL_COUNTRIES, CountryData, searchCountries, 
   getDynamicMarketsForCountry, searchAddressSuggestions, GeocodedAddress 
@@ -144,8 +145,9 @@ export default function EditProfileModal({
       setErrorMsg('Full Name is required.');
       return;
     }
-    if (!email || !email.includes('@')) {
-      setErrorMsg('Valid email address is required.');
+    const formattedEmail = normalizeEmail(email);
+    if (!formattedEmail || !isValidEmail(formattedEmail)) {
+      setErrorMsg('A valid email address (e.g. user@domain.com) is required.');
       return;
     }
 
@@ -156,7 +158,7 @@ export default function EditProfileModal({
       const updated = updateUserProfile({
         id: currentUser.id,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: formattedEmail,
         role,
         phone: fullPhone,
         country: country.trim(),
@@ -290,7 +292,25 @@ export default function EditProfileModal({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Email Address <span className="text-rose-500">*</span></label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-bold text-slate-600 block">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                {email.trim().length > 0 && (
+                  <span className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                    isValidEmail(email) ? 'text-emerald-600' : 'text-rose-500'
+                  }`}>
+                    {isValidEmail(email) ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Valid format</span>
+                      </>
+                    ) : (
+                      <span>Invalid email format</span>
+                    )}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type="email"
@@ -298,9 +318,18 @@ export default function EditProfileModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className={`w-full pl-9 pr-9 py-2.5 bg-slate-50 border rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:bg-white transition-colors ${
+                    email.trim().length > 0
+                      ? isValidEmail(email)
+                        ? 'border-emerald-300 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        : 'border-rose-300 focus:ring-rose-500/20 focus:border-rose-500'
+                      : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  }`}
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                {email.trim().length > 0 && isValidEmail(email) && (
+                  <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />
+                )}
               </div>
             </div>
 

@@ -7,6 +7,8 @@ const INITIAL_LISTINGS: Listing[] = [
     title: 'Luxury 2-Bedroom Serviced Apartment in Lekki Phase 1',
     description: 'Exquisite 2-bedroom luxury serviced flat in the heart of Lekki Phase 1, Lagos. Features 24/7 power supply with industrial inverter/generator backup, fitted kitchen, washing machine, swimming pool, gym, and 24-hour armed uniform security guard. Walking distance to Admiralty Way shops, cafes, and restaurants.',
     price: 850,
+    localPrice: 1275000,
+    currency: 'NGN',
     annualDiscountPercentage: 12,
     type: '2-bedroom-flat',
     location: 'Admiralty Way, Lekki Phase 1, Lagos, Nigeria',
@@ -23,6 +25,7 @@ const INITIAL_LISTINGS: Listing[] = [
       'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
     ],
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4',
     landlordId: 'landlord-3',
     availableFrom: '2026-08-01'
   },
@@ -31,6 +34,8 @@ const INITIAL_LISTINGS: Listing[] = [
     title: 'Executive Self-Contained Studio in Ikeja GRA',
     description: 'Modern, secure self-contained studio unit situated in quiet, gated Ikeja GRA. Comes with private ensuite bathroom, kitchenette, inverter backup, clean borehole water system, DSTV cable connection, and dedicated parking space. Ideal for young professionals or business executives.',
     price: 450,
+    localPrice: 675000,
+    currency: 'NGN',
     annualDiscountPercentage: 10,
     type: 'self-contained',
     location: 'Isaac John Street, Ikeja GRA, Lagos, Nigeria',
@@ -55,6 +60,8 @@ const INITIAL_LISTINGS: Listing[] = [
     title: '3-Bedroom Duplex with Boys Quarters in Maitama',
     description: 'Prestige 3-bedroom semi-detached duplex residence with 1-room BQ located in diplomatic Maitama District, Abuja. Features expansive marble living rooms, central air conditioning, private green lawn garden, covered carport, and top-tier security.',
     price: 1600,
+    localPrice: 2400000,
+    currency: 'NGN',
     annualDiscountPercentage: 15,
     type: 'duplex',
     location: 'Gana Street, Maitama, Abuja, Nigeria',
@@ -79,6 +86,8 @@ const INITIAL_LISTINGS: Listing[] = [
     title: 'Spacious 3-Bedroom Flat in GRA Phase 2, Port Harcourt',
     description: 'Modern, freshly painted 3-bedroom apartment unit in serene GRA Phase 2, Port Harcourt. Features all rooms ensuite, water treatment plant, silent soundproof generator, and spacious balcony.',
     price: 750,
+    localPrice: 1125000,
+    currency: 'NGN',
     annualDiscountPercentage: 10,
     type: '3plus-bedroom-flat',
     location: 'Tombia Street, GRA Phase 2, Port Harcourt, Nigeria',
@@ -102,7 +111,9 @@ const INITIAL_LISTINGS: Listing[] = [
     id: 'list-1',
     title: 'Bright Premium Room near Plaza Mayor',
     description: 'Fully furnished, exterior room in a newly renovated shared apartment. Outstanding location in the historical center of Madrid, just a 2-minute walk from Plaza Mayor and Sol. Features a comfortable double bed, spacious wardrobe, desk, chair, and private balcony. Fully equipped shared kitchen, high-speed Wi-Fi, and weekly cleaning of common areas included.',
-    price: 650,
+    price: 700,
+    localPrice: 650,
+    currency: 'EUR',
     annualDiscountPercentage: 10,
     type: 'room',
     location: 'Calle Mayor, 12, 28013 Madrid, Spain',
@@ -126,7 +137,9 @@ const INITIAL_LISTINGS: Listing[] = [
     id: 'list-2',
     title: 'Modern Cozy Studio near Retiro Park',
     description: 'Beautiful, bright self-contained studio apartment located in the prestigious Salamanca district, right next to Retiro Park. Perfect for young professionals or students who value privacy and prime location. Comes with a private fully-equipped kitchenette, private modern bathroom, double bed, smart TV, dining area, and plenty of smart storage spaces.',
-    price: 1100,
+    price: 1188,
+    localPrice: 1100,
+    currency: 'EUR',
     annualDiscountPercentage: 10,
     type: 'studio',
     location: 'Calle de Alcalá, 84, 28009 Madrid, Spain',
@@ -150,7 +163,9 @@ const INITIAL_LISTINGS: Listing[] = [
     id: 'list-3',
     title: 'Spacious 2-Bed Design Apartment in Eixample',
     description: 'Stunning designer apartment with classic Catalan vaulted ceilings and high-end finishes. Located in Eixample Esquerra, one of Barcelona\'s most sought-after neighborhoods. The apartment features two double bedrooms, a spacious light-filled living room, fully fitted kitchen, and a private interior terrace. Surrounded by excellent restaurants, supermarkets, and subway links.',
-    price: 1850,
+    price: 1998,
+    localPrice: 1850,
+    currency: 'EUR',
     type: 'apartment',
     location: 'Carrer de Mallorca, 185, 08036 Barcelona, Spain',
     country: 'Spain',
@@ -173,7 +188,9 @@ const INITIAL_LISTINGS: Listing[] = [
     id: 'list-4',
     title: 'Elegant Double Room in Trendy Malasaña',
     description: 'Charming, stylish room in a co-living apartment in the heart of Malasaña. Living with three other friendly international students/professionals. The room features high ceilings, a full-size desk, high-speed Wi-Fi, and large windows that flood the room with natural light. The apartment has 2 shared modern bathrooms, a vast living/dining lounge, and a laundry room.',
-    price: 580,
+    price: 626,
+    localPrice: 580,
+    currency: 'EUR',
     type: 'room',
     location: 'Calle del Pez, 20, 28004 Madrid, Spain',
     country: 'Spain',
@@ -448,10 +465,6 @@ export function initializeStore() {
   if (!storage.getItem(USERS_KEY)) {
     storage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
   }
-  // Set default logged in user if none is selected
-  if (!storage.getItem(CURRENT_USER_KEY)) {
-    storage.setItem(CURRENT_USER_KEY, JSON.stringify(INITIAL_USERS[0]));
-  }
 }
 
 // Ensure storage is set up
@@ -640,7 +653,8 @@ export function getUsers(): User[] {
 export function getCurrentUser(): User | null {
   try {
     const raw = storage.getItem(CURRENT_USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw || raw === 'null' || raw === 'undefined') return null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }

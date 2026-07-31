@@ -36,8 +36,8 @@ export const listingSchema = z.object({
     .min(5, 'Property address must be at least 5 characters (e.g. street, city, country).'),
   price: z
     .number()
-    .min(50, 'Monthly rent price must be at least €50.')
-    .max(50000, 'Monthly rent price cannot exceed €50,000.'),
+    .min(1, 'Monthly rent price must be at least $1 USD equivalent.')
+    .max(100000, 'Monthly rent price cannot exceed $100,000 USD equivalent.'),
   size: z
     .number()
     .min(5, 'Property size must be at least 5 m².')

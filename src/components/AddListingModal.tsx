@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createListing } from '../services/store';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
+import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
 
 interface AddListingModalProps {
   onClose: () => void;
@@ -34,19 +35,24 @@ const PRESET_AMENITIES = [
 
 export default function AddListingModal({ onClose, onListingCreated }: AddListingModalProps) {
   const [step, setStep] = useState(1);
-  const [country, setCountry] = useState('Nigeria');
-  const [stateName, setStateName] = useState('Lagos State');
-  const [cityName, setCityName] = useState('Lagos');
+  const [modalCountry, setModalCountry] = useState<string>('Nigeria');
+  const [modalState, setModalState] = useState<string>('Lagos State');
+  const [modalCity, setModalCity] = useState<string>('Lagos');
+  const [modalArea, setModalArea] = useState<string>('all');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState(700);
+  
+  // Listing Currency State
+  const [listingCurrency, setListingCurrency] = useState<string>(() => getCurrencyForCountry('Nigeria').code);
+  const [localPrice, setLocalPrice] = useState<number>(1200000); // e.g. 1,200,000 NGN or local currency
   const [type, setType] = useState<PropertyType>('single-room');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState('Lagos, Nigeria');
   const [bedrooms, setBedrooms] = useState(1);
   const [bathrooms, setBathrooms] = useState(1);
   const [size, setSize] = useState(25);
   const [selectedImage, setSelectedImage] = useState(PRESET_IMAGES[0].url);
   const [customImage, setCustomImage] = useState('');
+  const [videoUrl, setVideoUrl] = useState<string>('https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4');
   const [uploadedPhotos, setUploadedPhotos] = useState<{ id: string; url: string; fileName: string; sizeKb: number; source: 'device' | 'preset' }[]>([
     { id: 'preset-1', url: PRESET_IMAGES[0].url, fileName: 'Preset_Bedroom.jpg', sizeKb: 340, source: 'preset' }
   ]);
@@ -54,10 +60,6 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [annualDiscountPercentage, setAnnualDiscountPercentage] = useState(10);
   const [customLat, setCustomLat] = useState<number | null>(null);
   const [customLng, setCustomLng] = useState<number | null>(null);
-  const [modalCountry, setModalCountry] = useState<string>('Spain');
-  const [modalState, setModalState] = useState<string>('all');
-  const [modalCity, setModalCity] = useState<string>('all');
-  const [modalArea, setModalArea] = useState<string>('all');
   const [addressSuggestions, setAddressSuggestions] = useState<GeocodedAddress[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -180,6 +182,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     setEnhanceSuccess(false);
 
     try {
+      const priceInUSD = convertCurrencyToUSD(localPrice, listingCurrency);
       const response = await fetch('/api/enhance-description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,7 +190,9 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
           title,
           type,
           location,
-          price,
+          price: priceInUSD,
+          localPrice,
+          currency: listingCurrency,
           size,
           bedrooms,
           bathrooms,
@@ -209,9 +214,10 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
       console.warn("Gemini Enhance Error, applying intelligent fallback copywriting:", err);
       const categoryLabel = PROPERTY_CATEGORY_OPTIONS.find(c => c.id === type)?.label || type;
       const amenityText = selectedAmenities.length > 0 ? selectedAmenities.join(', ') : 'modern amenities';
-      const loc = location || 'a prime neighborhood in Madrid';
+      const loc = location || 'a prime neighborhood';
+      const formattedRent = formatCurrencyAmount(localPrice, listingCurrency);
       
-      const fallbackDesc = `Discover this outstanding ${categoryLabel.toLowerCase()} located in ${loc}. Beautifully styled and tailored for modern living, this ${size} m² home features ${bedrooms > 0 ? `${bedrooms} comfortable bedroom${bedrooms > 1 ? 's' : ''}` : 'an open studio layout'} and ${bathrooms} bathroom${bathrooms > 1 ? 's' : ''}, offering an exceptional balance of style and privacy.\n\nEnjoy premium features and conveniences including ${amenityText}. Conveniently situated near vibrant dining options, public transit stops, and essential shops, this property provides everything needed for a seamless urban lifestyle at €${price}/month.`;
+      const fallbackDesc = `Discover this outstanding ${categoryLabel.toLowerCase()} located in ${loc}. Beautifully styled and tailored for modern living, this ${size} m² home features ${bedrooms > 0 ? `${bedrooms} comfortable bedroom${bedrooms > 1 ? 's' : ''}` : 'an open studio layout'} and ${bathrooms} bathroom${bathrooms > 1 ? 's' : ''}, offering an exceptional balance of style and privacy.\n\nEnjoy premium features and conveniences including ${amenityText}. Conveniently situated near vibrant dining options, public transit stops, and essential shops, this property provides everything needed for a seamless urban lifestyle at ${formattedRent}/month.`;
 
       setDescription(fallbackDesc);
       setEnhanceSuccess(true);
@@ -223,12 +229,14 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
 
   // Handle Step transitions with Step-level schema validation
   const handleNextStep = () => {
+    const priceInUSD = convertCurrencyToUSD(localPrice, listingCurrency);
+
     if (step === 1) {
       const v1 = validateStep1({
         type,
         title,
         location,
-        price,
+        price: priceInUSD,
         size,
         annualDiscountPercentage,
       });
@@ -269,6 +277,8 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
+    const priceInUSD = convertCurrencyToUSD(localPrice, listingCurrency);
+
     // Collect all photo URLs from uploaded device photos, custom input or presets
     const finalImagesList: string[] = [];
     if (uploadedPhotos.length > 0) {
@@ -286,7 +296,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
       type,
       title,
       location,
-      price,
+      price: priceInUSD,
       size,
       annualDiscountPercentage,
       bedrooms,
@@ -310,7 +320,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     setFieldErrors({});
     setIsSubmitting(true);
 
-    // Use geocoded custom coordinates if set, or seed realistic coordinates near Madrid
+    // Use geocoded custom coordinates if set, or seed realistic coordinates near location
     let lat = customLat;
     let lng = customLng;
     if (lat === null || lng === null) {
@@ -324,13 +334,15 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
       createListing({
         title: title.trim(),
         description: description.trim(),
-        price,
+        price: priceInUSD,
+        localPrice,
+        currency: listingCurrency,
         annualDiscountPercentage,
         type,
         location: location.trim(),
-        country,
-        state: stateName,
-        city: cityName,
+        country: modalCountry,
+        state: modalState !== 'all' ? modalState : '',
+        city: modalCity !== 'all' ? modalCity : '',
         lat,
         lng,
         bedrooms,
@@ -338,6 +350,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         size,
         amenities: selectedAmenities,
         images: finalImagesList,
+        videoUrl: videoUrl.trim() || undefined,
         availableFrom: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 15 days in future
       });
 
@@ -543,6 +556,14 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                             setModalArea('all');
                             setLocation(`${c}`);
                             clearFieldError('location');
+                            
+                            // Auto-set regional currency for chosen country
+                            const regCurr = getCurrencyForCountry(c).code;
+                            setListingCurrency(regCurr);
+                            if (regCurr === 'NGN') setLocalPrice(1200000);
+                            else if (regCurr === 'EUR') setLocalPrice(850);
+                            else if (regCurr === 'GBP') setLocalPrice(750);
+                            else setLocalPrice(1000);
                           }}
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
                         >
@@ -654,25 +675,63 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                 </div>
               </div>
 
-              {/* Price & Size stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Monthly Price (€) *</label>
-                  <input
-                    type="number"
-                    min={50}
-                    max={50000}
-                    value={price || ''}
-                    onChange={(e) => {
-                      setPrice(parseInt(e.target.value) || 0);
-                      clearFieldError('price');
-                    }}
-                    className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 ${
-                      fieldErrors.price
-                        ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
-                        : 'border-slate-200 focus:bg-white focus:ring-emerald-500/20 focus:border-emerald-500'
-                    }`}
-                  />
+              {/* Multi-Currency Price & Size stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block">Landlord Currency & Monthly Rent *</label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={listingCurrency}
+                      onChange={(e) => {
+                        setListingCurrency(e.target.value);
+                        clearFieldError('price');
+                      }}
+                      className="w-28 px-2.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shrink-0"
+                    >
+                      {Object.entries(SUPPORTED_CURRENCIES).map(([code, config]) => (
+                        <option key={code} value={code}>
+                          {config.symbol} {code}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="number"
+                      min={1}
+                      value={localPrice || ''}
+                      onChange={(e) => {
+                        setLocalPrice(parseInt(e.target.value) || 0);
+                        clearFieldError('price');
+                      }}
+                      placeholder={`Amount in ${listingCurrency}`}
+                      className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 ${
+                        fieldErrors.price
+                          ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
+                          : 'border-slate-200 focus:bg-white focus:ring-emerald-500/20 focus:border-emerald-500'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Realtime Conversion Preview */}
+                  {(() => {
+                    const usdEquivalent = convertCurrencyToUSD(localPrice, listingCurrency);
+                    const currConfig = SUPPORTED_CURRENCIES[listingCurrency] || SUPPORTED_CURRENCIES['USD'];
+                    return (
+                      <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-100 p-2 rounded-xl text-[11px] font-medium text-emerald-900">
+                        <span className="flex items-center gap-1 font-bold">
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Universal USD Price:</span>
+                        </span>
+                        <span className="font-extrabold text-emerald-700">
+                          ${usdEquivalent.toLocaleString()} USD / month
+                        </span>
+                      </div>
+                    );
+                  })()}
+
                   {fieldErrors.price && (
                     <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -735,9 +794,9 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                     </div>
                   </div>
                   <div className="text-xs text-emerald-900 font-medium leading-tight">
-                    Annual Rate: <strong>€{Math.round(price * (1 - annualDiscountPercentage / 100))}/mo</strong>
+                    Annual Rate: <strong>{formatCurrencyAmount(Math.round(localPrice * (1 - annualDiscountPercentage / 100)), listingCurrency)}/mo</strong>
                     <span className="text-[10px] text-emerald-600 block">
-                      (Saves tenant €{Math.round(price * (annualDiscountPercentage / 100) * 12)} / year)
+                      (Saves tenant {formatCurrencyAmount(Math.round(localPrice * (annualDiscountPercentage / 100) * 12), listingCurrency)} / year)
                     </span>
                   </div>
                 </div>
@@ -975,6 +1034,24 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
+
+                {/* Video Walkthrough URL Field */}
+                <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-rose-500" />
+                    <span>HD Property Video Walk-through URL (Optional)</span>
+                  </label>
+                  <p className="text-[10px] text-slate-400">
+                    Paste an MP4 video link or YouTube/Vimeo URL for 360° virtual tours.
+                  </p>
+                  <input
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="https://assets.mixkit.co/.../video.mp4 or YouTube link"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1076,7 +1153,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                   <div className="flex items-center gap-2">
                     <Wand2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      <strong>AI Copywriter:</strong> Click <strong>'AI Enhance'</strong> to automatically transform your property type ({type}), price (€{price}), size ({size}m²), and amenities into an engaging listing description.
+                      <strong>AI Copywriter:</strong> Click <strong>'AI Enhance'</strong> to automatically transform your property type ({type}), price ({formatCurrencyAmount(localPrice, listingCurrency)}), size ({size}m²), and amenities into an engaging listing description.
                     </span>
                   </div>
                 </div>

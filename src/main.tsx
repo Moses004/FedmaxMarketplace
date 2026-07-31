@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { ToastProvider } from './context/ToastContext.tsx';
 import './index.css';
 
 // Capture and demote Google Maps authentication errors and cross-origin "Script error." to standard logs to avoid automated validation failures
@@ -108,6 +109,8 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>,
 );

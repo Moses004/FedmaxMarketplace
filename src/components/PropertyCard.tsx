@@ -1,7 +1,8 @@
 import React from 'react';
 import { Listing } from '../types';
-import { Bed, Bath, Maximize, MapPin, Calendar, Heart, Sparkles } from 'lucide-react';
+import { Bed, Bath, Maximize, MapPin, Calendar, Heart, Sparkles, ArrowLeftRight, Check, Play } from 'lucide-react';
 import PropertyStatusBadge from './PropertyStatusBadge';
+import { getListingPrices } from '../utils/currency';
 
 interface PropertyCardProps {
   key?: string;
@@ -10,10 +11,14 @@ interface PropertyCardProps {
   onClick: () => void;
   isFavorited: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
+  isCompared?: boolean;
+  onToggleCompare?: (e: React.MouseEvent) => void;
   distanceKm?: number | null;
+  displayCurrency?: string;
 }
 
-export default function PropertyCard({ listing, isSelected, onClick, isFavorited, onToggleFavorite, distanceKm }: PropertyCardProps) {
+export default function PropertyCard({ listing, isSelected, onClick, isFavorited, onToggleFavorite, isCompared, onToggleCompare, distanceKm, displayCurrency = 'regional' }: PropertyCardProps) {
+  const { primaryFormatted, secondaryFormatted } = getListingPrices(listing, displayCurrency);
   // Dynamic colors for different housing types
   const typeColors: Record<string, string> = {
     'single-room': 'bg-indigo-50 text-indigo-700 border-indigo-200',
@@ -70,17 +75,48 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
           className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
         />
 
-        {/* Favorite Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(e);
-          }}
-          className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/90 backdrop-blur-sm shadow-sm text-slate-600 hover:text-rose-500 hover:bg-white transition-all z-10 border border-slate-100 group/fav"
-          title={isFavorited ? "Remove from Saved" : "Save Property"}
-        >
-          <Heart className={`w-3.5 h-3.5 transition-transform group-hover/fav:scale-110 ${isFavorited ? 'fill-rose-500 text-rose-500' : 'text-slate-500'}`} />
-        </button>
+        {/* Action Buttons Overlay (Favorite & Compare) */}
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+          {onToggleCompare && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCompare(e);
+              }}
+              className={`flex items-center gap-1 p-1.5 px-2.5 rounded-lg text-xs font-extrabold backdrop-blur-sm shadow-sm transition-all border ${
+                isCompared
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/30'
+                  : 'bg-white/90 text-slate-700 hover:bg-white hover:text-emerald-600 border-slate-100'
+              }`}
+              title={isCompared ? "Remove from Compare" : "Compare Property"}
+            >
+              {isCompared ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                  <span className="text-[11px]">Comparing</span>
+                </>
+              ) : (
+                <>
+                  <ArrowLeftRight className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[11px] hidden group-hover:inline">Compare</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Favorite Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(e);
+            }}
+            className="p-1.5 rounded-lg bg-white/90 backdrop-blur-sm shadow-sm text-slate-600 hover:text-rose-500 hover:bg-white transition-all border border-slate-100 group/fav"
+            title={isFavorited ? "Remove from Saved" : "Save Property"}
+          >
+            <Heart className={`w-3.5 h-3.5 transition-transform group-hover/fav:scale-110 ${isFavorited ? 'fill-rose-500 text-rose-500' : 'text-slate-500'}`} />
+          </button>
+        </div>
 
         {/* Floating Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start">
@@ -98,28 +134,40 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
           )}
         </div>
 
+        {/* Video Walkthrough Badge Indicator */}
+        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[10px] font-extrabold border border-white/10 shadow-sm">
+          <Play className="w-2.5 h-2.5 text-rose-400 fill-rose-400" />
+          <span>HD Video Tour</span>
+        </div>
+
         {/* Floating Price */}
-        <div className="absolute bottom-3 right-3 bg-slate-900/90 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-base shadow-lg flex items-baseline gap-0.5 z-10 border border-white/10">
-          <span className="text-xs font-semibold text-emerald-400">€</span>
-          <span className="text-lg tracking-tight">{listing.price}</span>
-          <span className="text-[10px] text-slate-300 font-normal">/month</span>
+        <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-3.5 py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10">
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg tracking-tight font-black text-white">{primaryFormatted}</span>
+            <span className="text-xs text-emerald-300 font-extrabold">/mo</span>
+          </div>
+          {secondaryFormatted && (
+            <span className="text-[10px] font-bold text-emerald-400 -mt-0.5 tracking-tight">
+              {secondaryFormatted}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Property Information */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-1.5">
-          <h3 className="font-bold text-slate-800 text-base line-clamp-1 group-hover:text-emerald-600 transition-colors">
+          <h3 className="font-extrabold text-slate-900 text-base sm:text-[17px] leading-snug tracking-tight line-clamp-1 group-hover:text-emerald-600 transition-colors">
             {listing.title}
           </h3>
           
-          <div className="flex items-center justify-between gap-1 text-xs text-slate-500">
-            <div className="flex items-center gap-1 min-w-0">
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <div className="flex items-center justify-between gap-1 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
               <span className="line-clamp-1">{listing.location}</span>
             </div>
             {distanceKm !== undefined && distanceKm !== null && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full shrink-0">
+              <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                 {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm} km`}
               </span>
             )}
@@ -127,27 +175,71 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Features / Icons Row */}
-        <div className="grid grid-cols-3 gap-2 border-t border-slate-50/80 pt-3.5 mt-3.5 text-xs text-slate-600">
-          <div className="flex items-center gap-1.5 justify-center bg-slate-50 py-1.5 rounded-lg border border-slate-100/50">
-            <Bed className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-medium">{listing.bedrooms} Bed</span>
+        <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 mt-3.5 text-xs text-slate-700">
+          <div className="flex items-center gap-1.5 justify-center bg-slate-50/90 py-2 rounded-xl border border-slate-200/60 whitespace-nowrap">
+            <Bed className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="font-bold">{listing.bedrooms} Bed</span>
           </div>
-          <div className="flex items-center gap-1.5 justify-center bg-slate-50 py-1.5 rounded-lg border border-slate-100/50">
-            <Bath className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-medium">{listing.bathrooms} Bath</span>
+          <div className="flex items-center gap-1.5 justify-center bg-slate-50/90 py-2 rounded-xl border border-slate-200/60 whitespace-nowrap">
+            <Bath className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="font-bold">{listing.bathrooms} Bath</span>
           </div>
-          <div className="flex items-center gap-1.5 justify-center bg-slate-50 py-1.5 rounded-lg border border-slate-100/50">
-            <Maximize className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-medium">{listing.size} m²</span>
+          <div className="flex items-center gap-1.5 justify-center bg-slate-50/90 py-2 rounded-xl border border-slate-200/60 whitespace-nowrap">
+            <Maximize className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="font-bold">{listing.size} m²</span>
           </div>
         </div>
 
         {/* Availability Badge */}
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-3 pt-2 border-t border-dashed border-slate-100">
-          <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-          <span>Available from: <strong>{new Date(listing.availableFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-3 pt-2.5 border-t border-dashed border-slate-100">
+          <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span>Available from: <strong className="font-extrabold text-slate-900">{new Date(listing.availableFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
         </div>
       </div>
     </div>
   );
 }
+
+export function PropertyCardSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-xs flex flex-col h-full animate-fade-in">
+      {/* Property Image Skeleton */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
+        <div className="w-full h-full animate-shimmer" />
+        
+        {/* Floating Top Badge Skeleton */}
+        <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+          <div className="w-20 h-6 rounded-full bg-slate-200/90 animate-shimmer" />
+          <div className="w-16 h-6 rounded-full bg-slate-200/90 animate-shimmer" />
+        </div>
+
+        {/* Favorite Button Skeleton */}
+        <div className="absolute top-3 right-3 w-7 h-7 rounded-lg bg-slate-200/90 animate-shimmer" />
+
+        {/* Floating Price Skeleton */}
+        <div className="absolute bottom-3 right-3 w-24 h-7 rounded-xl bg-slate-200/90 animate-shimmer" />
+      </div>
+
+      {/* Property Information Skeleton */}
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+        <div className="space-y-2">
+          {/* Title line */}
+          <div className="h-5 w-3/4 rounded-lg bg-slate-200 animate-shimmer" />
+          {/* Location line */}
+          <div className="h-3.5 w-1/2 rounded-md bg-slate-200 animate-shimmer" />
+        </div>
+
+        {/* Features / Icons Grid Skeleton */}
+        <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3.5">
+          <div className="h-7 rounded-lg bg-slate-100 animate-shimmer" />
+          <div className="h-7 rounded-lg bg-slate-100 animate-shimmer" />
+          <div className="h-7 rounded-lg bg-slate-100 animate-shimmer" />
+        </div>
+
+        {/* Availability Line Skeleton */}
+        <div className="h-4 w-2/3 rounded-md bg-slate-100 animate-shimmer pt-2" />
+      </div>
+    </div>
+  );
+}
+

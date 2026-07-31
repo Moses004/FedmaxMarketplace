@@ -8,10 +8,12 @@ import {
   Tv, Wifi, Wind, ShieldCheck, Flame, Briefcase, Sparkles, AlertCircle, RefreshCw,
   Share2, TrendingUp, Send, MessageSquare, ChevronLeft, ChevronRight, Star,
   Bus, ShoppingBag, GraduationCap, ExternalLink, Compass, Store, Navigation, Search,
-  Copy, CheckCheck, Globe, Download, Image as ImageIcon
+  Copy, CheckCheck, Globe, Download, Image as ImageIcon, ArrowLeftRight,
+  Video, Play, Pause, Volume2, VolumeX, RotateCcw, Film, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { getListingPrices, formatCurrencyAmount } from '../utils/currency';
 
 interface POIItem {
   name: string;
@@ -33,6 +35,9 @@ interface PropertyDetailsProps {
   currentUser: User | null;
   onBookingCreated: () => void;
   onSwitchToGuest: () => void;
+  isCompared?: boolean;
+  onToggleCompare?: () => void;
+  displayCurrency?: string;
 }
 
 export default function PropertyDetails({
@@ -41,10 +46,79 @@ export default function PropertyDetails({
   currentUser,
   onBookingCreated,
   onSwitchToGuest,
+  isCompared,
+  onToggleCompare,
+  displayCurrency = 'regional',
 }: PropertyDetailsProps) {
   const [activeTab, setActiveTab] = useState<'photos' | 'description'>('photos');
   const [selectedPhoto, setSelectedPhoto] = useState<number>(0);
   const [direction, setDirection] = useState<number>(0);
+
+  // Video Tour & Gallery States
+  const [mediaMode, setMediaMode] = useState<'photos' | 'video'>('photos');
+  const [isVideoMuted, setIsVideoMuted] = useState<boolean>(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const defaultVideoTourMap: Record<string, string> = {
+    '2-bedroom-flat': 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4',
+    'self-contained': 'https://assets.mixkit.co/videos/preview/mixkit-interior-of-a-modern-living-room-41583-large.mp4',
+    'studio': 'https://assets.mixkit.co/videos/preview/mixkit-interior-of-a-modern-living-room-41583-large.mp4',
+    'duplex': 'https://assets.mixkit.co/videos/preview/mixkit-living-room-with-large-windows-and-a-couch-41584-large.mp4',
+    'penthouse': 'https://assets.mixkit.co/videos/preview/mixkit-living-room-with-large-windows-and-a-couch-41584-large.mp4',
+    'villa': 'https://assets.mixkit.co/videos/preview/mixkit-living-room-with-large-windows-and-a-couch-41584-large.mp4',
+    'room': 'https://assets.mixkit.co/videos/preview/mixkit-bright-and-spacious-bedroom-in-a-modern-apartment-41581-large.mp4',
+    'single-room': 'https://assets.mixkit.co/videos/preview/mixkit-bright-and-spacious-bedroom-in-a-modern-apartment-41581-large.mp4',
+  };
+
+  const activeVideoUrl = listing.videoUrl || defaultVideoTourMap[listing.type] || defaultVideoTourMap['2-bedroom-flat'];
+
+  const getVideoEmbedInfo = (url: string) => {
+    if (!url) return { isEmbed: false, src: defaultVideoTourMap['2-bedroom-flat'] };
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      let videoId = '';
+      if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+      } else if (url.includes('v=')) {
+        videoId = url.split('v=')[1]?.split('&')[0] || '';
+      }
+      return { isEmbed: true, src: `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1` };
+    }
+    if (url.includes('vimeo.com')) {
+      const videoId = url.split('vimeo.com/')[1]?.split('?')[0] || '';
+      return { isEmbed: true, src: `https://player.vimeo.com/video/${videoId}?autoplay=1` };
+    }
+    return { isEmbed: false, src: url };
+  };
+
+  const videoInfo = getVideoEmbedInfo(activeVideoUrl);
+
+  const togglePlayVideo = () => {
+    if (videoRef.current) {
+      if (isVideoPlaying) {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      } else {
+        videoRef.current.play();
+        setIsVideoPlaying(true);
+      }
+    }
+  };
+
+  const toggleMuteVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isVideoMuted;
+      setIsVideoMuted(!isVideoMuted);
+    }
+  };
+
+  const handleRestartVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+      setIsVideoPlaying(true);
+    }
+  };
 
   const handlePrev = () => {
     setDirection(-1);
@@ -467,13 +541,16 @@ export default function PropertyDetails({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh] sm:max-h-[90vh] my-0 sm:my-auto">
         
+        {/* Mobile Grab Bar handle */}
+        <div className="md:hidden w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 shrink-0" />
+
         {/* Left Side Container: flex column & relative to host floating AI button & chat */}
         <div className="flex-1 flex flex-col relative overflow-hidden h-full">
           {/* Left Side: Images & Info Panel */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
           {/* Header row */}
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -494,6 +571,22 @@ export default function PropertyDetails({
             </div>
             
             <div className="flex items-center gap-2 shrink-0">
+              {onToggleCompare && (
+                <button
+                  type="button"
+                  onClick={onToggleCompare}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-sm ${
+                    isCompared
+                      ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-500/20'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                  title={isCompared ? "Remove from Compare" : "Compare Property"}
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>{isCompared ? 'Comparing' : 'Compare'}</span>
+                </button>
+              )}
+
               <button 
                 onClick={handleShare}
                 className="p-2 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 rounded-full border border-emerald-100 transition-colors flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 cursor-pointer shadow-sm bg-emerald-50/30"
@@ -512,90 +605,231 @@ export default function PropertyDetails({
             </div>
           </div>
 
-          {/* Big Photo Section */}
-          <div className="relative rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 aspect-[16/10] group">
-            <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-              <AnimatePresence initial={false} custom={direction}>
-                <motion.img
-                  key={selectedPhoto}
-                  custom={direction}
-                  variants={{
-                    enter: (dir: number) => ({
-                      x: dir > 0 ? '100%' : dir < 0 ? '-100%' : '0%',
-                      opacity: 0
-                    }),
-                    center: {
-                      x: '0%',
-                      opacity: 1
-                    },
-                    exit: (dir: number) => ({
-                      x: dir < 0 ? '100%' : dir > 0 ? '-100%' : '0%',
-                      opacity: 0
-                    })
-                  }}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{
-                    x: { type: "spring", stiffness: 300, damping: 30 },
-                    opacity: { duration: 0.2 }
-                  }}
-                  drag="x"
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.6}
-                  onDragEnd={(e, info) => {
-                    if (info.offset.x < -50) {
-                      handleNext();
-                    } else if (info.offset.x > 50) {
-                      handlePrev();
-                    }
-                  }}
-                  src={listing.images[selectedPhoto] || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'}
-                  alt={listing.title}
-                  className="absolute w-full h-full object-cover select-none cursor-grab active:cursor-grabbing"
-                  referrerPolicy="no-referrer"
-                />
-              </AnimatePresence>
-            </div>
+          {/* Media Mode Tabs Bar (Photos vs Video Tour) */}
+          <div className="flex items-center justify-between gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setMediaMode('photos')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                mediaMode === 'photos'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm border border-slate-200/50 dark:border-slate-700/50'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Photos ({listing.images.length})</span>
+            </button>
 
-            {/* Left/Right Chevron Navigation */}
-            {listing.images.length > 1 && (
-              <>
-                <button
-                  onClick={handlePrev}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 bg-slate-900/40 hover:bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/10 shadow-lg cursor-pointer max-sm:opacity-100 flex items-center justify-center hover:scale-110 active:scale-95"
-                  aria-label="Previous Image"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={handleNext}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-slate-900/40 hover:bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/10 shadow-lg cursor-pointer max-sm:opacity-100 flex items-center justify-center hover:scale-110 active:scale-95"
-                  aria-label="Next Image"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            )}
-
-            {/* Dots */}
-            {listing.images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/60 backdrop-blur-md px-3 py-1.5 rounded-full flex gap-1.5 z-20">
-                {listing.images.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setDirection(idx > selectedPhoto ? 1 : -1);
-                      setSelectedPhoto(idx);
-                    }}
-                    className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                      idx === selectedPhoto ? 'bg-emerald-400 w-4' : 'bg-white/50 hover:bg-white'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMediaMode('video');
+                setIsVideoPlaying(true);
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer relative overflow-hidden ${
+                mediaMode === 'video'
+                  ? 'bg-slate-900 text-white shadow-md border border-slate-700'
+                  : 'text-slate-700 hover:bg-white/60 dark:text-slate-300'
+              }`}
+            >
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              </span>
+              <Film className="w-3.5 h-3.5 text-rose-400" />
+              <span>Video Walk-through</span>
+              <span className="text-[10px] bg-rose-500/20 text-rose-300 font-extrabold px-1.5 py-0.5 rounded-full border border-rose-400/30">
+                HD
+              </span>
+            </button>
           </div>
+
+          {/* Media Content Container */}
+          {mediaMode === 'photos' ? (
+            <div className="relative rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 aspect-[16/10] group">
+              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                <AnimatePresence initial={false} custom={direction}>
+                  <motion.img
+                    key={selectedPhoto}
+                    custom={direction}
+                    variants={{
+                      enter: (dir: number) => ({
+                        x: dir > 0 ? '100%' : dir < 0 ? '-100%' : '0%',
+                        opacity: 0
+                      }),
+                      center: {
+                        x: '0%',
+                        opacity: 1
+                      },
+                      exit: (dir: number) => ({
+                        x: dir < 0 ? '100%' : dir > 0 ? '-100%' : '0%',
+                        opacity: 0
+                      })
+                    }}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{
+                      x: { type: "spring", stiffness: 300, damping: 30 },
+                      opacity: { duration: 0.2 }
+                    }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.6}
+                    onDragEnd={(e, info) => {
+                      if (info.offset.x < -50) {
+                        handleNext();
+                      } else if (info.offset.x > 50) {
+                        handlePrev();
+                      }
+                    }}
+                    src={listing.images[selectedPhoto] || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'}
+                    alt={listing.title}
+                    className="absolute w-full h-full object-cover select-none cursor-grab active:cursor-grabbing"
+                    referrerPolicy="no-referrer"
+                  />
+                </AnimatePresence>
+              </div>
+
+              {/* Left/Right Chevron Navigation */}
+              {listing.images.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrev}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 bg-slate-900/40 hover:bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/10 shadow-lg cursor-pointer max-sm:opacity-100 flex items-center justify-center hover:scale-110 active:scale-95"
+                    aria-label="Previous Image"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-slate-900/40 hover:bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/10 shadow-lg cursor-pointer max-sm:opacity-100 flex items-center justify-center hover:scale-110 active:scale-95"
+                    aria-label="Next Image"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+
+              {/* Quick Launch Video Tour Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMediaMode('video');
+                  setIsVideoPlaying(true);
+                }}
+                className="absolute bottom-4 right-4 z-20 bg-slate-900/90 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold backdrop-blur-md transition-all shadow-xl border border-white/20 flex items-center gap-2.5 hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center shrink-0 shadow-sm">
+                  <Play className="w-3 h-3 text-white fill-white translate-x-0.5" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-[9px] text-rose-300 uppercase font-black tracking-wider leading-none">Interactive Tour</span>
+                  <span className="text-xs font-extrabold text-white leading-tight">Watch Video Walk-through</span>
+                </div>
+              </button>
+
+              {/* Dots */}
+              {listing.images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/60 backdrop-blur-md px-3 py-1.5 rounded-full flex gap-1.5 z-20">
+                  {listing.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setDirection(idx > selectedPhoto ? 1 : -1);
+                        setSelectedPhoto(idx);
+                      }}
+                      className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                        idx === selectedPhoto ? 'bg-emerald-400 w-4' : 'bg-white/50 hover:bg-white'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 aspect-[16/10] group flex items-center justify-center">
+              {videoInfo.isEmbed ? (
+                <iframe
+                  src={videoInfo.src}
+                  title={`${listing.title} Video Tour`}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="relative w-full h-full flex items-center justify-center bg-black">
+                  <video
+                    ref={videoRef}
+                    src={videoInfo.src}
+                    autoPlay
+                    loop
+                    muted={isVideoMuted}
+                    playsInline
+                    onPlay={() => setIsVideoPlaying(true)}
+                    onPause={() => setIsVideoPlaying(false)}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Top Watermark & Badge */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none">
+                    <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-lg">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span>HD Property Video Walk-through</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMediaMode('photos')}
+                      className="pointer-events-auto bg-slate-900/80 hover:bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-extrabold border border-white/10 backdrop-blur-md transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Photo Gallery</span>
+                    </button>
+                  </div>
+
+                  {/* Custom Video Control Bar Overlay */}
+                  <div className="absolute bottom-3 left-3 right-3 bg-slate-900/85 backdrop-blur-md p-2.5 rounded-2xl border border-white/10 flex items-center justify-between text-white z-20 shadow-xl opacity-90 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={togglePlayVideo}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors text-white cursor-pointer"
+                        title={isVideoPlaying ? "Pause Video" : "Play Video"}
+                      >
+                        {isVideoPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRestartVideo}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors text-slate-300 hover:text-white cursor-pointer"
+                        title="Replay from start"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="text-center px-2">
+                      <span className="text-[11px] font-extrabold text-emerald-400 block tracking-wide uppercase">360° Interior Walk-through</span>
+                      <span className="text-[10px] text-slate-300 truncate max-w-[200px] block">{listing.title}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleMuteVideo}
+                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                          isVideoMuted ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                        title={isVideoMuted ? "Unmute Audio" : "Mute Audio"}
+                      >
+                        {isVideoMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-3 gap-3">
@@ -640,6 +874,44 @@ export default function PropertyDetails({
                   <span>{amenity}</span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Video Walkthrough Feature Card */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-rose-950 text-white p-4 sm:p-5 rounded-2xl border border-rose-500/20 shadow-lg relative overflow-hidden">
+            <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-rose-500/10 blur-2xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-400/30">
+                    <Film className="w-4 h-4" />
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-wider text-rose-300">
+                    360° Virtual Walk-through
+                  </span>
+                </div>
+                <h4 className="text-base font-extrabold text-white">
+                  Experience this property in High Definition
+                </h4>
+                <p className="text-xs text-slate-300 max-w-md">
+                  Take a complete video tour of the layout, natural lighting, and interior finishes before booking your viewing.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMediaMode('video');
+                  setIsVideoPlaying(true);
+                  // Scroll top left container if needed
+                  const leftContainer = document.querySelector('.overflow-y-auto');
+                  if (leftContainer) leftContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer hover:scale-105 active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>Launch Video Tour</span>
+              </button>
             </div>
           </div>
 
@@ -838,9 +1110,23 @@ export default function PropertyDetails({
             
             <div className="bg-gradient-to-br from-indigo-50/40 to-slate-50 border border-slate-100 p-4 rounded-2xl space-y-4">
               {isReportLoading ? (
-                <div className="py-8 flex flex-col items-center justify-center gap-3 text-slate-400">
-                  <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
-                  <span className="text-xs font-medium animate-pulse">Consulting local neighborhood guides...</span>
+                <div className="space-y-3 p-1 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 w-36 rounded-md bg-slate-200 animate-shimmer" />
+                    <div className="h-4 w-20 rounded-md bg-slate-200 animate-shimmer" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="bg-white p-3 rounded-xl border border-slate-100 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="h-3 w-20 rounded bg-slate-200 animate-shimmer" />
+                          <div className="h-3 w-8 rounded bg-slate-200 animate-shimmer" />
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden animate-shimmer" />
+                        <div className="h-2.5 w-full rounded bg-slate-100 animate-shimmer" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : neighborhoodData ? (
                 <div className="space-y-4">
@@ -1261,35 +1547,56 @@ export default function PropertyDetails({
             </div>
 
             {/* Price Header */}
-            <div className="mb-5 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 text-[11px] uppercase tracking-wider font-bold">
-                  {billingCycle === 'annual' ? 'Annual Upfront Rate' : 'Standard Monthly Rent'}
-                </span>
-                {billingCycle === 'annual' && (
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
-                    Save {annualDiscountPct}%
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-black text-slate-800">€{effectivePrice}</span>
-                <span className="text-slate-500 text-sm font-medium">/month</span>
-                {billingCycle === 'annual' && (
-                  <span className="text-sm font-semibold text-slate-400 line-through">
-                    €{listing.price}
-                  </span>
-                )}
-              </div>
-              {billingCycle === 'annual' ? (
-                <p className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
-                  <Check className="w-4 h-4 stroke-[3] text-emerald-600" />
-                  <span>Saves €{Math.round((listing.price - discountedMonthlyPrice) * 12)} / year with annual payment</span>
-                </p>
-              ) : (
-                <p className="text-xs text-slate-400 mt-1">All utility bills included up to €80/mo</p>
-              )}
-            </div>
+            {(() => {
+              const { localPrice, priceUSD, primaryCode, secondaryFormatted, nativeCurrencyCode } = getListingPrices(listing, displayCurrency);
+              const isAnnual = billingCycle === 'annual';
+              const activeLocal = isAnnual ? Math.round(localPrice * (1 - annualDiscountPct / 100)) : localPrice;
+              const activeUSD = isAnnual ? Math.round(priceUSD * (1 - annualDiscountPct / 100)) : priceUSD;
+              const activeFormatted = formatCurrencyAmount(activeLocal, primaryCode);
+              const originalFormatted = formatCurrencyAmount(localPrice, primaryCode);
+              const savingsLocal = Math.round((localPrice - activeLocal) * 12);
+              const savingsUSD = Math.round((priceUSD - activeUSD) * 12);
+
+              return (
+                <div className="mb-5 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 text-[11px] uppercase tracking-wider font-bold">
+                      {isAnnual ? 'Annual Upfront Rate' : 'Standard Monthly Rent'}
+                    </span>
+                    {isAnnual && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                        Save {annualDiscountPct}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-800">{activeFormatted}</span>
+                    <span className="text-slate-500 text-xs sm:text-sm font-medium">/month</span>
+                    {isAnnual && (
+                      <span className="text-xs sm:text-sm font-semibold text-slate-400 line-through">
+                        {originalFormatted}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Secondary universal USD or native currency line */}
+                  {primaryCode !== 'USD' && (
+                    <div className="mt-0.5 text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                      <span>≈ {formatCurrencyAmount(activeUSD, 'USD')} / mo (Universal USD)</span>
+                    </div>
+                  )}
+
+                  {isAnnual ? (
+                    <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 stroke-[3] text-emerald-600 shrink-0" />
+                      <span>Saves {formatCurrencyAmount(savingsLocal, primaryCode)} ({formatCurrencyAmount(savingsUSD, 'USD')}) / year</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-1.5">Includes standard maintenance & verified lease</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {bookingStatus === 'success' ? (
               <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl text-center space-y-3.5 my-8">

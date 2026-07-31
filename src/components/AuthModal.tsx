@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { registerUser, login } from '../services/store';
+import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { 
   GLOBAL_COUNTRIES, CountryData, searchCountries, 
   getDynamicMarketsForCountry, searchAddressSuggestions, GeocodedAddress, LAUNCH_REGIONS,
@@ -18,6 +19,7 @@ interface AuthModalProps {
   onSuccess: (user: User) => void;
   initialRole?: 'guest' | 'landlord';
   initialMode?: 'signup' | 'login';
+  isMandatory?: boolean;
 }
 
 export default function AuthModal({
@@ -25,7 +27,8 @@ export default function AuthModal({
   onClose,
   onSuccess,
   initialRole = 'guest',
-  initialMode = 'signup'
+  initialMode = 'signup',
+  isMandatory = false
 }: AuthModalProps) {
   const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
   const [role, setRole] = useState<'guest' | 'landlord'>(initialRole);
@@ -125,8 +128,10 @@ export default function AuthModal({
     e.preventDefault();
     setErrorMsg('');
 
-    if (!email || !email.includes('@')) {
-      setErrorMsg('Please enter a valid email address.');
+    const formattedEmail = normalizeEmail(email);
+
+    if (!formattedEmail || !isValidEmail(formattedEmail)) {
+      setErrorMsg('Please enter a valid email address (e.g. user@domain.com).');
       return;
     }
 
@@ -158,7 +163,7 @@ export default function AuthModal({
       setTimeout(() => {
         const newUser = registerUser({
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          email: formattedEmail,
           role,
           phone: fullPhone,
           country,
@@ -178,7 +183,7 @@ export default function AuthModal({
       // Login mode
       setIsSubmitting(true);
       setTimeout(() => {
-        const user = login(email.trim().toLowerCase(), role, name.trim() || undefined);
+        const user = login(formattedEmail, role, name.trim() || undefined);
         setIsSubmitting(false);
         onSuccess(user);
         onClose();
@@ -192,13 +197,23 @@ export default function AuthModal({
         
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 text-white relative">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isMandatory && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {isMandatory && (
+            <div className="mb-3 px-3 py-1 bg-amber-500/20 border border-amber-400/40 rounded-xl text-amber-300 text-[11px] font-extrabold flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Authentication Required — Please Sign Up or Log In to access Rentora</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 mb-2">
             <span className="p-2 bg-emerald-500/20 border border-emerald-400/30 rounded-xl text-emerald-400">
@@ -216,8 +231,8 @@ export default function AuthModal({
           </h2>
           <p className="text-xs text-slate-300 mt-1 leading-relaxed">
             {mode === 'signup'
-              ? 'Complete your profile details, phone number, and verified location address.'
-              : 'Access your property dashboard, bookings, or saved favorites.'}
+              ? 'Complete your profile details, phone number, and verified location address to get started.'
+              : 'Enter your account details to access listings, saved favorites, and bookings.'}
           </p>
 
           {/* Mode Switcher Tabs */}
@@ -328,7 +343,25 @@ export default function AuthModal({
             )}
 
             <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Email Address <span className="text-rose-500">*</span></label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-bold text-slate-600 block">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                {email.trim().length > 0 && (
+                  <span className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                    isValidEmail(email) ? 'text-emerald-600' : 'text-rose-500'
+                  }`}>
+                    {isValidEmail(email) ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Valid format</span>
+                      </>
+                    ) : (
+                      <span>Invalid email format</span>
+                    )}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type="email"
@@ -336,9 +369,18 @@ export default function AuthModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className={`w-full pl-9 pr-9 py-2.5 bg-slate-50 border rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:bg-white transition-colors ${
+                    email.trim().length > 0
+                      ? isValidEmail(email)
+                        ? 'border-emerald-300 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        : 'border-rose-300 focus:ring-rose-500/20 focus:border-rose-500'
+                      : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  }`}
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                {email.trim().length > 0 && isValidEmail(email) && (
+                  <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />
+                )}
               </div>
             </div>
 

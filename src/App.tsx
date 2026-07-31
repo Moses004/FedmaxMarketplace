@@ -5,31 +5,159 @@ import {
   getListingViews, incrementListingViews
 } from './services/store';
 import PropertyMap from './components/PropertyMap';
-import PropertyCard from './components/PropertyCard';
+import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
 import PropertyDetails from './components/PropertyDetails';
-import BookingsView from './components/BookingsView';
+import BookingsView, { BookingsViewSkeleton } from './components/BookingsView';
 import AddListingModal from './components/AddListingModal';
-import LandlordDashboard from './components/LandlordDashboard';
+import LandlordDashboard, { LandlordDashboardSkeleton } from './components/LandlordDashboard';
 import AuthModal from './components/AuthModal';
 import EditProfileModal from './components/EditProfileModal';
 import EmailLogModal from './components/EmailLogModal';
 import PlacesAutocompleteSearch from './components/PlacesAutocompleteSearch';
 import PromotionalBanner from './components/PromotionalBanner';
 import Footer from './components/Footer';
+import ComparePropertiesModal from './components/ComparePropertiesModal';
+import CompareBar from './components/CompareBar';
+import MobileBottomNav from './components/MobileBottomNav';
+import CurrencyConverterModal from './components/CurrencyConverterModal';
+import { useToast } from './context/ToastContext';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, LogOut, Check,
-  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck
+  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getStatesForCountry, getCitiesForState, getAreasForCity } from './utils/location';
+import { SUPPORTED_CURRENCIES, resolveUserDefaultCurrency, detectIPCurrency } from './utils/currency';
+
+function ExploreTabSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Search and filters bar skeleton */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl" />
+          <div className="w-28 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl shrink-0" />
+          <div className="w-24 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl shrink-0" />
+        </div>
+        <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl w-full" />
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="h-8 w-28 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0" />
+          ))}
+        </div>
+      </div>
+
+      {/* Grid + Map Dual Pane Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px]">
+        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((idx) => (
+            <PropertyCardSkeleton key={idx} />
+          ))}
+        </div>
+        <div className="hidden lg:block lg:col-span-5 h-[500px] bg-slate-100 dark:bg-slate-800 rounded-3xl border border-slate-200/50 dark:border-slate-800" />
+      </div>
+    </div>
+  );
+}
+
+function FavoritesTabSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-xs flex justify-between items-center">
+        <div className="space-y-2">
+          <div className="h-6 w-48 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+          <div className="h-4 w-64 bg-slate-100 dark:bg-slate-800/60 rounded-lg" />
+        </div>
+        <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((idx) => (
+          <PropertyCardSkeleton key={idx} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   // Core App Views
-  const [currentTab, setCurrentTab] = useState<'explore' | 'bookings' | 'dashboard'>('explore');
+  const [currentTab, setCurrentTab] = useState<'explore' | 'bookings' | 'dashboard' | 'favorites'>('explore');
+  const [isTabLoading, setIsTabLoading] = useState<boolean>(false);
+
+  const handleTabChange = (newTab: 'explore' | 'bookings' | 'dashboard' | 'favorites') => {
+    if (newTab === currentTab && !isTabLoading) return;
+    setIsTabLoading(true);
+    setCurrentTab(newTab);
+    setSelectedListing(null);
+    setTimeout(() => {
+      setIsTabLoading(false);
+    }, 300);
+  };
+  const toast = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+
+  // Property Comparison State
+  const [comparedListings, setComparedListings] = useState<Listing[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+
+  const toggleCompareListing = (listing: Listing) => {
+    setComparedListings((prev) => {
+      const exists = prev.some((l) => l.id === listing.id);
+      if (exists) {
+        toast.info('Removed from Compare', listing.title);
+        return prev.filter((l) => l.id !== listing.id);
+      } else {
+        if (prev.length >= 4) {
+          toast.warning('Comparison Limit Reached', 'You can compare up to 4 properties at a time.');
+          return prev;
+        }
+        toast.success('Added to Compare', `${listing.title} added (${prev.length + 1}/4)`);
+        return [...prev, listing];
+      }
+    });
+  };
+
+  const removeCompareListing = (id: string) => {
+    setComparedListings((prev) => {
+      const target = prev.find((l) => l.id === id);
+      if (target) {
+        toast.info('Removed from Compare', target.title);
+      }
+      return prev.filter((l) => l.id !== id);
+    });
+  };
+
+  const clearCompareListings = () => {
+    setComparedListings([]);
+    toast.info('Compare List Cleared');
+  };
+
+  // Dark Mode Theme State
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('rentora_theme');
+      if (savedTheme) return savedTheme === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
+      localStorage.setItem('rentora_theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      root.setAttribute('data-theme', 'light');
+      localStorage.setItem('rentora_theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Filter & Region States
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +176,24 @@ export default function App() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [maxPrice, setMaxPrice] = useState<number>(5000);
   const [minBedrooms, setMinBedrooms] = useState<string>('all');
+  const [isLoadingListings, setIsLoadingListings] = useState<boolean>(true);
+
+  // Initial load skeleton effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoadingListings(false);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Filter change skeleton shimmer effect to boost perceived performance
+  useEffect(() => {
+    setIsLoadingListings(true);
+    const timer = setTimeout(() => {
+      setIsLoadingListings(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [selectedRegionId, selectedType, maxPrice, minBedrooms, locationScopeMode, selectedCountryFilter, selectedStateFilter, selectedCityFilter, selectedAreaFilter]);
 
   // UI States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -90,6 +236,64 @@ export default function App() {
     setListings(getListings());
     setCurrentUser(getCurrentUser());
     setFavorites(getFavorites());
+  };
+
+  // Location-Based Display Currency State
+  const [displayCurrency, setDisplayCurrency] = useState<string>('USD');
+  const [showCurrencyConverterModal, setShowCurrencyConverterModal] = useState<boolean>(false);
+  const [currencySourceInfo, setCurrencySourceInfo] = useState<{ source: string; label: string }>({
+    source: 'default',
+    label: 'Detecting local currency...',
+  });
+  const [isDetectingCurrency, setIsDetectingCurrency] = useState<boolean>(true);
+
+  // Auto-detect display currency based on User Profile settings, IP, or Timezone
+  useEffect(() => {
+    let isMounted = true;
+    setIsDetectingCurrency(true);
+
+    const resolved = resolveUserDefaultCurrency(currentUser);
+    if (isMounted) {
+      setDisplayCurrency(resolved.code);
+      setCurrencySourceInfo({ source: resolved.source, label: resolved.label });
+    }
+
+    // Unless the user explicitly manually selected a currency override, run IP geolocation detection
+    if (resolved.source !== 'override') {
+      detectIPCurrency().then((ipResult) => {
+        if (isMounted && ipResult?.code && SUPPORTED_CURRENCIES[ipResult.code]) {
+          setDisplayCurrency(ipResult.code);
+          setCurrencySourceInfo({
+            source: 'ip',
+            label: `IP Location: ${ipResult.country || 'Detected Region'} (${ipResult.code})`,
+          });
+        }
+        if (isMounted) setIsDetectingCurrency(false);
+      }).catch(() => {
+        if (isMounted) setIsDetectingCurrency(false);
+      });
+    } else {
+      setIsDetectingCurrency(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
+
+  const handleCurrencyChange = (newCode: string) => {
+    if (!SUPPORTED_CURRENCIES[newCode]) return;
+    setDisplayCurrency(newCode);
+    localStorage.setItem('rentora_user_currency', newCode);
+    setCurrencySourceInfo({
+      source: 'override',
+      label: `User Selected (${newCode})`,
+    });
+    const curr = SUPPORTED_CURRENCIES[newCode];
+    toast.success(
+      `Display Currency Set to ${curr.code}`,
+      `Listings are now formatted in ${curr.name} (${curr.symbol}), with universal USD fallback.`
+    );
   };
 
   useEffect(() => {
@@ -198,6 +402,9 @@ export default function App() {
     logout();
     setCurrentUser(null);
     setCurrentTab('explore');
+    setAuthModalMode('login');
+    setShowAuthModal(true);
+    toast.info('Signed Out', 'Please sign in or sign up to access your account.');
     refreshData();
   };
 
@@ -341,7 +548,10 @@ export default function App() {
       (minBedrooms === '2' && listing.bedrooms === 2) ||
       (minBedrooms === '3+' && listing.bedrooms >= 3);
 
-    return matchesSearch && matchesRegion && matchesLocationScope && matchesType && matchesPrice && matchesBedrooms;
+    // Favorites filter
+    const matchesFavorites = currentTab !== 'favorites' || favorites.includes(listing.id);
+
+    return matchesFavorites && matchesSearch && matchesRegion && matchesLocationScope && matchesType && matchesPrice && matchesBedrooms;
   });
 
   // Select a property card & scroll/zoom to it
@@ -372,7 +582,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
           {/* Logo and Tagline */}
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentTab('explore')}>
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleTabChange('explore')}>
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-600/10 transition-transform hover:scale-105">
               <Building className="w-5.5 h-5.5 stroke-[2.5]" />
             </div>
@@ -385,10 +595,7 @@ export default function App() {
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1.5 bg-slate-100/70 p-1.5 rounded-2xl">
             <button
-              onClick={() => {
-                setCurrentTab('explore');
-                setSelectedListing(null);
-              }}
+              onClick={() => handleTabChange('explore')}
               className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
                 currentTab === 'explore'
                   ? 'bg-white text-slate-800 shadow-sm'
@@ -399,10 +606,7 @@ export default function App() {
             </button>
             {currentUser?.role === 'landlord' && (
               <button
-                onClick={() => {
-                  setCurrentTab('dashboard');
-                  setSelectedListing(null);
-                }}
+                onClick={() => handleTabChange('dashboard')}
                 className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
                   currentTab === 'dashboard'
                     ? 'bg-white text-slate-800 shadow-sm'
@@ -413,10 +617,7 @@ export default function App() {
               </button>
             )}
             <button
-              onClick={() => {
-                setCurrentTab('bookings');
-                setSelectedListing(null);
-              }}
+              onClick={() => handleTabChange('bookings')}
               className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
                 currentTab === 'bookings'
                   ? 'bg-white text-slate-800 shadow-sm'
@@ -429,6 +630,41 @@ export default function App() {
 
           {/* User Auth Action Center */}
           <div className="flex items-center gap-2 relative">
+            {/* Header Compare Button */}
+            <button
+              type="button"
+              onClick={() => setShowCompareModal(true)}
+              className={`flex items-center gap-1.5 font-bold text-xs px-3 py-2 rounded-xl transition-all border cursor-pointer relative ${
+                comparedListings.length > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              }`}
+              title="Compare selected properties side-by-side"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              <span className="hidden sm:inline">Compare</span>
+              {comparedListings.length > 0 && (
+                <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-900 font-black text-[10px] flex items-center justify-center shrink-0">
+                  {comparedListings.length}
+                </span>
+              )}
+            </button>
+
+            {/* Direct Header Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs p-2.5 rounded-xl transition-all border border-slate-200 cursor-pointer"
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label="Toggle dark mode theme"
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700" />
+              )}
+            </button>
+
             <button
               onClick={() => setShowEmailLogsModal(true)}
               className="hidden md:flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold text-xs px-3.5 py-2 rounded-xl transition-all border border-slate-700 shadow-xs cursor-pointer"
@@ -469,7 +705,47 @@ export default function App() {
 
             {/* Auth Identity Dropdown Panel */}
             {showAuthDropdown && (
-              <div className="absolute right-0 top-full mt-2.5 w-[310px] bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 space-y-3 z-50 animate-fade-in">
+              <div className="absolute right-0 top-full mt-2.5 w-[320px] bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 space-y-3 z-50 animate-fade-in">
+                {/* Theme Mode Toggle Banner in Profile Dropdown */}
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+                      isDarkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-600'
+                    }`}>
+                      {isDarkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <span className="font-extrabold text-slate-800 text-xs block leading-tight">
+                        {isDarkMode ? 'Dark Theme' : 'Light Theme'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        {isDarkMode ? 'Eye-friendly night mode' : 'High contrast light mode'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    aria-label="Toggle dark mode theme"
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      isDarkMode ? 'bg-emerald-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out flex items-center justify-center ${
+                        isDarkMode ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    >
+                      {isDarkMode ? (
+                        <Moon className="w-3 h-3 text-emerald-700" />
+                      ) : (
+                        <Sun className="w-3 h-3 text-amber-500" />
+                      )}
+                    </span>
+                  </button>
+                </div>
+
                 {/* Current Active Account Card */}
                 {currentUser ? (
                   <div className="bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
@@ -571,63 +847,58 @@ export default function App() {
         </div>
       </header>
 
-      {/* MOBILE NAVIGATION BAR (STICKY AT BOTTOM FOR ACCESSIBILITY) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/80 p-2.5 flex justify-around shadow-lg">
-        <button
-          onClick={() => {
-            setCurrentTab('explore');
-            setSelectedListing(null);
-          }}
-          className={`flex flex-col items-center gap-1 font-bold text-xs ${
-            currentTab === 'explore' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Compass className="w-5 h-5" />
-          <span>Explore</span>
-        </button>
-        {currentUser?.role === 'landlord' && (
+      {/* MOBILE BOTTOM NAVIGATION DOCK (STICKY AT BOTTOM FOR ACCESSIBILITY) */}
+      <MobileBottomNav
+        currentTab={currentTab}
+        onTabChange={handleTabChange}
+        favoritesCount={favorites.length}
+        comparedCount={comparedListings.length}
+        bookingsCount={currentUser ? getBookings().length : 0}
+        onOpenCompare={() => setShowCompareModal(true)}
+        onOpenProfile={() => setShowAuthDropdown(true)}
+        onOpenAddListing={currentUser?.role === 'landlord' ? () => setShowAddModal(true) : undefined}
+        currentUser={currentUser}
+      />
+
+      {/* FLOATING MAP / LIST TOGGLE BUTTON ON MOBILE (FLIPX / AIRBNB UX) */}
+      {(currentTab === 'explore' || currentTab === 'favorites') && (
+        <div className="md:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 animate-fade-in pointer-events-auto">
           <button
-            onClick={() => {
-              setCurrentTab('dashboard');
-              setSelectedListing(null);
-            }}
-            className={`flex flex-col items-center gap-1 font-bold text-xs ${
-              currentTab === 'dashboard' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
-            }`}
+            type="button"
+            onClick={() => handleSetMapViewMode(mapViewMode === 'map' ? 'grid' : 'map')}
+            className="bg-slate-900 text-white dark:bg-emerald-600 dark:text-white px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-black ring-4 ring-white/50 dark:ring-slate-900/50 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-700/50"
           >
-            <BarChart3 className="w-5 h-5" />
-            <span>Dashboard</span>
+            {mapViewMode === 'map' ? (
+              <>
+                <GridIcon className="w-4 h-4 text-emerald-400 dark:text-white stroke-[2.5]" />
+                <span>Show List</span>
+              </>
+            ) : (
+              <>
+                <MapIcon className="w-4 h-4 text-emerald-400 dark:text-white stroke-[2.5]" />
+                <span>Map View</span>
+              </>
+            )}
           </button>
-        )}
-        <button
-          onClick={() => {
-            setCurrentTab('bookings');
-            setSelectedListing(null);
-          }}
-          className={`flex flex-col items-center gap-1 font-bold text-xs ${
-            currentTab === 'bookings' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Calendar className="w-5 h-5" />
-          <span>Bookings</span>
-        </button>
-        {currentUser?.role === 'landlord' && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex flex-col items-center gap-1 font-bold text-xs text-slate-400 hover:text-slate-600"
-          >
-            <Plus className="w-5 h-5 text-emerald-600" />
-            <span>List</span>
-          </button>
-        )}
-      </nav>
+        </div>
+      )}
 
       {/* CORE VIEWPORT */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 mb-20 md:mb-8 overflow-hidden">
-        {currentTab === 'explore' ? (
-          
-          // DUAL-PANE EXPLORE MODE
-          <div className="space-y-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {currentTab === 'explore' ? (
+              isTabLoading ? (
+                <ExploreTabSkeleton />
+              ) : (
+                // DUAL-PANE EXPLORE MODE
+                <div className="space-y-6">
             
             {/* SEARCH AND FILTERS BAR */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 lg:p-5 space-y-4">
@@ -746,10 +1017,66 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Property Count Badge */}
-                  <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5 ml-auto">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span><strong className="text-slate-800">{filteredItems.length}</strong> listings in scope</span>
+                  {/* Right Side: Currency Auto-Detect Badge & Property Count */}
+                  <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+                    
+                    {/* Auto-Detected Currency Selector Pill */}
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200/90 rounded-xl px-2.5 py-1 text-xs shadow-2xs transition-all hover:border-emerald-300">
+                      <span className="text-slate-400 font-extrabold uppercase text-[9.5px] tracking-wider shrink-0 flex items-center gap-1">
+                        <Globe className="w-3 h-3 text-emerald-600" />
+                        <span className="hidden sm:inline">Currency:</span>
+                      </span>
+                      
+                      <div className="flex items-center gap-1">
+                        <span className="text-emerald-700 font-extrabold text-xs">
+                          {SUPPORTED_CURRENCIES[displayCurrency]?.flag} {displayCurrency} ({SUPPORTED_CURRENCIES[displayCurrency]?.symbol})
+                        </span>
+                        {isDetectingCurrency ? (
+                          <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin" />
+                        ) : (
+                          <span 
+                            title={currencySourceInfo.label}
+                            className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 hidden md:inline-block cursor-help"
+                          >
+                            {currencySourceInfo.source === 'profile'
+                              ? 'Profile Auto'
+                              : currencySourceInfo.source === 'ip'
+                              ? 'IP Detected'
+                              : currencySourceInfo.source === 'override'
+                              ? 'Custom'
+                              : 'Auto'}
+                          </span>
+                        )}
+                      </div>
+
+                      <select
+                        value={displayCurrency}
+                        onChange={(e) => handleCurrencyChange(e.target.value)}
+                        className="bg-transparent text-[11px] font-extrabold text-slate-700 focus:outline-none cursor-pointer border-l border-slate-200 pl-1.5 ml-0.5"
+                        aria-label="Select Local Display Currency"
+                      >
+                        {Object.values(SUPPORTED_CURRENCIES).map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.code} ({c.symbol}) - {c.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={() => setShowCurrencyConverterModal(true)}
+                        className="ml-1 pl-1.5 border-l border-slate-200 text-slate-500 hover:text-emerald-700 transition-colors flex items-center gap-1 font-extrabold text-[10px]"
+                        title="Open FX Currency Calculator"
+                      >
+                        <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="hidden lg:inline">FX Calc</span>
+                      </button>
+                    </div>
+
+                    {/* Property Count Badge */}
+                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span><strong className="text-slate-800">{filteredItems.length}</strong> listings</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1180,7 +1507,19 @@ export default function App() {
               }`}>
 
                 <div className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin">
-                  {filteredItems.length === 0 ? (
+                  {isLoadingListings ? (
+                    <div className={`grid gap-4 ${
+                      mapViewMode === 'grid'
+                        ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                        : mapViewMode === 'map'
+                        ? 'grid-cols-1'
+                        : 'grid-cols-1 sm:grid-cols-2'
+                    }`}>
+                      {[1, 2, 3, 4, 5, 6].map((idx) => (
+                        <PropertyCardSkeleton key={idx} />
+                      ))}
+                    </div>
+                  ) : filteredItems.length === 0 ? (
                     <div className="text-center py-20 bg-white border border-slate-100 rounded-3xl space-y-2">
                       <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
                       <h4 className="font-bold text-slate-700 text-sm">No rentals matches your search</h4>
@@ -1213,6 +1552,7 @@ export default function App() {
                           key={listing.id}
                           listing={listing}
                           distanceKm={distanceKm}
+                          displayCurrency={displayCurrency}
                           isSelected={selectedListing?.id === listing.id}
                           onClick={() => handleSelectListing(listing)}
                           isFavorited={favorites.includes(listing.id)}
@@ -1220,6 +1560,11 @@ export default function App() {
                             e.stopPropagation();
                             toggleFavorite(listing.id);
                             setFavorites(getFavorites());
+                          }}
+                          isCompared={comparedListings.some((l) => l.id === listing.id)}
+                          onToggleCompare={(e) => {
+                            e.stopPropagation();
+                            toggleCompareListing(listing);
                           }}
                         />
                       ))}
@@ -1257,34 +1602,117 @@ export default function App() {
             />
 
           </div>
+            )
         ) : currentTab === 'dashboard' ? (
-          <LandlordDashboard
-            currentUser={currentUser}
-            listings={listings}
-            bookings={getBookings()}
-            onAddListingClick={() => setShowAddModal(true)}
-            onViewBookingClick={() => setCurrentTab('bookings')}
-            onViewListingClick={(listing) => {
-              setSelectedListing(listing);
-              incrementListingViews(listing.id);
-            }}
-            onRefreshData={refreshData}
-            onEditProfileClick={() => setShowEditProfileModal(true)}
-          />
+          isTabLoading ? (
+            <LandlordDashboardSkeleton />
+          ) : (
+            <LandlordDashboard
+              currentUser={currentUser}
+              listings={listings}
+              bookings={getBookings()}
+              onAddListingClick={() => setShowAddModal(true)}
+              onViewBookingClick={() => handleTabChange('bookings')}
+              onViewListingClick={(listing) => {
+                setSelectedListing(listing);
+                incrementListingViews(listing.id);
+                handleTabChange('explore');
+              }}
+              onRefreshData={refreshData}
+              onEditProfileClick={() => setShowEditProfileModal(true)}
+            />
+          )
+        ) : currentTab === 'favorites' ? (
+          isTabLoading ? (
+            <FavoritesTabSkeleton />
+          ) : (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display font-black text-xl text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
+                    <span>Your Saved Properties</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {favorites.length} home{favorites.length === 1 ? '' : 's'} saved to your wishlist for quick access and comparison.
+                  </p>
+                </div>
+                {favorites.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('explore')}
+                    className="px-4 py-2 bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-slate-800 transition-all cursor-pointer self-start sm:self-auto"
+                  >
+                    Explore More
+                  </button>
+                )}
+              </div>
+
+              {favorites.length === 0 ? (
+                <div className="text-center py-20 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-3">
+                  <Heart className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto" />
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">No saved properties yet</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    Click the heart icon on any property card while exploring to keep track of your favorite apartments.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('explore')}
+                    className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                  >
+                    Browse Rentals Now
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {listings
+                    .filter((l) => favorites.includes(l.id))
+                    .map((listing) => (
+                      <PropertyCard
+                        key={listing.id}
+                        listing={listing}
+                        displayCurrency={displayCurrency}
+                        isSelected={selectedListing?.id === listing.id}
+                        onClick={() => handleSelectListing(listing)}
+                        isFavorited={true}
+                        onToggleFavorite={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(listing.id);
+                          setFavorites(getFavorites());
+                        }}
+                        isCompared={comparedListings.some((l) => l.id === listing.id)}
+                        onToggleCompare={(e) => {
+                          e.stopPropagation();
+                          toggleCompareListing(listing);
+                        }}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          )
         ) : (
           
           // BOOKINGS & OWNER APPROVAL HUB
-          <div className="animate-fade-in bg-white border border-slate-100 shadow-sm rounded-3xl p-6 lg:p-8">
-            <BookingsView 
-              currentUser={currentUser}
-              onStatusChanged={refreshData}
-            />
-          </div>
+          isTabLoading ? (
+            <BookingsViewSkeleton />
+          ) : (
+            <div className="animate-fade-in bg-white border border-slate-100 shadow-sm rounded-3xl p-6 lg:p-8">
+              <BookingsView 
+                currentUser={currentUser}
+                onStatusChanged={refreshData}
+              />
+            </div>
+          )
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* COMPREHENSIVE FOOTER SECTION */}
       <Footer
+        displayCurrency={displayCurrency}
+        onCurrencyChange={handleCurrencyChange}
         onSelectType={(type) => {
           setSelectedType(type);
           setCurrentTab('explore');
@@ -1295,6 +1723,14 @@ export default function App() {
           setShowAuthModal(true);
         }}
         onListPropertyClick={() => setShowAddModal(true)}
+        onSelectLocation={(loc) => {
+          setSearchQuery(loc);
+          setCurrentTab('explore');
+        }}
+        onSelectArea={(area) => {
+          setSelectedAreaFilter(area);
+          setCurrentTab('explore');
+        }}
       />
 
       {/* POPUP: PROPERTY DETAIL DRAWER MODAL */}
@@ -1302,6 +1738,7 @@ export default function App() {
         <PropertyDetails
           listing={selectedListing}
           currentUser={currentUser}
+          displayCurrency={displayCurrency}
           onClose={() => setSelectedListing(null)}
           onBookingCreated={() => {
             setSelectedListing(null);
@@ -1313,8 +1750,31 @@ export default function App() {
             setAuthModalMode('login');
             setShowAuthModal(true);
           }}
+          isCompared={comparedListings.some((l) => l.id === selectedListing.id)}
+          onToggleCompare={() => toggleCompareListing(selectedListing)}
         />
       )}
+
+      {/* FLOATING COMPARE ACTION BAR */}
+      <CompareBar
+        comparedListings={comparedListings}
+        onOpenModal={() => setShowCompareModal(true)}
+        onRemove={removeCompareListing}
+        onClear={clearCompareListings}
+      />
+
+      {/* POPUP: COMPARE PROPERTIES SIDE-BY-SIDE MODAL */}
+      <ComparePropertiesModal
+        isOpen={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        listings={listings}
+        comparedListings={comparedListings}
+        displayCurrency={displayCurrency}
+        onRemoveCompare={removeCompareListing}
+        onAddCompare={toggleCompareListing}
+        onClearCompare={clearCompareListings}
+        onSelectListingDetails={(listing) => setSelectedListing(listing)}
+      />
 
       {/* POPUP: ADD LISTING STEPPER MODAL */}
       {showAddModal && (
@@ -1340,12 +1800,21 @@ export default function App() {
 
       {/* POPUP: COMPREHENSIVE SIGN UP & AUTH MODAL */}
       <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        isOpen={showAuthModal || !currentUser}
+        isMandatory={!currentUser}
+        onClose={() => {
+          if (currentUser) {
+            setShowAuthModal(false);
+          } else {
+            toast.warning('Authentication Required', 'Please sign in or create an account to access Rentora.');
+          }
+        }}
         initialRole={authModalRole}
         initialMode={authModalMode}
         onSuccess={(user) => {
           setCurrentUser(user);
+          setShowAuthModal(false);
+          toast.success('Authentication Successful', `Welcome, ${user.name || user.email}!`);
           refreshData();
         }}
       />
@@ -1355,6 +1824,17 @@ export default function App() {
         isOpen={showEmailLogsModal}
         onClose={() => setShowEmailLogsModal(false)}
         landlordEmail={currentUser?.email}
+      />
+
+      {/* POPUP: FX CURRENCY CONVERTER MODAL */}
+      <CurrencyConverterModal
+        isOpen={showCurrencyConverterModal}
+        onClose={() => setShowCurrencyConverterModal(false)}
+        activeCurrency={displayCurrency}
+        onSelectCurrency={(code) => {
+          handleCurrencyChange(code);
+          setShowCurrencyConverterModal(false);
+        }}
       />
 
     </div>
