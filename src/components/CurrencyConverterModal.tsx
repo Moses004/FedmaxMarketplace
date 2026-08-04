@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { X, DollarSign, ArrowRightLeft, Check, Globe, Calculator, Sparkles, TrendingUp, Info } from 'lucide-react';
 import { SUPPORTED_CURRENCIES, convertUSDToCurrency, convertCurrencyToUSD, formatCurrencyAmount, CurrencyInfo } from '../utils/currency';
 
@@ -34,7 +35,13 @@ export default function CurrencyConverterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: "spring", duration: 0.35, bounce: 0.05 }}
+        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
+      >
         
         {/* Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex items-center justify-between shrink-0">
@@ -252,7 +259,7 @@ export default function CurrencyConverterModal({
           </button>
         </div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

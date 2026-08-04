@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, login } from '../services/store';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
@@ -193,7 +194,13 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-xl my-8 overflow-hidden relative">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: "spring", duration: 0.35, bounce: 0.05 }}
+        className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-xl my-8 overflow-hidden relative"
+      >
         
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 text-white relative">
@@ -790,7 +797,7 @@ export default function AuthModal({
           </p>
         </form>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

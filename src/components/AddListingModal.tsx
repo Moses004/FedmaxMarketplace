@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createListing } from '../services/store';
+import { motion } from 'motion/react';
+import { createListing, getCurrentUser } from '../services/store';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
@@ -66,6 +67,16 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceSuccess, setEnhanceSuccess] = useState(false);
+  
+  // Lister & Contact Information State
+  const currentUser = getCurrentUser();
+  const [contactRole, setContactRole] = useState<'landlord' | 'property_manager' | 'agent'>('landlord');
+  const [landlordName, setLandlordName] = useState<string>(currentUser ? (currentUser.name || '') : '');
+  const [agentCompany, setAgentCompany] = useState<string>('');
+  const [contactPhone, setContactPhone] = useState<string>('');
+  const [contactWhatsApp, setContactWhatsApp] = useState<string>('');
+  const [contactEmail, setContactEmail] = useState<string>(currentUser ? (currentUser.email || '') : '');
+  const [agentLicense, setAgentLicense] = useState<string>('');
   
   // Schema validation states
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -351,6 +362,13 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         amenities: selectedAmenities,
         images: finalImagesList,
         videoUrl: videoUrl.trim() || undefined,
+        contactRole,
+        landlordName: landlordName.trim() || undefined,
+        agentCompany: agentCompany.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
+        contactWhatsApp: contactWhatsApp.trim() || undefined,
+        contactEmail: contactEmail.trim() || undefined,
+        agentLicense: agentLicense.trim() || undefined,
         availableFrom: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 15 days in future
       });
 
@@ -361,7 +379,13 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: "spring", duration: 0.35, bounce: 0.05 }}
+        className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
         
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -1158,6 +1182,176 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                   </div>
                 </div>
               </div>
+
+              {/* LISTER & CONTACT INFORMATION CARD */}
+              <div className="pt-4 border-t border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4 text-emerald-600" />
+                      <span>Lister & Contact Information</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Let prospective tenants know if you are the Landlord, Property Manager, or Real Estate Agent, and provide direct contact details.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Role selection toggle */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-600 block">Who is listing this property?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'landlord', label: 'Landlord / Owner', icon: User },
+                      { id: 'property_manager', label: 'Property Management Co.', icon: Building2 },
+                      { id: 'agent', label: 'Real Estate Agent', icon: Award }
+                    ].map((roleOpt) => {
+                      const IconComponent = roleOpt.icon;
+                      const isSelected = contactRole === roleOpt.id;
+                      return (
+                        <button
+                          key={roleOpt.id}
+                          type="button"
+                          onClick={() => setContactRole(roleOpt.id as any)}
+                          className={`p-2.5 rounded-xl border text-left transition-all flex flex-col items-start gap-1 cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-white border-slate-200/80 hover:border-emerald-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <IconComponent className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />
+                          <span className="text-[11px] font-extrabold leading-tight">{roleOpt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Lister / Agent Name and Agency Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      {contactRole === 'landlord' ? 'Landlord / Owner Name *' : 'Contact Person / Agent Name *'}
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={landlordName}
+                        onChange={(e) => setLandlordName(e.target.value)}
+                        placeholder={contactRole === 'landlord' ? 'e.g. Chief Adewale Ogunlesi' : 'e.g. Elena Martínez'}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {(contactRole === 'property_manager' || contactRole === 'agent') && (
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                        Agency or Management Company *
+                      </label>
+                      <div className="relative">
+                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          value={agentCompany}
+                          onChange={(e) => setAgentCompany(e.target.value)}
+                          placeholder="e.g. Lekki Premier Property Management"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Direct Phone & WhatsApp */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      Direct Contact Phone
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="tel"
+                        value={contactPhone}
+                        onChange={(e) => {
+                          setContactPhone(e.target.value);
+                          if (!contactWhatsApp) {
+                            setContactWhatsApp(e.target.value);
+                          }
+                        }}
+                        placeholder="e.g. +234 803 123 4567"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">
+                        WhatsApp Number
+                      </label>
+                      {contactPhone && contactWhatsApp !== contactPhone && (
+                        <button
+                          type="button"
+                          onClick={() => setContactWhatsApp(contactPhone)}
+                          className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                        >
+                          Copy Phone #
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <MessageCircle className="w-4 h-4 text-emerald-500 absolute left-3 top-3" />
+                      <input
+                        type="tel"
+                        value={contactWhatsApp}
+                        onChange={(e) => setContactWhatsApp(e.target.value)}
+                        placeholder="e.g. +234 803 123 4567"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Email & License / Office */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      Contact Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="e.g. leasing@agency.com"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {(contactRole === 'property_manager' || contactRole === 'agent') && (
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                        Registration / License / Office
+                      </label>
+                      <div className="relative">
+                        <Award className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          value={agentLicense}
+                          onChange={(e) => setAgentLicense(e.target.value)}
+                          placeholder="e.g. LASRERA Reg #0084 or Office Address"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </form>
@@ -1206,7 +1400,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
           )}
         </div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

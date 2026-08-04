@@ -20,15 +20,40 @@ import ComparePropertiesModal from './components/ComparePropertiesModal';
 import CompareBar from './components/CompareBar';
 import MobileBottomNav from './components/MobileBottomNav';
 import CurrencyConverterModal from './components/CurrencyConverterModal';
+import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
+import SavedSearchAlertModal from './components/SavedSearchAlertModal';
 import { useToast } from './context/ToastContext';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, LogOut, Check,
-  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator
+  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getStatesForCountry, getCitiesForState, getAreasForCity } from './utils/location';
 import { SUPPORTED_CURRENCIES, resolveUserDefaultCurrency, detectIPCurrency } from './utils/currency';
+import emptySearchImg from './assets/images/empty_search_results_1785810450193.jpg';
+import emptySavedImg from './assets/images/empty_saved_properties_1785810460564.jpg';
+
+const staggerContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.02,
+    },
+  },
+};
+
+const staggerItemVariants = {
+  hidden: { opacity: 0, y: 16, scale: 0.98 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.3, ease: [0.25, 1, 0.5, 1] },
+  },
+};
 
 function ExploreTabSkeleton() {
   return (
@@ -207,6 +232,8 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showEmailLogsModal, setShowEmailLogsModal] = useState(false);
+  const [showAffordabilityCalculatorModal, setShowAffordabilityCalculatorModal] = useState(false);
+  const [showSavedSearchAlertModal, setShowSavedSearchAlertModal] = useState(false);
   const [authModalRole, setAuthModalRole] = useState<'guest' | 'landlord'>('guest');
   const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
 
@@ -948,6 +975,28 @@ export default function App() {
                   <SlidersHorizontal className="w-4 h-4" />
                   <span>Filters</span>
                 </button>
+
+                {/* Rent Affordability Calculator Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowAffordabilityCalculatorModal(true)}
+                  className="p-2.5 px-3.5 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+                  title="Open Rent Affordability Calculator"
+                >
+                  <Calculator className="w-4 h-4 text-emerald-600" />
+                  <span className="hidden sm:inline">Rent Calc</span>
+                </button>
+
+                {/* Save Search Alert Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowSavedSearchAlertModal(true)}
+                  className="p-2.5 px-3.5 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+                  title="Save Search & Get Instant Property Alerts"
+                >
+                  <Bell className="w-4 h-4 text-emerald-600" />
+                  <span className="hidden sm:inline">Save Alert</span>
+                </button>
               </div>
 
               {/* LOCATION SCOPING BAR (Signup Location, Country/State/City filters) */}
@@ -1405,11 +1454,11 @@ export default function App() {
             </div>
 
             {/* VIEW MODE CONTROL BAR & LISTING HEADER */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <h3 className="font-display font-black text-slate-800 text-base md:text-lg flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-emerald-600" />
-                  <span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-display font-black text-slate-800 dark:text-white text-sm sm:text-base md:text-lg flex items-center gap-1.5 min-w-0 truncate">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
+                  <span className="truncate">
                     {selectedRegionId === 'near_me'
                       ? 'Homes Near Your GPS Location'
                       : selectedRegionId === 'all'
@@ -1417,78 +1466,78 @@ export default function App() {
                       : `Homes in ${currentRegionObj?.name || selectedRegionId} ${currentRegionObj?.flag || ''}`}
                   </span>
                 </h3>
-                <span className="text-xs text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full">
+                <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shrink-0">
                   {filteredItems.length} properties
                 </span>
               </div>
 
               {/* View Switcher Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                 {/* Dedicated Collapse/Expand Map Button */}
                 <button
                   type="button"
                   onClick={toggleMapCollapse}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 sm:px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
                     mapViewMode === 'grid'
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs'
-                      : 'bg-slate-900 hover:bg-slate-800 text-slate-100 border-slate-800 shadow-xs'
+                      : 'bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-slate-100 border-slate-800 shadow-xs'
                   }`}
                   title={mapViewMode === 'grid' ? "Expand Map View" : "Collapse Map View"}
                 >
                   {mapViewMode === 'grid' ? (
                     <>
-                      <Eye className="w-3.5 h-3.5 text-emerald-300" />
-                      <span>Expand Map</span>
+                      <Eye className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                      <span className="text-xs">Expand Map</span>
                     </>
                   ) : (
                     <>
-                      <EyeOff className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Collapse Map</span>
+                      <EyeOff className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span className="text-xs">Collapse Map</span>
                     </>
                   )}
                 </button>
 
-                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+                <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700">
                   <button
                     type="button"
                     onClick={() => handleSetMapViewMode('grid')}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                       mapViewMode === 'grid'
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title="Collapse map for full-screen property grid"
                   >
-                    <GridIcon className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="hidden sm:inline">Grid Only</span>
+                    <GridIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="hidden md:inline">Grid</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSetMapViewMode('split')}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                       mapViewMode === 'split'
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title="Side-by-side properties & interactive map"
                   >
-                    <MapIcon className="w-3.5 h-3.5 text-indigo-600" />
-                    <span className="hidden sm:inline">Split View</span>
+                    <MapIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="hidden md:inline">Split</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSetMapViewMode('map')}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                       mapViewMode === 'map'
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title="Expand interactive map view"
                   >
-                    <Maximize2 className="w-3.5 h-3.5 text-sky-600" />
-                    <span className="hidden sm:inline">Expanded Map</span>
+                    <Maximize2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span className="hidden md:inline">Map</span>
                   </button>
                 </div>
               </div>
@@ -1520,11 +1569,23 @@ export default function App() {
                       ))}
                     </div>
                   ) : filteredItems.length === 0 ? (
-                    <div className="text-center py-20 bg-white border border-slate-100 rounded-3xl space-y-2">
-                      <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
-                      <h4 className="font-bold text-slate-700 text-sm">No rentals matches your search</h4>
-                      <p className="text-xs text-slate-400">Try adjusting your pricing filters, region, or distance radius.</p>
+                    <div className="text-center py-12 px-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-4 max-w-md mx-auto my-6 shadow-sm">
+                      <div className="relative w-40 h-40 mx-auto rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                        <img 
+                          src={emptySearchImg} 
+                          alt="No rentals found illustration" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-base">No rentals match your search</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                          Try adjusting your pricing filters, location radius, or property type to discover available homes.
+                        </p>
+                      </div>
                       <button
+                        type="button"
                         onClick={() => {
                           setSelectedRegionId('all');
                           setSelectedType('all');
@@ -1534,41 +1595,48 @@ export default function App() {
                           setMaxDistanceKm(null);
                           setUserGeoLocation(null);
                         }}
-                        className="mt-3 py-1.5 px-4 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer"
+                        className="py-2 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs"
                       >
                         Reset All Filters
                       </button>
                     </div>
                   ) : (
-                    <div className={`grid gap-4 ${
-                      mapViewMode === 'grid'
-                        ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-                        : mapViewMode === 'map'
-                        ? 'grid-cols-1'
-                        : 'grid-cols-1 sm:grid-cols-2'
-                    }`}>
+                    <motion.div
+                      key={`feed-${selectedType}-${selectedRegionId}-${searchQuery}-${selectedStateFilter}-${selectedCityFilter}-${selectedAreaFilter}-${minBedrooms}-${maxPrice}-${maxDistanceKm}-${mapViewMode}`}
+                      variants={staggerContainerVariants}
+                      initial="hidden"
+                      animate="show"
+                      className={`grid gap-4 ${
+                        mapViewMode === 'grid'
+                          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                          : mapViewMode === 'map'
+                          ? 'grid-cols-1'
+                          : 'grid-cols-1 sm:grid-cols-2'
+                      }`}
+                    >
                       {filteredItems.map(({ listing, distanceKm }) => (
-                        <PropertyCard
-                          key={listing.id}
-                          listing={listing}
-                          distanceKm={distanceKm}
-                          displayCurrency={displayCurrency}
-                          isSelected={selectedListing?.id === listing.id}
-                          onClick={() => handleSelectListing(listing)}
-                          isFavorited={favorites.includes(listing.id)}
-                          onToggleFavorite={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(listing.id);
-                            setFavorites(getFavorites());
-                          }}
-                          isCompared={comparedListings.some((l) => l.id === listing.id)}
-                          onToggleCompare={(e) => {
-                            e.stopPropagation();
-                            toggleCompareListing(listing);
-                          }}
-                        />
+                        <motion.div key={listing.id} variants={staggerItemVariants}>
+                          <PropertyCard
+                            listing={listing}
+                            distanceKm={distanceKm}
+                            displayCurrency={displayCurrency}
+                            isSelected={selectedListing?.id === listing.id}
+                            onClick={() => handleSelectListing(listing)}
+                            isFavorited={favorites.includes(listing.id)}
+                            onToggleFavorite={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(listing.id);
+                              setFavorites(getFavorites());
+                            }}
+                            isCompared={comparedListings.some((l) => l.id === listing.id)}
+                            onToggleCompare={(e) => {
+                              e.stopPropagation();
+                              toggleCompareListing(listing);
+                            }}
+                          />
+                        </motion.div>
                       ))}
-                    </div>
+                    </motion.div>
                   )}
                 </div>
               </div>
@@ -1649,45 +1717,62 @@ export default function App() {
               </div>
 
               {favorites.length === 0 ? (
-                <div className="text-center py-20 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-3">
-                  <Heart className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto" />
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">No saved properties yet</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                    Click the heart icon on any property card while exploring to keep track of your favorite apartments.
-                  </p>
+                <div className="text-center py-12 px-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-4 max-w-md mx-auto my-6 shadow-sm">
+                  <div className="relative w-40 h-40 mx-auto rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                    <img 
+                      src={emptySavedImg} 
+                      alt="No saved properties illustration" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-base">No saved properties yet</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                      Click the heart icon on any property card while exploring to save your top favorite rentals.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleTabChange('explore')}
-                    className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                    className="py-2.5 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all inline-flex items-center gap-1.5"
                   >
-                    Browse Rentals Now
+                    <span>Browse Rentals Now</span>
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <motion.div
+                  key={`favs-${favorites.join('-')}`}
+                  variants={staggerContainerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                >
                   {listings
                     .filter((l) => favorites.includes(l.id))
                     .map((listing) => (
-                      <PropertyCard
-                        key={listing.id}
-                        listing={listing}
-                        displayCurrency={displayCurrency}
-                        isSelected={selectedListing?.id === listing.id}
-                        onClick={() => handleSelectListing(listing)}
-                        isFavorited={true}
-                        onToggleFavorite={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(listing.id);
-                          setFavorites(getFavorites());
-                        }}
-                        isCompared={comparedListings.some((l) => l.id === listing.id)}
-                        onToggleCompare={(e) => {
-                          e.stopPropagation();
-                          toggleCompareListing(listing);
-                        }}
-                      />
+                      <motion.div key={listing.id} variants={staggerItemVariants}>
+                        <PropertyCard
+                          listing={listing}
+                          displayCurrency={displayCurrency}
+                          isSelected={selectedListing?.id === listing.id}
+                          onClick={() => handleSelectListing(listing)}
+                          isFavorited={true}
+                          onToggleFavorite={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(listing.id);
+                            setFavorites(getFavorites());
+                          }}
+                          isCompared={comparedListings.some((l) => l.id === listing.id)}
+                          onToggleCompare={(e) => {
+                            e.stopPropagation();
+                            toggleCompareListing(listing);
+                          }}
+                        />
+                      </motion.div>
                     ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )
@@ -1835,6 +1920,30 @@ export default function App() {
           handleCurrencyChange(code);
           setShowCurrencyConverterModal(false);
         }}
+      />
+
+      {/* POPUP: RENT AFFORDABILITY & MOVE-IN CASH CALCULATOR MODAL */}
+      <RentAffordabilityCalculatorModal
+        isOpen={showAffordabilityCalculatorModal}
+        onClose={() => setShowAffordabilityCalculatorModal(false)}
+        userCurrency={displayCurrency}
+        onApplyBudgetToFilter={(maxBudgetUSD) => {
+          setMaxPrice(maxBudgetUSD);
+          toast.success('Rent Budget Applied', `Maximum price filter set to $${maxBudgetUSD.toLocaleString()} USD equivalent.`);
+        }}
+      />
+
+      {/* POPUP: SAVED SEARCH & INSTANT ALERTS MODAL */}
+      <SavedSearchAlertModal
+        isOpen={showSavedSearchAlertModal}
+        onClose={() => setShowSavedSearchAlertModal(false)}
+        currentSearchQuery={searchQuery}
+        selectedCountry={selectedCountryFilter}
+        selectedCity={selectedCityFilter}
+        selectedArea={selectedAreaFilter}
+        selectedCategory={selectedType}
+        maxPrice={maxPrice.toString()}
+        userEmail={currentUser?.email || ''}
       />
 
     </div>

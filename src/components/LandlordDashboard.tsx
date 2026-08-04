@@ -3302,7 +3302,7 @@ export function LandlordDashboardSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Top Banner Skeleton */}
-      <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl">
+      <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="h-4 w-32 rounded-full bg-slate-800 animate-shimmer-dark" />
@@ -3319,25 +3319,25 @@ export function LandlordDashboardSkeleton() {
       {/* Metrics Row Skeleton */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-3">
+          <div key={i} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <div className="h-4 w-24 rounded-md bg-slate-200 animate-shimmer" />
-              <div className="w-10 h-10 rounded-2xl bg-slate-100 animate-shimmer" />
+              <div className="h-4 w-24 rounded-md bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
             </div>
-            <div className="h-8 w-20 rounded-xl bg-slate-200 animate-shimmer" />
-            <div className="h-3 w-32 rounded-md bg-slate-100 animate-shimmer" />
+            <div className="h-8 w-20 rounded-xl bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+            <div className="h-3 w-32 rounded-md bg-slate-100 dark:bg-slate-800/60 animate-shimmer" />
           </div>
         ))}
       </div>
 
       {/* Analytics Charts & Revenue Grid Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <div className="h-6 w-48 rounded-lg bg-slate-200 animate-shimmer" />
-            <div className="h-8 w-28 rounded-xl bg-slate-100 animate-shimmer" />
+            <div className="h-6 w-48 rounded-lg bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+            <div className="h-8 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
           </div>
-          <div className="h-64 rounded-2xl bg-slate-100 animate-shimmer w-full" />
+          <div className="h-64 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-shimmer w-full" />
         </div>
 
         <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-white space-y-4">
@@ -3352,14 +3352,14 @@ export function LandlordDashboardSkeleton() {
       </div>
 
       {/* Listings & Bookings Table Skeleton */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="h-6 w-44 rounded-lg bg-slate-200 animate-shimmer" />
-          <div className="h-9 w-32 rounded-xl bg-slate-100 animate-shimmer" />
+          <div className="h-6 w-44 rounded-lg bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+          <div className="h-9 w-32 rounded-xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 rounded-2xl bg-slate-100 animate-shimmer" />
+            <div key={i} className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
           ))}
         </div>
       </div>

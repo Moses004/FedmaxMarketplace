@@ -2163,32 +2163,32 @@ export function BookingsViewSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fade-in">
       {/* Header Skeleton */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs">
         <div className="space-y-2">
-          <div className="h-6 w-56 rounded-lg bg-slate-200 animate-shimmer" />
-          <div className="h-4 w-80 max-w-full rounded-md bg-slate-100 animate-shimmer" />
+          <div className="h-6 w-56 rounded-lg bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+          <div className="h-4 w-80 max-w-full rounded-md bg-slate-100 dark:bg-slate-800/60 animate-shimmer" />
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-10 w-28 rounded-xl bg-slate-100 animate-shimmer" />
-          <div className="h-10 w-28 rounded-xl bg-slate-100 animate-shimmer" />
+          <div className="h-10 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
+          <div className="h-10 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
         </div>
       </div>
 
       {/* Bookings List Skeleton Items */}
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-200 animate-shimmer shrink-0" />
+              <div className="w-16 h-16 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-shimmer shrink-0" />
               <div className="space-y-2">
-                <div className="h-5 w-48 rounded-md bg-slate-200 animate-shimmer" />
-                <div className="h-4 w-36 rounded-md bg-slate-100 animate-shimmer" />
-                <div className="h-3.5 w-60 rounded-md bg-slate-100 animate-shimmer" />
+                <div className="h-5 w-48 rounded-md bg-slate-200 dark:bg-slate-800 animate-shimmer" />
+                <div className="h-4 w-36 rounded-md bg-slate-100 dark:bg-slate-800/60 animate-shimmer" />
+                <div className="h-3.5 w-60 rounded-md bg-slate-100 dark:bg-slate-800/60 animate-shimmer" />
               </div>
             </div>
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 pt-4 md:pt-0 border-slate-100">
-              <div className="h-10 w-28 rounded-xl bg-slate-100 animate-shimmer" />
-              <div className="h-10 w-32 rounded-xl bg-slate-200 animate-shimmer" />
+            <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 dark:border-slate-800">
+              <div className="h-10 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 animate-shimmer" />
+              <div className="h-10 w-32 rounded-xl bg-slate-200 dark:bg-slate-800 animate-shimmer" />
             </div>
           </div>
         ))}

@@ -27,6 +27,13 @@ const INITIAL_LISTINGS: Listing[] = [
     ],
     videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4',
     landlordId: 'landlord-3',
+    landlordName: 'Adewale Ogunlesi',
+    contactRole: 'property_manager',
+    agentCompany: 'Lekki Premier Property Management',
+    contactPhone: '+234 803 123 4567',
+    contactWhatsApp: '+234 803 123 4567',
+    contactEmail: 'leasing@lekkipremier.ng',
+    agentLicense: 'LASRERA Cert #0084 - Lagos',
     availableFrom: '2026-08-01'
   },
   {
@@ -53,6 +60,11 @@ const INITIAL_LISTINGS: Listing[] = [
       'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80'
     ],
     landlordId: 'landlord-3',
+    landlordName: 'Engr. Tunde Adebayo',
+    contactRole: 'landlord',
+    contactPhone: '+234 802 987 6543',
+    contactWhatsApp: '+234 802 987 6543',
+    contactEmail: 'tunde.adebayo@gmail.com',
     availableFrom: '2026-08-05'
   },
   {
@@ -79,6 +91,13 @@ const INITIAL_LISTINGS: Listing[] = [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
     ],
     landlordId: 'landlord-3',
+    landlordName: 'Chinedu Eze',
+    contactRole: 'agent',
+    agentCompany: 'Abuja Capital Luxury Estates',
+    contactPhone: '+234 809 555 8899',
+    contactWhatsApp: '+234 809 555 8899',
+    contactEmail: 'inquiries@abujacapitalestates.com',
+    agentLicense: 'REDAN Reg #4421 - Abuja',
     availableFrom: '2026-09-01'
   },
   {
@@ -105,6 +124,13 @@ const INITIAL_LISTINGS: Listing[] = [
       'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80'
     ],
     landlordId: 'landlord-3',
+    landlordName: 'Mrs. Biobele George',
+    contactRole: 'property_manager',
+    agentCompany: 'Rivers Prime Realtors',
+    contactPhone: '+234 805 444 3322',
+    contactWhatsApp: '+234 805 444 3322',
+    contactEmail: 'contact@riversprime.com.ng',
+    agentLicense: 'PH-REDAN-091',
     availableFrom: '2026-08-15'
   },
   {
@@ -131,6 +157,13 @@ const INITIAL_LISTINGS: Listing[] = [
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
     ],
     landlordId: 'landlord-1',
+    landlordName: 'Elena Martínez',
+    contactRole: 'agent',
+    agentCompany: 'Madrid Centro Housing S.L.',
+    contactPhone: '+34 600 123 456',
+    contactWhatsApp: '+34 600 123 456',
+    contactEmail: 'elena@madridcentrohousing.es',
+    agentLicense: 'API Reg #2801',
     availableFrom: '2026-08-01'
   },
   {

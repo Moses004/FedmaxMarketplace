@@ -41,6 +41,13 @@ export interface Listing {
   landlordId: string;
   landlordEmail?: string;
   landlordName?: string;
+  // Contact & Lister Details for Landlords, Property Management, and Agents
+  contactRole?: 'landlord' | 'property_manager' | 'agent';
+  contactPhone?: string;
+  contactEmail?: string;
+  contactWhatsApp?: string;
+  agentCompany?: string; // Agency or Property Management Company Name
+  agentLicense?: string; // Registration, License ID, or Office Location
   availableFrom: string;
   status?: ListingStatus;
 }
