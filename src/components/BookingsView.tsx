@@ -7,6 +7,7 @@ import {
   MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, Key, AlertCircle, Info, PartyPopper, RotateCcw, Star
 } from 'lucide-react';
 import { validatePaystackKey } from '../utils/paystack';
+import PaymentDueAlertBanner from './PaymentDueAlertBanner';
 
 declare global {
   interface Window {
@@ -503,6 +504,10 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     ? allBookings.filter(b => landlordListingIds.includes(b.listingId))
     : allBookings.filter(b => b.guestId === currentUser.id);
 
+  const tenantPaymentDueBooking = !isLandlord 
+    ? relevantBookings.find(b => b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+    : null;
+
   const pendingBookings = relevantBookings.filter(b => b.status === 'pending');
   const processedBookings = relevantBookings.filter(b => b.status !== 'pending');
 
@@ -594,6 +599,19 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   return (
     <div className="space-y-6">
       
+      {/* Proactive Payment Due Alert Banner for Tenants */}
+      {!isLandlord && tenantPaymentDueBooking && (
+        <PaymentDueAlertBanner
+          booking={tenantPaymentDueBooking}
+          currentUser={currentUser}
+          onPayNow={(b) => {
+            setCheckoutBooking(b);
+            setCheckoutStep(2);
+            setLeaseSignName(b.leaseSignedName || b.guestName);
+          }}
+        />
+      )}
+
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -825,6 +843,21 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                           Signed by <strong>{booking.leaseSignedName || booking.guestName}</strong> on {booking.leaseSignedDate || new Date().toLocaleDateString()}
                           {booking.paymentReference && <span className="ml-1 text-slate-400 font-mono font-normal">• Ref: {booking.paymentReference}</span>}
                         </p>
+                        {booking.nextPaymentDueDate && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            {booking.paymentStatus === 'due_soon' || (booking.paymentDueDaysLeft !== undefined && booking.paymentDueDaysLeft <= 3) ? (
+                              <span className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-0.5 rounded-md text-[10px] flex items-center gap-1 shadow-2xs">
+                                <AlertCircle className="w-3 h-3 text-amber-600" />
+                                Rent Renewal Due: {booking.nextPaymentDueDate} ({booking.paymentDueDaysLeft || 3}d left)
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold px-2.5 py-0.5 rounded-md text-[10px] flex items-center gap-1 shadow-2xs">
+                                <CheckIcon className="w-3 h-3 text-emerald-600" />
+                                Rent Settled • Next Due Date: {booking.nextPaymentDueDate}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">

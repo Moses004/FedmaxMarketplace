@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Listing, Booking, User, BookingMessage, PayoutAccount, PayoutTransaction, ListingStatus } from '../types';
+import { useToast } from '../context/ToastContext';
 import { 
   getListingViews, 
   updateListing, 
@@ -11,6 +12,7 @@ import {
   createPayoutTransaction 
 } from '../services/store';
 import PropertyStatusBadge, { STATUS_CONFIG } from './PropertyStatusBadge';
+import { getListingPrices } from '../utils/currency';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell,
   AreaChart, Area
@@ -44,6 +46,7 @@ export default function LandlordDashboard({
   onRefreshData,
   onEditProfileClick
 }: LandlordDashboardProps) {
+  const toast = useToast();
   
   // UI states for AI features
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -483,6 +486,13 @@ export default function LandlordDashboard({
       escrowBalance
     };
   }, [landlordListings, receivedBookings, viewsMap, payoutTransactions]);
+
+  // Upcoming Rent Due Alerts for Landlords
+  const dueSoonBookings = useMemo(() => {
+    return receivedBookings.filter(
+      b => b.paymentStatus === 'due_soon' || (b.paymentDueDaysLeft !== undefined && b.paymentDueDaysLeft <= 3 && b.status === 'confirmed')
+    );
+  }, [receivedBookings]);
 
   // 5. Chart Data: Views & Requests per listing
   const chartData = useMemo(() => {
@@ -1062,6 +1072,68 @@ Disbursement Status:${tx.status.toUpperCase()}
             </div>
           </div>
 
+          {/* UPCOMING RENT COLLECTIBLES & DUE ALERTS BANNER FOR LANDLORDS */}
+          {dueSoonBookings.length > 0 && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 dark:border-amber-700/50 rounded-3xl p-5 shadow-sm space-y-4 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-slate-900 dark:text-white text-sm">
+                        Upcoming Rent Collectibles & Alerts ({dueSoonBookings.length})
+                      </h3>
+                      <span className="text-[10px] font-bold bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full uppercase">
+                        Due in ≤ 3 Days
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      The following tenants have rent renewals due within 3 days. Send a polite reminder nudge directly to their inbox.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {dueSoonBookings.map((b) => (
+                  <div key={b.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="space-y-1">
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white block">{b.guestName}</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">{b.listingTitle}</span>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                          €{b.listingPrice.toLocaleString()} {b.billingCycle === 'annual' ? '/yr' : '/mo'}
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
+                          Due: {b.nextPaymentDueDate || 'Aug 8, 2026'} ({b.paymentDueDaysLeft || 3}d left)
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addBookingMessage(b.id, {
+                          senderId: currentUser?.id || 'landlord-1',
+                          senderName: currentUser?.name || 'Landlord',
+                          text: `🔔 Gentle Rent Reminder: Your upcoming ${b.billingCycle === 'annual' ? 'annual' : 'monthly'} rent payment for "${b.listingTitle}" is due on ${b.nextPaymentDueDate || 'Aug 8, 2026'}. Please settle it via your My Bookings tab.`
+                        });
+                        toast.success('Rent Payment Nudge Dispatched', `Sent polite payment reminder to ${b.guestName}.`);
+                        if (onRefreshData) onRefreshData();
+                      }}
+                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Nudge</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* STATS CARDS GRID */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             
@@ -1478,7 +1550,7 @@ Disbursement Status:${tx.status.toUpperCase()}
                           </div>
                         </td>
                         <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-700">
-                          €{listing.price}
+                          {getListingPrices(listing).primaryFormatted} <span className="text-[10px] text-emerald-600 font-extrabold">{getListingPrices(listing).periodLabel}</span>
                         </td>
                         <td className="py-3.5 px-4 text-center font-mono text-xs font-bold text-slate-600">
                           {views}
@@ -3199,7 +3271,7 @@ Disbursement Status:${tx.status.toUpperCase()}
                   </span>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs font-mono font-bold text-slate-700">
-                      €{deletingListing.price}/mo
+                      {getListingPrices(deletingListing).primaryFormatted} {getListingPrices(deletingListing).periodLabel}
                     </span>
                     <PropertyStatusBadge status={deletingListing.status} size="sm" />
                   </div>

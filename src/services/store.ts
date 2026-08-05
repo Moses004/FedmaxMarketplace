@@ -6,8 +6,9 @@ const INITIAL_LISTINGS: Listing[] = [
     id: 'list-ng-1',
     title: 'Luxury 2-Bedroom Serviced Apartment in Lekki Phase 1',
     description: 'Exquisite 2-bedroom luxury serviced flat in the heart of Lekki Phase 1, Lagos. Features 24/7 power supply with industrial inverter/generator backup, fitted kitchen, washing machine, swimming pool, gym, and 24-hour armed uniform security guard. Walking distance to Admiralty Way shops, cafes, and restaurants.',
-    price: 850,
-    localPrice: 1275000,
+    price: 10200,
+    pricePeriod: 'annual',
+    localPrice: 15300000,
     currency: 'NGN',
     annualDiscountPercentage: 12,
     type: '2-bedroom-flat',
@@ -34,14 +35,20 @@ const INITIAL_LISTINGS: Listing[] = [
     contactWhatsApp: '+234 803 123 4567',
     contactEmail: 'leasing@lekkipremier.ng',
     agentLicense: 'LASRERA Cert #0084 - Lagos',
-    availableFrom: '2026-08-01'
+    availableFrom: '2026-08-01',
+    energyRating: 'A+',
+    estimatedMonthlyUtilitiesUSD: 85,
+    solarPowered: true,
+    hvacType: 'Inverter Multi-Split Air Conditioning',
+    insulationQuality: 'High'
   },
   {
     id: 'list-ng-2',
     title: 'Executive Self-Contained Studio in Ikeja GRA',
     description: 'Modern, secure self-contained studio unit situated in quiet, gated Ikeja GRA. Comes with private ensuite bathroom, kitchenette, inverter backup, clean borehole water system, DSTV cable connection, and dedicated parking space. Ideal for young professionals or business executives.',
-    price: 450,
-    localPrice: 675000,
+    price: 5400,
+    pricePeriod: 'annual',
+    localPrice: 8100000,
     currency: 'NGN',
     annualDiscountPercentage: 10,
     type: 'self-contained',
@@ -65,14 +72,20 @@ const INITIAL_LISTINGS: Listing[] = [
     contactPhone: '+234 802 987 6543',
     contactWhatsApp: '+234 802 987 6543',
     contactEmail: 'tunde.adebayo@gmail.com',
-    availableFrom: '2026-08-05'
+    availableFrom: '2026-08-05',
+    energyRating: 'B',
+    estimatedMonthlyUtilitiesUSD: 45,
+    solarPowered: false,
+    hvacType: 'Split AC + Inverter Unit',
+    insulationQuality: 'Standard'
   },
   {
     id: 'list-ng-3',
     title: '3-Bedroom Duplex with Boys Quarters in Maitama',
     description: 'Prestige 3-bedroom semi-detached duplex residence with 1-room BQ located in diplomatic Maitama District, Abuja. Features expansive marble living rooms, central air conditioning, private green lawn garden, covered carport, and top-tier security.',
-    price: 1600,
-    localPrice: 2400000,
+    price: 19200,
+    pricePeriod: 'annual',
+    localPrice: 28800000,
     currency: 'NGN',
     annualDiscountPercentage: 15,
     type: 'duplex',
@@ -98,14 +111,20 @@ const INITIAL_LISTINGS: Listing[] = [
     contactWhatsApp: '+234 809 555 8899',
     contactEmail: 'inquiries@abujacapitalestates.com',
     agentLicense: 'REDAN Reg #4421 - Abuja',
-    availableFrom: '2026-09-01'
+    availableFrom: '2026-09-01',
+    energyRating: 'A++',
+    estimatedMonthlyUtilitiesUSD: 120,
+    solarPowered: true,
+    hvacType: 'Solar Hybrid Central HVAC',
+    insulationQuality: 'High'
   },
   {
     id: 'list-ng-4',
     title: 'Spacious 3-Bedroom Flat in GRA Phase 2, Port Harcourt',
     description: 'Modern, freshly painted 3-bedroom apartment unit in serene GRA Phase 2, Port Harcourt. Features all rooms ensuite, water treatment plant, silent soundproof generator, and spacious balcony.',
-    price: 750,
-    localPrice: 1125000,
+    price: 9000,
+    pricePeriod: 'annual',
+    localPrice: 13500000,
     currency: 'NGN',
     annualDiscountPercentage: 10,
     type: '3plus-bedroom-flat',
@@ -385,6 +404,29 @@ const INITIAL_LISTINGS: Listing[] = [
 // Seed Bookings
 const INITIAL_BOOKINGS: Booking[] = [
   {
+    id: 'book-3',
+    listingId: 'list-ng-1',
+    listingTitle: 'Luxury 2-Bedroom Serviced Apartment in Lekki Phase 1',
+    listingImage: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
+    listingPrice: 10200,
+    guestId: 'guest-1',
+    guestName: 'Moses Archibong',
+    guestEmail: 'mosesarchibong004@gmail.com',
+    startDate: '2025-08-08',
+    endDate: '2026-08-08',
+    status: 'confirmed',
+    totalAmount: 15300000,
+    createdAt: '2025-08-08T10:00:00.000Z',
+    billingCycle: 'annual',
+    leaseSignedName: 'Moses Archibong',
+    leaseSignedDate: '2025-08-08',
+    paymentMethod: 'paystack',
+    paymentReference: 'PAY-ANNUAL-2025-8841',
+    nextPaymentDueDate: '2026-08-08',
+    paymentDueDaysLeft: 3,
+    paymentStatus: 'due_soon'
+  },
+  {
     id: 'book-1',
     listingId: 'list-1',
     listingTitle: 'Bright Premium Room near Plaza Mayor',
@@ -554,7 +596,42 @@ export function updateListing(id: string, updatedFields: Partial<Listing>): List
 export function getBookings(): Booking[] {
   try {
     const raw = storage.getItem(BOOKINGS_KEY);
-    return raw ? JSON.parse(raw) : INITIAL_BOOKINGS;
+    const bookings: Booking[] = raw ? JSON.parse(raw) : INITIAL_BOOKINGS;
+
+    // Dynamically evaluate payment due status against current date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let updated = false;
+    bookings.forEach((booking) => {
+      if (booking.status === 'confirmed' && booking.nextPaymentDueDate) {
+        const dueDate = new Date(booking.nextPaymentDueDate);
+        dueDate.setHours(0, 0, 0, 0);
+
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 3 && diffDays >= 0) {
+          if (booking.paymentDueDaysLeft !== diffDays || booking.paymentStatus !== 'due_soon') {
+            booking.paymentDueDaysLeft = diffDays;
+            booking.paymentStatus = 'due_soon';
+            updated = true;
+          }
+        } else if (diffDays < 0) {
+          if (booking.paymentStatus !== 'overdue') {
+            booking.paymentDueDaysLeft = diffDays;
+            booking.paymentStatus = 'overdue';
+            updated = true;
+          }
+        }
+      }
+    });
+
+    if (updated) {
+      saveBookings(bookings);
+    }
+
+    return bookings;
   } catch {
     return INITIAL_BOOKINGS;
   }
@@ -616,13 +693,38 @@ export function confirmBookingPayment(
   const bookings = getBookings();
   const index = bookings.findIndex(b => b.id === bookingId);
   if (index !== -1) {
-    bookings[index].status = 'confirmed';
-    bookings[index].leaseSignedName = leaseSignedName;
-    bookings[index].leaseSignedDate = new Date().toISOString().split('T')[0];
-    bookings[index].paymentMethod = paymentMethod;
-    bookings[index].paymentReference = paymentReference || `REF-${paymentMethod.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    const booking = bookings[index];
+    booking.status = 'confirmed';
+    booking.leaseSignedName = leaseSignedName;
+    booking.leaseSignedDate = new Date().toISOString().split('T')[0];
+    booking.paymentMethod = paymentMethod;
+    booking.paymentReference = paymentReference || `REF-${paymentMethod.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    
+    // Update payment due state after successful payment
+    booking.paymentStatus = 'paid';
+    delete booking.paymentDueDaysLeft;
+
+    // Calculate next payment due date based on cycle
+    const currentDueDate = booking.nextPaymentDueDate ? new Date(booking.nextPaymentDueDate) : new Date();
+    if (booking.billingCycle === 'annual') {
+      currentDueDate.setFullYear(currentDueDate.getFullYear() + 1);
+    } else {
+      currentDueDate.setMonth(currentDueDate.getMonth() + 1);
+    }
+    booking.nextPaymentDueDate = currentDueDate.toISOString().split('T')[0];
+
+    // Log receipt message
+    if (!booking.messages) booking.messages = [];
+    booking.messages.push({
+      id: `msg-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'Rentora Payment Gateway',
+      text: `💳 Rent Payment Settled via ${paymentMethod.toUpperCase()} (Ref: ${booking.paymentReference}). Next rent payment due on ${booking.nextPaymentDueDate}.`,
+      createdAt: new Date().toISOString()
+    });
+
     saveBookings(bookings);
-    return bookings[index];
+    return booking;
   }
   return null;
 }

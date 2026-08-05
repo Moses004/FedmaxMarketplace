@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { createListing, getCurrentUser } from '../services/store';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
@@ -43,9 +43,10 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   
-  // Listing Currency State
+  // Listing Currency & Pricing Period State
   const [listingCurrency, setListingCurrency] = useState<string>(() => getCurrencyForCountry('Nigeria').code);
-  const [localPrice, setLocalPrice] = useState<number>(1200000); // e.g. 1,200,000 NGN or local currency
+  const [pricePeriod, setPricePeriod] = useState<'annual' | 'monthly' | 'quarterly'>('annual');
+  const [localPrice, setLocalPrice] = useState<number>(2400000); // Default 2,400,000 NGN/year or equivalent
   const [type, setType] = useState<PropertyType>('single-room');
   const [location, setLocation] = useState('Lagos, Nigeria');
   const [bedrooms, setBedrooms] = useState(1);
@@ -59,6 +60,8 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   ]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(['High-Speed Wi-Fi', 'Double Bed']);
   const [annualDiscountPercentage, setAnnualDiscountPercentage] = useState(10);
+  const [energyRating, setEnergyRating] = useState<'A+++' | 'A++' | 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'>('A+');
+  const [solarPowered, setSolarPowered] = useState<boolean>(true);
   const [customLat, setCustomLat] = useState<number | null>(null);
   const [customLng, setCustomLng] = useState<number | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<GeocodedAddress[]>([]);
@@ -357,6 +360,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         title: title.trim(),
         description: description.trim(),
         price: priceInUSD,
+        pricePeriod,
         localPrice,
         currency: listingCurrency,
         annualDiscountPercentage,
@@ -370,6 +374,8 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         bedrooms,
         bathrooms,
         size,
+        energyRating,
+        solarPowered,
         amenities: selectedAmenities,
         images: finalImagesList,
         videoUrl: videoUrl.trim() || undefined,
@@ -718,129 +724,210 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                 </div>
               </div>
 
-              {/* Multi-Currency Price & Size stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block">Landlord Currency & Monthly Rent *</label>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={listingCurrency}
-                      onChange={(e) => {
-                        setListingCurrency(e.target.value);
-                        clearFieldError('price');
-                      }}
-                      className="w-28 px-2.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shrink-0"
-                    >
-                      {Object.entries(SUPPORTED_CURRENCIES).map(([code, config]) => (
-                        <option key={code} value={code}>
-                          {config.symbol} {code}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="number"
-                      min={1}
-                      value={localPrice || ''}
-                      onChange={(e) => {
-                        setLocalPrice(parseInt(e.target.value) || 0);
-                        clearFieldError('price');
-                      }}
-                      placeholder={`Amount in ${listingCurrency}`}
-                      className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 ${
-                        fieldErrors.price
-                          ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
-                          : 'border-slate-200 focus:bg-white focus:ring-emerald-500/20 focus:border-emerald-500'
-                      }`}
-                    />
-                  </div>
-
-                  {/* Realtime Conversion Preview */}
-                  {(() => {
-                    const usdEquivalent = convertCurrencyToUSD(localPrice, listingCurrency);
-                    const currConfig = SUPPORTED_CURRENCIES[listingCurrency] || SUPPORTED_CURRENCIES['USD'];
-                    return (
-                      <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-100 p-2 rounded-xl text-[11px] font-medium text-emerald-900">
-                        <span className="flex items-center gap-1 font-bold">
-                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Universal USD Price:</span>
-                        </span>
-                        <span className="font-extrabold text-emerald-700">
-                          ${usdEquivalent.toLocaleString()} USD / month
-                        </span>
-                      </div>
-                    );
-                  })()}
-
-                  {fieldErrors.price && (
-                    <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{fieldErrors.price}</span>
+              {/* Multi-Currency Price & Rent Period Controls */}
+              <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                      <span>Rent Pricing & Billing Frequency *</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Set whether you are entering an <strong>Annual (/yr)</strong>, <strong>Monthly (/mo)</strong>, or <strong>Quarterly</strong> rent price.
                     </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Size (m²) *</label>
-                  <input
-                    type="number"
-                    min={5}
-                    value={size || ''}
-                    onChange={(e) => {
-                      setSize(parseInt(e.target.value) || 0);
-                      clearFieldError('size');
-                    }}
-                    className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 ${
-                      fieldErrors.size
-                        ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
-                        : 'border-slate-200 focus:bg-white focus:ring-emerald-500/20 focus:border-emerald-500'
-                    }`}
-                  />
-                  {fieldErrors.size && (
-                    <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{fieldErrors.size}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Annual Prepayment Discount Configuration */}
-              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-emerald-900 uppercase tracking-wide flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>Annual Payment Discount (%)</span>
-                  </label>
-                  <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded-full">
-                    Tenant Incentive
+                  </div>
+                  <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full shrink-0 border border-emerald-200">
+                    Annual Rent Recommended
                   </span>
                 </div>
-                <p className="text-[11px] text-emerald-700/90 leading-tight">
-                  Offer a discount to tenants who choose to prepay 12 months upfront.
-                </p>
-                <div className="flex items-center gap-3 pt-1">
-                  <div className="w-28 shrink-0">
-                    <div className="relative">
+
+                {/* Price Period Selection Toggle Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'annual', label: 'Annually (/yr)', badge: 'Standard' },
+                    { id: 'monthly', label: 'Monthly (/mo)', badge: 'Short-term' },
+                    { id: 'quarterly', label: 'Quarterly', badge: '3 Months' },
+                  ].map((period) => (
+                    <button
+                      key={period.id}
+                      type="button"
+                      onClick={() => {
+                        const newPeriod = period.id as any;
+                        if (newPeriod === 'annual' && pricePeriod === 'monthly') {
+                          setLocalPrice(prev => prev * 12);
+                        } else if (newPeriod === 'monthly' && pricePeriod === 'annual') {
+                          setLocalPrice(prev => Math.round(prev / 12));
+                        }
+                        setPricePeriod(newPeriod);
+                        clearFieldError('price');
+                      }}
+                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                        pricePeriod === period.id
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
+                          : 'bg-white border-slate-200 hover:border-emerald-300 text-slate-700 hover:bg-emerald-50/40'
+                      }`}
+                    >
+                      <span className="text-xs font-black leading-tight">{period.label}</span>
+                      <span className={`text-[9px] font-bold mt-0.5 ${pricePeriod === period.id ? 'text-emerald-100' : 'text-slate-400'}`}>
+                        {period.badge}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      {pricePeriod === 'annual' ? 'Annual Rent Amount *' : pricePeriod === 'quarterly' ? 'Quarterly Rent Amount *' : 'Monthly Rent Amount *'}
+                    </label>
+                    
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={listingCurrency}
+                        onChange={(e) => {
+                          setListingCurrency(e.target.value);
+                          clearFieldError('price');
+                        }}
+                        className="w-28 px-2.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shrink-0"
+                      >
+                        {Object.entries(SUPPORTED_CURRENCIES).map(([code, config]) => (
+                          <option key={code} value={code}>
+                            {config.symbol} {code}
+                          </option>
+                        ))}
+                      </select>
+
                       <input
                         type="number"
-                        min={0}
-                        max={50}
-                        value={annualDiscountPercentage}
-                        onChange={(e) => setAnnualDiscountPercentage(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))}
-                        className="w-full pl-3 pr-7 py-1.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        min={1}
+                        value={localPrice || ''}
+                        onChange={(e) => {
+                          setLocalPrice(parseInt(e.target.value) || 0);
+                          clearFieldError('price');
+                        }}
+                        placeholder={`e.g. ${pricePeriod === 'annual' ? '2500000' : '200000'} in ${listingCurrency}`}
+                        className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs text-slate-800 font-extrabold focus:outline-none focus:ring-2 ${
+                          fieldErrors.price
+                            ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
+                            : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        }`}
                       />
-                      <span className="absolute right-2.5 top-1.5 text-xs font-black text-emerald-600">%</span>
                     </div>
                   </div>
-                  <div className="text-xs text-emerald-900 font-medium leading-tight">
-                    Annual Rate: <strong>{formatCurrencyAmount(Math.round(localPrice * (1 - annualDiscountPercentage / 100)), listingCurrency)}/mo</strong>
-                    <span className="text-[10px] text-emerald-600 block">
-                      (Saves tenant {formatCurrencyAmount(Math.round(localPrice * (annualDiscountPercentage / 100) * 12), listingCurrency)} / year)
-                    </span>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Size (m²) *</label>
+                    <input
+                      type="number"
+                      min={5}
+                      value={size || ''}
+                      onChange={(e) => {
+                        setSize(parseInt(e.target.value) || 0);
+                        clearFieldError('size');
+                      }}
+                      placeholder="e.g. 85 m²"
+                      className={`w-full px-4 py-2.5 bg-white border rounded-xl text-xs text-slate-700 font-bold focus:outline-none focus:ring-2 ${
+                        fieldErrors.size
+                          ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/20'
+                          : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                      }`}
+                    />
+                    {fieldErrors.size && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{fieldErrors.size}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Realtime Breakdown Calculator Box */}
+                {(() => {
+                  const currSymbol = SUPPORTED_CURRENCIES[listingCurrency]?.symbol || '$';
+                  const annualAmount = pricePeriod === 'annual' ? localPrice : pricePeriod === 'quarterly' ? localPrice * 4 : localPrice * 12;
+                  const monthlyAmount = pricePeriod === 'annual' ? Math.round(localPrice / 12) : pricePeriod === 'quarterly' ? Math.round(localPrice / 3) : localPrice;
+                  const usdEquivalentAnnual = convertCurrencyToUSD(annualAmount, listingCurrency);
+                  const usdEquivalentMonthly = Math.round(usdEquivalentAnnual / 12);
+
+                  return (
+                    <div className="bg-emerald-50/80 border border-emerald-200/90 p-3 rounded-xl text-xs space-y-1.5 text-emerald-950">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          <span>Calculated Rate Summary:</span>
+                        </span>
+                        <span className="text-[11px] font-extrabold text-emerald-700">
+                          ~${usdEquivalentAnnual.toLocaleString()} USD / yr (${usdEquivalentMonthly.toLocaleString()} USD / mo)
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-emerald-200/60 font-medium">
+                        <div>
+                          <span className="text-emerald-800">Annual Rent Total:</span>{' '}
+                          <strong className="font-black text-emerald-950">{currSymbol}{annualAmount.toLocaleString()} /year</strong>
+                        </div>
+                        <div>
+                          <span className="text-emerald-800">Monthly Breakdown:</span>{' '}
+                          <strong className="font-black text-emerald-950">~{currSymbol}{monthlyAmount.toLocaleString()} /month</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {fieldErrors.price && (
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors.price}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Energy Efficiency & Utilities Section */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-emerald-600" />
+                    <span>Energy Efficiency Rating (EPC Grade)</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Utility Cost Estimator
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Energy Class Grade *</label>
+                    <select
+                      value={energyRating}
+                      onChange={(e) => setEnergyRating(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="A+++">A+++ (Ultra Green & Solar)</option>
+                      <option value="A++">A++ (Exceptional Efficiency)</option>
+                      <option value="A+">A+ (Superior Inverter/Green)</option>
+                      <option value="A">A (High Efficiency)</option>
+                      <option value="B">B (Good Standard)</option>
+                      <option value="C">C (Moderate)</option>
+                      <option value="D">D (Average Grade)</option>
+                      <option value="E">E (Below Average)</option>
+                      <option value="F">F (Low Efficiency)</option>
+                      <option value="G">G (Inefficient)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-2 cursor-pointer p-2 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={solarPowered}
+                        onChange={(e) => setSolarPowered(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <span className="text-xs font-extrabold text-slate-800 block">Solar PV / Inverter Installed</span>
+                        <span className="text-[10px] text-slate-500 block">Reduces grid utility costs for tenants</span>
+                      </div>
+                    </label>
                   </div>
                 </div>
               </div>

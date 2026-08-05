@@ -28,13 +28,13 @@ import {
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, LogOut, Check,
   BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Variants } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getStatesForCountry, getCitiesForState, getAreasForCity } from './utils/location';
 import { SUPPORTED_CURRENCIES, resolveUserDefaultCurrency, detectIPCurrency } from './utils/currency';
 import emptySearchImg from './assets/images/empty_search_results_1785810450193.jpg';
 import emptySavedImg from './assets/images/empty_saved_properties_1785810460564.jpg';
 
-const staggerContainerVariants = {
+const staggerContainerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -45,13 +45,13 @@ const staggerContainerVariants = {
   },
 };
 
-const staggerItemVariants = {
+const staggerItemVariants: Variants = {
   hidden: { opacity: 0, y: 16, scale: 0.98 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.3, ease: [0.25, 1, 0.5, 1] },
+    transition: { duration: 0.3, ease: 'easeOut' },
   },
 };
 
@@ -160,6 +160,31 @@ export default function App() {
     setComparedListings([]);
     toast.info('Compare List Cleared');
   };
+
+  // Proactive Payment Due Toast Alert for Tenants
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'guest') return;
+    const allBookings = getBookings();
+    const dueBooking = allBookings.find(
+      (b) => b.guestId === currentUser.id && (b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+    );
+    if (dueBooking) {
+      const alertKey = `payment_due_alert_toast_${dueBooking.id}_${dueBooking.nextPaymentDueDate || '3days'}`;
+      if (!sessionStorage.getItem(alertKey)) {
+        const timer = setTimeout(() => {
+          const daysLeft = dueBooking.paymentDueDaysLeft || 3;
+          const isAnnual = dueBooking.billingCycle === 'annual';
+          const dueDateStr = dueBooking.nextPaymentDueDate || 'Aug 8, 2026';
+          toast.warning(
+            `Payment Due Alert: Rent Due in ${daysLeft} Days`,
+            `Your ${isAnnual ? 'annual' : 'monthly'} rent payment for "${dueBooking.listingTitle}" is due on ${dueDateStr}. Tap 'My Bookings' to complete payment.`
+          );
+          sessionStorage.setItem(alertKey, 'true');
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentUser]);
 
   // Dark Mode Theme State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -1803,7 +1828,7 @@ export default function App() {
           setCurrentTab('explore');
         }}
         onOpenAuth={(role) => {
-          setAuthModalRole(role);
+          setAuthModalRole(role === 'tenant' ? 'guest' : role);
           setAuthModalMode('signup');
           setShowAuthModal(true);
         }}
@@ -1819,26 +1844,28 @@ export default function App() {
       />
 
       {/* POPUP: PROPERTY DETAIL DRAWER MODAL */}
-      {selectedListing && (
-        <PropertyDetails
-          listing={selectedListing}
-          currentUser={currentUser}
-          displayCurrency={displayCurrency}
-          onClose={() => setSelectedListing(null)}
-          onBookingCreated={() => {
-            setSelectedListing(null);
-            setCurrentTab('bookings');
-            refreshData();
-          }}
-          onSwitchToGuest={() => {
-            setAuthModalRole('guest');
-            setAuthModalMode('login');
-            setShowAuthModal(true);
-          }}
-          isCompared={comparedListings.some((l) => l.id === selectedListing.id)}
-          onToggleCompare={() => toggleCompareListing(selectedListing)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedListing && (
+          <PropertyDetails
+            listing={selectedListing}
+            currentUser={currentUser}
+            displayCurrency={displayCurrency}
+            onClose={() => setSelectedListing(null)}
+            onBookingCreated={() => {
+              setSelectedListing(null);
+              setCurrentTab('bookings');
+              refreshData();
+            }}
+            onSwitchToGuest={() => {
+              setAuthModalRole('guest');
+              setAuthModalMode('login');
+              setShowAuthModal(true);
+            }}
+            isCompared={comparedListings.some((l) => l.id === selectedListing.id)}
+            onToggleCompare={() => toggleCompareListing(selectedListing)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* FLOATING COMPARE ACTION BAR */}
       <CompareBar

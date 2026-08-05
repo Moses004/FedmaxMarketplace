@@ -15,9 +15,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { getListingPrices, formatCurrencyAmount } from '../utils/currency';
+import AnimatedPriceCounter from './AnimatedPriceCounter';
 import TenantPreScreeningModal from './TenantPreScreeningModal';
 import LeaseTermsModal from './LeaseTermsModal';
 import NeighborhoodScoreCard from './NeighborhoodScoreCard';
+import EnergyEfficiencyGauge from './EnergyEfficiencyGauge';
 import ScheduleTourModal from './ScheduleTourModal';
 import SmartRentSplitterModal from './SmartRentSplitterModal';
 import NearbyPlaces from './NearbyPlaces';
@@ -552,12 +554,18 @@ export default function PropertyDetails({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+    >
       <motion.div 
-        initial={{ opacity: 0, scale: 0.96, y: 15 }}
+        initial={{ opacity: 0, scale: 0.95, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 15 }}
-        transition={{ type: "spring", duration: 0.35, bounce: 0.05 }}
+        exit={{ opacity: 0, scale: 0.95, y: 24 }}
+        transition={{ type: "spring", stiffness: 320, damping: 28 }}
         className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row h-[92vh] sm:h-[90vh] my-0 sm:my-auto relative"
       >
         
@@ -1230,6 +1238,9 @@ export default function PropertyDetails({
             </div>
           </div>
 
+          {/* Energy Efficiency Rating & Utility Expectations Gauge */}
+          <EnergyEfficiencyGauge listing={listing} displayCurrency={displayCurrency} />
+
           {/* Interactive Neighborhood & Walkability Index */}
           <NeighborhoodScoreCard listing={listing} />
 
@@ -1538,51 +1549,72 @@ export default function PropertyDetails({
 
             {/* Price Header */}
             {(() => {
-              const { localPrice, priceUSD, primaryCode, secondaryFormatted, nativeCurrencyCode } = getListingPrices(listing, displayCurrency);
+              const { annualLocalPrice, monthlyLocalPrice, annualPriceUSD, monthlyPriceUSD, primaryCode, periodLabel } = getListingPrices(listing, displayCurrency);
               const isAnnual = billingCycle === 'annual';
-              const activeLocal = isAnnual ? Math.round(localPrice * (1 - annualDiscountPct / 100)) : localPrice;
-              const activeUSD = isAnnual ? Math.round(priceUSD * (1 - annualDiscountPct / 100)) : priceUSD;
+              const activeLocal = isAnnual ? Math.round(annualLocalPrice * (1 - annualDiscountPct / 100)) : monthlyLocalPrice;
+              const activeUSD = isAnnual ? Math.round(annualPriceUSD * (1 - annualDiscountPct / 100)) : monthlyPriceUSD;
               const activeFormatted = formatCurrencyAmount(activeLocal, primaryCode);
-              const originalFormatted = formatCurrencyAmount(localPrice, primaryCode);
-              const savingsLocal = Math.round((localPrice - activeLocal) * 12);
-              const savingsUSD = Math.round((priceUSD - activeUSD) * 12);
+              const originalFormatted = formatCurrencyAmount(annualLocalPrice, primaryCode);
+              const monthlyEquivalentFormatted = formatCurrencyAmount(Math.round(activeLocal / 12), primaryCode);
+              const savingsLocal = Math.round(annualLocalPrice * (annualDiscountPct / 100));
+              const savingsUSD = Math.round(annualPriceUSD * (annualDiscountPct / 100));
 
               return (
                 <div className="mb-5 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-[11px] uppercase tracking-wider font-bold">
-                      {isAnnual ? 'Annual Upfront Rate' : 'Standard Monthly Rent'}
+                    <span className="text-slate-400 text-[11px] uppercase tracking-wider font-extrabold">
+                      {isAnnual ? 'Annual Lease Rent' : 'Monthly Rent'}
                     </span>
                     {isAnnual && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
-                        Save {annualDiscountPct}%
+                        Save {annualDiscountPct}% Upfront
                       </span>
                     )}
                   </div>
                   <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-2xl sm:text-3xl font-black text-slate-800">{activeFormatted}</span>
-                    <span className="text-slate-500 text-xs sm:text-sm font-medium">/month</span>
-                    {isAnnual && (
-                      <span className="text-xs sm:text-sm font-semibold text-slate-400 line-through">
-                        {originalFormatted}
+                    <AnimatedPriceCounter
+                      value={activeLocal}
+                      currencyCode={primaryCode}
+                      className="text-2xl sm:text-3xl font-black text-slate-800"
+                    />
+                    <span className="text-emerald-600 text-xs sm:text-sm font-extrabold">{isAnnual ? '/year' : '/month'}</span>
+                    {isAnnual && annualDiscountPct > 0 && (
+                      <AnimatedPriceCounter
+                        value={annualLocalPrice}
+                        currencyCode={primaryCode}
+                        className="text-xs sm:text-sm font-semibold text-slate-400 line-through"
+                      />
+                    )}
+                  </div>
+
+                  {/* Monthly equivalent subtext */}
+                  <div className="mt-1 text-xs font-bold text-slate-600 flex items-center justify-between">
+                    <span>
+                      Equivalent to ~<AnimatedPriceCounter value={Math.round(activeLocal / 12)} currencyCode={primaryCode} /> / month
+                    </span>
+                    {primaryCode !== 'USD' && (
+                      <span className="text-emerald-600 font-bold text-[11px]">
+                        <AnimatedPriceCounter
+                          value={activeUSD}
+                          currencyCode="USD"
+                          prefix="≈ "
+                          suffix={` USD${isAnnual ? '/yr' : '/mo'}`}
+                        />
                       </span>
                     )}
                   </div>
-                  
-                  {/* Secondary universal USD or native currency line */}
-                  {primaryCode !== 'USD' && (
-                    <div className="mt-0.5 text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                      <span>≈ {formatCurrencyAmount(activeUSD, 'USD')} / mo (Universal USD)</span>
-                    </div>
-                  )}
 
                   {isAnnual ? (
-                    <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1.5 pt-2 border-t border-slate-100">
                       <Check className="w-4 h-4 stroke-[3] text-emerald-600 shrink-0" />
-                      <span>Saves {formatCurrencyAmount(savingsLocal, primaryCode)} ({formatCurrencyAmount(savingsUSD, 'USD')}) / year</span>
+                      <span>
+                        Annual prepayment saves{' '}
+                        <AnimatedPriceCounter value={savingsLocal} currencyCode={primaryCode} /> (
+                        <AnimatedPriceCounter value={savingsUSD} currencyCode="USD" />) per year
+                      </span>
                     </p>
                   ) : (
-                    <p className="text-xs text-slate-400 mt-1.5">Includes standard maintenance & verified lease</p>
+                    <p className="text-xs text-slate-400 mt-1.5 pt-2 border-t border-slate-100">Includes verified lease agreement & maintenance guarantee</p>
                   )}
                 </div>
               );
@@ -1781,13 +1813,23 @@ export default function PropertyDetails({
         {/* Mobile Fixed Bottom Reserve Bar */}
         <div className="md:hidden sticky bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3.5 px-4 shadow-lg flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400">Monthly Rent</div>
+            <div className="text-[10px] uppercase font-bold text-slate-400">Annual Rent</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-black text-slate-900 dark:text-white">
-                {formatCurrencyAmount(getListingPrices(listing, displayCurrency).localPrice, getListingPrices(listing, displayCurrency).primaryCode)}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">/mo</span>
+              <AnimatedPriceCounter
+                value={getListingPrices(listing, displayCurrency).annualLocalPrice}
+                currencyCode={getListingPrices(listing, displayCurrency).primaryCode}
+                className="text-lg font-black text-slate-900 dark:text-white"
+              />
+              <span className="text-xs text-emerald-600 font-bold">/yr</span>
             </div>
+            <span className="text-[9.5px] font-semibold text-slate-500 block">
+              (~
+              <AnimatedPriceCounter
+                value={getListingPrices(listing, displayCurrency).monthlyLocalPrice}
+                currencyCode={getListingPrices(listing, displayCurrency).primaryCode}
+              />
+              /mo)
+            </span>
           </div>
           <button
             type="button"
@@ -2016,6 +2058,6 @@ export default function PropertyDetails({
           displayCurrency={displayCurrency}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

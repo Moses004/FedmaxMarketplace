@@ -510,6 +510,24 @@ export default function EditProfileModal({
             </div>
           )}
 
+          {/* Tenant specific: Proactive Payment Due Reminders */}
+          {role === 'guest' && (
+            <div className="bg-amber-50/50 p-3.5 rounded-2xl border border-amber-200/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>Payment Due Alerts (3 Days Prior)</span>
+                </div>
+                <span className="text-[10px] bg-amber-200/60 text-amber-900 font-extrabold px-2 py-0.5 rounded-full uppercase">
+                  ACTIVE
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                Receive instant toast alerts, in-app notifications, and payment links 3 days before your monthly or annual rent renewal is due.
+              </p>
+            </div>
+          )}
+
           {/* Landlord specific: Tax ID */}
           {role === 'landlord' && (
             <div className="bg-indigo-50/50 p-3.5 rounded-2xl border border-indigo-100 space-y-2">

@@ -21,9 +21,10 @@ export interface Listing {
   id: string;
   title: string;
   description: string;
-  price: number; // Universal price in USD per month
+  price: number; // Baseline price in USD (Annual or Monthly based on pricePeriod)
+  pricePeriod?: 'annual' | 'monthly' | 'quarterly'; // Billing period for listed price (default 'annual')
   currency?: string; // Regional currency code (e.g. "NGN", "EUR", "GBP", "USD")
-  localPrice?: number; // Price in regional currency per month (e.g. 1250000 NGN)
+  localPrice?: number; // Price in regional currency (e.g. 3600000 NGN per year)
   annualDiscountPercentage?: number; // percentage discount if tenant pays annually (e.g. 10 for 10% off)
   type: PropertyType;
   location: string;
@@ -50,6 +51,12 @@ export interface Listing {
   agentLicense?: string; // Registration, License ID, or Office Location
   availableFrom: string;
   status?: ListingStatus;
+  // Energy Efficiency & Utilities
+  energyRating?: 'A+++' | 'A++' | 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+  estimatedMonthlyUtilitiesUSD?: number;
+  solarPowered?: boolean;
+  hvacType?: string;
+  insulationQuality?: 'High' | 'Standard' | 'Basic';
 }
 
 export const PROPERTY_CATEGORY_OPTIONS: { id: PropertyType; label: string; description: string }[] = [
@@ -97,6 +104,9 @@ export interface Booking {
   leaseSignedDate?: string;
   paymentMethod?: 'safepay' | 'paystack';
   paymentReference?: string;
+  nextPaymentDueDate?: string;
+  paymentDueDaysLeft?: number;
+  paymentStatus?: 'paid' | 'due_soon' | 'overdue';
   refundReason?: string;
   refundReference?: string;
   refundedAt?: string;

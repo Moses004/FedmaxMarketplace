@@ -20,7 +20,7 @@ interface PropertyCardProps {
 
 export default function PropertyCard({ listing, isSelected, onClick, isFavorited, onToggleFavorite, isCompared, onToggleCompare, distanceKm, displayCurrency = 'regional' }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const { primaryFormatted, secondaryFormatted } = getListingPrices(listing, displayCurrency);
+  const { primaryFormatted, secondaryFormatted, periodLabel, monthlyEquivalentText } = getListingPrices(listing, displayCurrency);
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'];
   // Dynamic colors for different housing types
   const typeColors: Record<string, string> = {
@@ -197,16 +197,21 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Floating Price */}
-        <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10 max-w-[48%]">
+        <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10 max-w-[55%]">
           <div className="flex items-baseline gap-0.5 sm:gap-1 max-w-full truncate">
             <span className="text-base sm:text-lg tracking-tight font-black text-white truncate">{primaryFormatted}</span>
-            <span className="text-[10px] sm:text-xs text-emerald-300 font-extrabold shrink-0">/mo</span>
+            <span className="text-[10px] sm:text-xs text-emerald-300 font-extrabold shrink-0">{periodLabel}</span>
           </div>
-          {secondaryFormatted && (
-            <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400 -mt-0.5 tracking-tight truncate max-w-full">
-              {secondaryFormatted}
+          <div className="flex items-center gap-1.5 -mt-0.5 max-w-full truncate">
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 tracking-tight truncate">
+              {monthlyEquivalentText}
             </span>
-          )}
+            {secondaryFormatted && (
+              <span className="text-[8.5px] font-bold text-emerald-400 tracking-tight truncate hidden sm:inline">
+                ({secondaryFormatted})
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

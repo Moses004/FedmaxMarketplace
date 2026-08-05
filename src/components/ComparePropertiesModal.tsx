@@ -388,14 +388,14 @@ export default function ComparePropertiesModal({
                     </h5>
                   </div>
 
-                  {/* Row: Monthly Rent */}
+                  {/* Row: Annual / Listed Rent */}
                   <div className="font-bold text-xs text-slate-700 dark:text-slate-300 flex items-center">
-                    Monthly Rent
+                    Annual Rent Rate
                   </div>
                   {comparedListings.map((l) => {
                     const diff = highlightDiff && hasDifference((x) => x.price);
                     const isMin = l.price === bestMetrics.minPrice && comparedListings.length > 1;
-                    const { primaryFormatted, secondaryFormatted } = getListingPrices(l, displayCurrency);
+                    const { primaryFormatted, periodLabel, monthlyEquivalentText, secondaryFormatted } = getListingPrices(l, displayCurrency);
                     return (
                       <div
                         key={`price-${l.id}`}
@@ -406,14 +406,15 @@ export default function ComparePropertiesModal({
                         }`}
                       >
                         <div className="flex flex-col">
-                          <span className="text-slate-900 dark:text-slate-100 font-bold">{primaryFormatted} / mo</span>
+                          <span className="text-slate-900 dark:text-slate-100 font-bold">{primaryFormatted} {periodLabel}</span>
+                          <span className="text-[10px] text-emerald-600 font-semibold">{monthlyEquivalentText}</span>
                           {secondaryFormatted && (
-                            <span className="text-[10px] text-slate-400 font-semibold">{secondaryFormatted}</span>
+                            <span className="text-[9.5px] text-slate-400 font-medium">{secondaryFormatted}</span>
                           )}
                         </div>
                         {isMin && (
                           <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                            Cheapest
+                            Best Rate
                           </span>
                         )}
                       </div>

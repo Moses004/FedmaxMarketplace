@@ -225,11 +225,13 @@ export function formatCurrencyAmount(
 
 /**
  * Resolves full pricing info for a property listing:
- * Returns both the local regional price/currency and the universal USD price.
+ * Supports annual, monthly, and quarterly pricing periods (defaulting to Annual).
+ * Returns primary formatted price, period label, monthly breakdown, and converted USD prices.
  */
 export function getListingPrices(
   listing: {
     price: number; // Stored baseline price in USD or local
+    pricePeriod?: 'annual' | 'monthly' | 'quarterly';
     currency?: string;
     localPrice?: number;
     country?: string;
@@ -237,6 +239,8 @@ export function getListingPrices(
   },
   globalDisplayCurrencyMode: string = 'regional' // 'regional' | 'auto' | 'USD' | 'NGN' | 'EUR' | 'GBP' ...
 ) {
+  const pricePeriod = listing.pricePeriod || 'annual';
+
   // Determine listing's native regional currency
   let nativeCurrencyCode = listing.currency;
   if (!nativeCurrencyCode) {
@@ -255,57 +259,106 @@ export function getListingPrices(
   const nativeCurrency = SUPPORTED_CURRENCIES[nativeCurrencyCode] || SUPPORTED_CURRENCIES.USD;
 
   // Determine baseline USD price and native local price
-  let priceInUSD: number;
-  let localPrice: number;
+  let rawPriceInUSD: number;
+  let rawLocalPrice: number;
 
   if (listing.localPrice && listing.currency) {
-    localPrice = listing.localPrice;
-    priceInUSD = listing.price || convertCurrencyToUSD(localPrice, listing.currency);
+    rawLocalPrice = listing.localPrice;
+    rawPriceInUSD = listing.price || convertCurrencyToUSD(rawLocalPrice, listing.currency);
   } else {
-    priceInUSD = listing.price || 0;
-    localPrice = convertUSDToCurrency(priceInUSD, nativeCurrencyCode);
+    rawPriceInUSD = listing.price || 0;
+    rawLocalPrice = convertUSDToCurrency(rawPriceInUSD, nativeCurrencyCode);
   }
 
+  // Calculate annual and monthly equivalents in local currency and USD
+  let annualLocalPrice: number;
+  let monthlyLocalPrice: number;
+  let annualPriceUSD: number;
+  let monthlyPriceUSD: number;
+
+  if (pricePeriod === 'annual') {
+    annualLocalPrice = rawLocalPrice;
+    monthlyLocalPrice = Math.round(rawLocalPrice / 12);
+    annualPriceUSD = rawPriceInUSD;
+    monthlyPriceUSD = Math.round(rawPriceInUSD / 12);
+  } else if (pricePeriod === 'quarterly') {
+    annualLocalPrice = rawLocalPrice * 4;
+    monthlyLocalPrice = Math.round(rawLocalPrice / 3);
+    annualPriceUSD = rawPriceInUSD * 4;
+    monthlyPriceUSD = Math.round(rawPriceInUSD / 3);
+  } else {
+    // monthly
+    monthlyLocalPrice = rawLocalPrice;
+    annualLocalPrice = rawLocalPrice * 12;
+    monthlyPriceUSD = rawPriceInUSD;
+    annualPriceUSD = rawPriceInUSD * 12;
+  }
+
+  // Display currency calculation
   let primaryFormatted: string;
   let secondaryFormatted: string | null = null;
   let primaryCode: string = nativeCurrencyCode;
+  let periodLabel: string = pricePeriod === 'annual' ? '/yr' : pricePeriod === 'quarterly' ? '/qtr' : '/mo';
+
+  // Format annual and monthly in primary currency
+  let activeDisplayLocalPrice = pricePeriod === 'annual' ? annualLocalPrice : monthlyLocalPrice;
+  let activeDisplayUSD = pricePeriod === 'annual' ? annualPriceUSD : monthlyPriceUSD;
 
   if (globalDisplayCurrencyMode === 'regional') {
-    // Show listing's native currency as primary, and USD as secondary fallback if native != USD
-    primaryFormatted = formatCurrencyAmount(localPrice, nativeCurrencyCode);
+    primaryFormatted = formatCurrencyAmount(activeDisplayLocalPrice, nativeCurrencyCode);
     primaryCode = nativeCurrencyCode;
 
     if (nativeCurrencyCode !== 'USD') {
-      secondaryFormatted = `~${formatCurrencyAmount(priceInUSD, 'USD')} USD`;
+      secondaryFormatted = `~${formatCurrencyAmount(activeDisplayUSD, 'USD')} USD${periodLabel}`;
     }
   } else {
-    // User or system picked a display currency (e.g. 'EUR', 'NGN', 'GBP', 'USD', 'CAD', etc.)
     const targetCurrencyCode = globalDisplayCurrencyMode;
-    const targetAmount = convertUSDToCurrency(priceInUSD, targetCurrencyCode);
+    const targetAmount = convertUSDToCurrency(activeDisplayUSD, targetCurrencyCode);
     primaryFormatted = formatCurrencyAmount(targetAmount, targetCurrencyCode);
     primaryCode = targetCurrencyCode;
 
     if (targetCurrencyCode !== nativeCurrencyCode) {
       if (targetCurrencyCode !== 'USD' && nativeCurrencyCode !== 'USD') {
-        secondaryFormatted = `~${formatCurrencyAmount(priceInUSD, 'USD')} USD (${formatCurrencyAmount(localPrice, nativeCurrencyCode)} native)`;
+        secondaryFormatted = `~${formatCurrencyAmount(activeDisplayUSD, 'USD')} USD (${formatCurrencyAmount(activeDisplayLocalPrice, nativeCurrencyCode)} native)`;
       } else if (targetCurrencyCode !== 'USD') {
-        secondaryFormatted = `~${formatCurrencyAmount(priceInUSD, 'USD')} USD`;
+        secondaryFormatted = `~${formatCurrencyAmount(activeDisplayUSD, 'USD')} USD`;
       } else {
-        secondaryFormatted = `(${formatCurrencyAmount(localPrice, nativeCurrencyCode)} native)`;
+        secondaryFormatted = `(${formatCurrencyAmount(activeDisplayLocalPrice, nativeCurrencyCode)} native)`;
       }
     } else if (nativeCurrencyCode !== 'USD') {
-      secondaryFormatted = `~${formatCurrencyAmount(priceInUSD, 'USD')} USD`;
+      secondaryFormatted = `~${formatCurrencyAmount(activeDisplayUSD, 'USD')} USD`;
     }
   }
 
+  // Format helper texts
+  const displayTargetCurrency = globalDisplayCurrencyMode === 'regional' ? nativeCurrencyCode : globalDisplayCurrencyMode;
+  const activeMonthlyAmount = convertUSDToCurrency(monthlyPriceUSD, displayTargetCurrency);
+  const activeAnnualAmount = convertUSDToCurrency(annualPriceUSD, displayTargetCurrency);
+
+  const monthlyFormatted = `${formatCurrencyAmount(activeMonthlyAmount, displayTargetCurrency)}/mo`;
+  const annualFormatted = `${formatCurrencyAmount(activeAnnualAmount, displayTargetCurrency)}/yr`;
+
+  const monthlyEquivalentText = pricePeriod === 'annual' 
+    ? `~${monthlyFormatted}`
+    : `~${annualFormatted}`;
+
   return {
-    priceUSD: priceInUSD,
-    localPrice,
+    priceUSD: annualPriceUSD,
+    monthlyPriceUSD,
+    annualPriceUSD,
+    localPrice: annualLocalPrice,
+    monthlyLocalPrice,
+    annualLocalPrice,
     nativeCurrency,
     nativeCurrencyCode,
     primaryFormatted,
     secondaryFormatted,
     primaryCode,
+    pricePeriod,
+    periodLabel,
+    monthlyFormatted,
+    annualFormatted,
+    monthlyEquivalentText,
   };
 }
 
