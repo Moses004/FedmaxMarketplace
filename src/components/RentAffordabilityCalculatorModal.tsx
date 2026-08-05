@@ -25,6 +25,17 @@ export default function RentAffordabilityCalculatorModal({
   const [monthlyDebts, setMonthlyDebts] = useState<number>(0);
   const [includeMoveInEstimator, setIncludeMoveInEstimator] = useState<boolean>(true);
 
+  // Keyboard Escape listener
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const currentCurrency = SUPPORTED_CURRENCIES[selectedCurrencyCode] || SUPPORTED_CURRENCIES.USD;
@@ -58,7 +69,12 @@ export default function RentAffordabilityCalculatorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rent-calculator-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -73,7 +89,7 @@ export default function RentAffordabilityCalculatorModal({
               <Calculator className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+              <h3 id="rent-calculator-title" className="text-lg font-extrabold text-slate-900 dark:text-white">
                 Rent Affordability Calculator
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -82,10 +98,13 @@ export default function RentAffordabilityCalculatorModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            aria-label="Close rent calculator modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
+            <span className="sr-only">Close</span>
           </button>
         </div>
 

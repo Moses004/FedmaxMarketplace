@@ -65,6 +65,17 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Keyboard Escape listener
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceSuccess, setEnhanceSuccess] = useState(false);
   
@@ -378,7 +389,12 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-listing-modal-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -390,14 +406,17 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="font-bold text-slate-800 text-lg">List Your Property</h3>
+            <h3 id="add-listing-modal-title" className="font-bold text-slate-800 text-lg">List Your Property</h3>
             <p className="text-xs text-slate-400">Step {step} of 3 • Add details about your rental home</p>
           </div>
           <button 
+            type="button"
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors border border-slate-200/50"
+            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors border border-slate-200/50 cursor-pointer"
+            aria-label="Close listing creation modal"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
+            <span className="sr-only">Close</span>
           </button>
         </div>
 

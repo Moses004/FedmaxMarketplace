@@ -26,6 +26,29 @@ h1, h2, h3, h4 {
   line-height: 1.25;
 }
 
+/* Accessibility Focus-Visible Rings & Screen Reader Helpers */
+*:focus-visible {
+  outline: 2px solid #059669 !important;
+  outline-offset: 2px !important;
+}
+
+.dark *:focus-visible {
+  outline: 2px solid #10b981 !important;
+  outline-offset: 2px !important;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border-width: 0 !important;
+}
+
 h1 {
   font-weight: 800;
 }

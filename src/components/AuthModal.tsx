@@ -68,6 +68,19 @@ export default function AuthModal({
   const countryDropdownRef = useRef<HTMLDivElement>(null);
   const marketDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !isMandatory) {
+        onClose();
+      }
+    }
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isMandatory, onClose]);
+
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -193,7 +206,12 @@ export default function AuthModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -209,9 +227,11 @@ export default function AuthModal({
               type="button"
               onClick={onClose}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              aria-label="Close authentication modal"
               title="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">Close</span>
             </button>
           )}
 
@@ -231,7 +251,7 @@ export default function AuthModal({
             </span>
           </div>
 
-          <h2 className="text-xl font-display font-black text-white">
+          <h2 id="auth-modal-title" className="text-xl font-display font-black text-white">
             {mode === 'signup' 
               ? `Sign up as a ${role === 'landlord' ? 'Landlord / Owner' : 'Tenant / Guest'}`
               : 'Sign in to your Rentora account'}

@@ -20,6 +20,17 @@ export default function CurrencyConverterModal({
   const [toCurrency, setToCurrency] = useState<string>(activeCurrency || 'NGN');
   const [amount, setAmount] = useState<number>(1500); // Default 1,500 USD monthly rent
 
+  // Keyboard Escape listener
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSwap = () => {
@@ -34,7 +45,12 @@ export default function CurrencyConverterModal({
   const popularPresetAmounts = [500, 1000, 1500, 2500, 5000];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="currency-converter-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -51,7 +67,7 @@ export default function CurrencyConverterModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black tracking-tight">Rentora FX Currency Calculator</h2>
+                <h2 id="currency-converter-title" className="text-lg font-black tracking-tight">Rentora FX Currency Calculator</h2>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> Real-time Rates
                 </span>
@@ -62,11 +78,13 @@ export default function CurrencyConverterModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-            aria-label="Close modal"
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+            aria-label="Close currency converter modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
+            <span className="sr-only">Close</span>
           </button>
         </div>
 

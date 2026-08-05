@@ -54,6 +54,17 @@ export default function ComparePropertiesModal({
   const [highlightDiff, setHighlightDiff] = useState(false);
   const [showAddSelector, setShowAddSelector] = useState(false);
 
+  // Keyboard Escape key handler
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Unselected listings for quick addition
@@ -99,7 +110,12 @@ export default function ComparePropertiesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-[90] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-md animate-fade-in overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="compare-modal-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -116,7 +132,7 @@ export default function ComparePropertiesModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-display font-black text-slate-900 dark:text-slate-100 text-lg sm:text-xl">
+                <h2 id="compare-modal-title" className="font-display font-black text-slate-900 dark:text-slate-100 text-lg sm:text-xl">
                   Compare Properties
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
@@ -164,8 +180,10 @@ export default function ComparePropertiesModal({
               type="button"
               onClick={onClose}
               className="p-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              aria-label="Close property comparison modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">Close</span>
             </button>
           </div>
         </div>

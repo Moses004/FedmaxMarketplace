@@ -37,6 +37,17 @@ export default function ScheduleTourModal({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [downloadedIcal, setDownloadedIcal] = useState<boolean>(false);
 
+  // Keyboard Escape listener for modal closure
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const availableTimeSlots = [
     '09:00 AM', '10:00 AM', '11:00 AM', '01:00 PM', '02:30 PM', '04:00 PM', '05:30 PM'
   ];
@@ -130,7 +141,12 @@ export default function ScheduleTourModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="schedule-tour-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -149,7 +165,7 @@ export default function ScheduleTourModal({
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Instant Tour Booking</span>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 id="schedule-tour-title" className="text-xl sm:text-2xl font-black tracking-tight text-white">
                 Schedule a Property Tour
               </h3>
               <p className="text-xs text-slate-300">
@@ -161,8 +177,10 @@ export default function ScheduleTourModal({
               type="button"
               onClick={onClose}
               className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer shrink-0"
+              aria-label="Close tour scheduling modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">Close</span>
             </button>
           </div>
         </div>

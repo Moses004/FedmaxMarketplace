@@ -36,6 +36,17 @@ export default function SmartRentSplitterModal({
   const [splitMethod, setSplitMethod] = useState<'perks' | 'even' | 'size'>('perks');
   const [copied, setCopied] = useState(false);
 
+  // Keyboard Escape listener
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Default room initialization based on property bedrooms
   const numBedrooms = Math.max(2, listing.bedrooms || 2);
 
@@ -144,7 +155,12 @@ export default function SmartRentSplitterModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="smart-splitter-title"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -163,7 +179,7 @@ export default function SmartRentSplitterModal({
                 <Calculator className="w-3.5 h-3.5" />
                 <span>Smart Roommate Estimator</span>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 id="smart-splitter-title" className="text-xl sm:text-2xl font-black tracking-tight text-white">
                 Rent & Utility Cost Splitter
               </h3>
               <p className="text-xs text-slate-300 max-w-lg">
@@ -175,8 +191,10 @@ export default function SmartRentSplitterModal({
               type="button"
               onClick={onClose}
               className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer shrink-0"
+              aria-label="Close rent splitter modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">Close</span>
             </button>
           </div>
         </div>
