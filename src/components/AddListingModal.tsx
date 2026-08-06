@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { createListing, getCurrentUser } from '../services/store';
+import { sendListingCreatedNotification } from '../services/emailService';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
 import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
@@ -356,7 +357,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     }
 
     setTimeout(() => {
-      createListing({
+      const newListing = createListing({
         title: title.trim(),
         description: description.trim(),
         price: priceInUSD,
@@ -388,6 +389,18 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         agentLicense: agentLicense.trim() || undefined,
         availableFrom: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 15 days in future
       });
+
+      // Send email alert to landlord
+      if (contactEmail.trim() || currentUser?.email) {
+        sendListingCreatedNotification({
+          landlordEmail: contactEmail.trim() || currentUser?.email || '',
+          landlordName: landlordName.trim() || currentUser?.name || 'Landlord',
+          listingTitle: newListing.title,
+          listingPrice: localPrice,
+          listingLocation: newListing.location,
+          category: newListing.type
+        }).catch(err => console.error("Error sending listing creation email:", err));
+      }
 
       setIsSubmitting(false);
       onListingCreated();

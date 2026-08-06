@@ -222,6 +222,325 @@ app.post("/api/send-booking-email", async (req: any, res: any) => {
   }
 });
 
+// API Endpoint to send onboarding Welcome Email for newly registered users (Tenants & Landlords)
+app.post("/api/email/welcome", async (req: any, res: any) => {
+  try {
+    const { userEmail, userName = 'Valued User', role = 'guest', country, city, preferredMarket } = req.body;
+    if (!userEmail) {
+      return res.status(400).json({ error: "User email is required for welcome notification." });
+    }
+
+    const isLandlord = role === 'landlord';
+    const emailSubject = isLandlord 
+      ? `🏡 Welcome to Rentora Landlord Hub, ${userName}! Start Listing Properties`
+      : `✨ Welcome to Rentora, ${userName}! Find Your Dream Verified Rental`;
+
+    const sentAt = new Date().toISOString();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to Rentora RealEstate</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+    
+    <!-- Rentora Header -->
+    <div style="background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%); padding: 32px 24px; text-align: left; color: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 24px; font-weight: 900; letter-spacing: -0.5px; color: #10b981;">Rentora</span>
+        <span style="font-size: 11px; font-weight: 800; background: rgba(16, 185, 129, 0.25); color: #34d399; padding: 3px 10px; border-radius: 99px; text-transform: uppercase;">Official Onboarding</span>
+      </div>
+      <h1 style="margin: 14px 0 4px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
+        ${isLandlord ? 'Welcome to the Landlord & Owner Portal!' : 'Welcome to Your Next Living Space!'}
+      </h1>
+      <p style="margin: 0; font-size: 13px; color: #cbd5e1;">
+        Hi ${userName}, thank you for joining Rentora RealEstate Marketplace.
+      </p>
+    </div>
+
+    <div style="padding: 24px;">
+      <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-top: 0;">
+        ${isLandlord 
+          ? `Your landlord account has been initialized successfully. You can now publish properties, track tenant booking requests in real-time, optimize rental pricing using Gemini AI, and receive direct lease payouts.` 
+          : `Your tenant profile is active! You can now explore verified rental apartments across Spain and top global hubs, request viewings, calculate move-in budget affordability, and book with SSL security.`}
+      </p>
+
+      <!-- Account Summary Card -->
+      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; margin: 20px 0;">
+        <h3 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px;">Account Overview</h3>
+        <table style="width: 100%; font-size: 13px;">
+          <tr><td style="color: #64748b; padding: 3px 0;">Role / Account Type:</td><td style="font-weight: 700; color: #0f172a;">${isLandlord ? 'Landlord / Property Owner' : 'Tenant / Guest Renter'}</td></tr>
+          <tr><td style="color: #64748b; padding: 3px 0;">Email Address:</td><td style="font-weight: 700; color: #0284c7;">${userEmail}</td></tr>
+          ${country ? `<tr><td style="color: #64748b; padding: 3px 0;">Location:</td><td style="font-weight: 700; color: #0f172a;">${city ? `${city}, ` : ''}${country}</td></tr>` : ''}
+          ${preferredMarket ? `<tr><td style="color: #64748b; padding: 3px 0;">Target Market:</td><td style="font-weight: 700; color: #059669;">${preferredMarket}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <!-- Key Benefits List -->
+      <h3 style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">What You Can Do Next:</h3>
+      <ul style="padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.7;">
+        ${isLandlord ? `
+          <li><strong>Post a Property Listing:</strong> Publish rooms or full apartments in under 2 minutes.</li>
+          <li><strong>AI Description Generator:</strong> Enhance your listing copy using Gemini AI.</li>
+          <li><strong>Smart Payouts:</strong> Withdraw earnings directly to bank accounts via Paystack.</li>
+          <li><strong>Instant Email Alerts:</strong> Receive notifications as soon as tenants apply.</li>
+        ` : `
+          <li><strong>Explore Verified Listings:</strong> Search by location, budget, bedrooms, and amenities.</li>
+          <li><strong>Rent Affordability Calculator:</strong> Calculate exact move-in costs before applying.</li>
+          <li><strong>Saved Search Alerts:</strong> Set instant email alerts for new matching properties.</li>
+          <li><strong>Direct Landlord Messaging:</strong> Chat directly with owners and schedule tours.</li>
+        `}
+      </ul>
+
+      <div style="text-align: center; margin-top: 28px;">
+        <a href="https://rentora-realestate.com" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 800; font-size: 14px; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);">
+          ${isLandlord ? 'Go to Landlord Dashboard →' : 'Explore Rental Properties →'}
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #f1f5f9; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+      <p style="margin: 0 0 4px 0;">Rentora RealEstate Onboarding &amp; Notification Engine</p>
+      <p style="margin: 0;">Dispatched to new member: <strong style="color: #64748b;">${userEmail}</strong></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const logEntry: EmailLogRecord = {
+      id: `email-welcome-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+      toEmail: userEmail,
+      toName: userName,
+      subject: emailSubject,
+      bodyHtml: emailHtml,
+      bookingId: 'N/A (Welcome Onboarding)',
+      listingTitle: preferredMarket || 'Rentora Platform Onboarding',
+      guestName: userName,
+      status: 'sent',
+      serviceUsed: 'Rentora Email Gateway',
+      sentAt
+    };
+
+    serverEmailLogs.unshift(logEntry);
+
+    res.json({
+      success: true,
+      message: `Welcome email successfully dispatched to ${userEmail}`,
+      log: logEntry
+    });
+  } catch (err: any) {
+    console.error("Error sending welcome email:", err);
+    res.status(500).json({ error: err.message || "Failed to process welcome email." });
+  }
+});
+
+// API Endpoint to send booking status change emails (Approved / Declined)
+app.post("/api/email/booking-status", async (req: any, res: any) => {
+  try {
+    const { bookingId, tenantEmail, tenantName = 'Valued Renter', landlordName = 'Landlord', listingTitle, status, note } = req.body;
+    if (!tenantEmail || !listingTitle) {
+      return res.status(400).json({ error: "Tenant email and listing title are required." });
+    }
+
+    const isApproved = status === 'confirmed' || status === 'approved';
+    const isRejected = status === 'rejected' || status === 'declined';
+    
+    const emailSubject = isApproved
+      ? `🎉 Reservation Confirmed! Your booking for "${listingTitle}" was Approved`
+      : isRejected
+      ? `Update on your Booking Request for "${listingTitle}"`
+      : `Booking Status Changed for "${listingTitle}"`;
+
+    const sentAt = new Date().toISOString();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Booking Status Update</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+    
+    <div style="background: ${isApproved ? 'linear-gradient(135deg, #059669 0%, #064e3b 100%)' : 'linear-gradient(135deg, #1e293b 0%, #475569 100%)'}; padding: 28px 24px; text-align: left; color: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 22px; font-weight: 900; color: #ffffff;">Rentora</span>
+        <span style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.2); color: #ffffff; padding: 3px 8px; border-radius: 99px; text-transform: uppercase;">
+          ${isApproved ? 'Booking Approved' : isRejected ? 'Booking Update' : 'Status Alert'}
+        </span>
+      </div>
+      <h1 style="margin: 12px 0 4px 0; font-size: 20px; font-weight: 800; color: #ffffff;">
+        ${isApproved ? 'Congratulations! Your Reservation is Approved' : 'Reservation Request Status Update'}
+      </h1>
+      <p style="margin: 0; font-size: 13px; color: #e2e8f0;">
+        Landlord ${landlordName} has updated your reservation request status.
+      </p>
+    </div>
+
+    <div style="padding: 24px;">
+      <div style="background-color: ${isApproved ? '#ecfdf5' : '#f8fafc'}; border: 1px solid ${isApproved ? '#a7f3d0' : '#e2e8f0'}; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <span style="font-size: 11px; font-weight: 800; color: ${isApproved ? '#047857' : '#64748b'}; text-transform: uppercase; display: block; margin-bottom: 4px;">Property</span>
+        <h2 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #0f172a;">${listingTitle}</h2>
+        <div style="font-size: 13px; font-weight: 700; color: ${isApproved ? '#059669' : '#475569'};">
+          Status: <span style="text-transform: capitalize;">${status}</span>
+        </div>
+      </div>
+
+      <p style="font-size: 13px; color: #334155; line-height: 1.6;">
+        ${isApproved 
+          ? `Great news, ${tenantName}! Landlord ${landlordName} has accepted your rental application for ${listingTitle}. You can now proceed to review your lease terms and finalize move-in arrangements.` 
+          : `Hello ${tenantName}, landlord ${landlordName} has reviewed your application for ${listingTitle}. Status updated to: <strong>${status}</strong>.`}
+      </p>
+
+      ${note ? `
+      <div style="background-color: #f1f5f9; border-left: 4px solid #0284c7; padding: 12px 16px; border-radius: 4px; margin: 16px 0;">
+        <strong style="font-size: 11px; color: #0284c7; text-transform: uppercase; display: block; margin-bottom: 2px;">Note from Landlord:</strong>
+        <p style="margin: 0; font-size: 13px; color: #334155; font-style: italic;">"${note}"</p>
+      </div>` : ''}
+
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://rentora-realestate.com" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 12px;">
+          View Bookings &amp; Lease Documents →
+        </a>
+      </div>
+    </div>
+
+    <div style="background-color: #f1f5f9; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+      <p style="margin: 0;">Dispatched to tenant: <strong style="color: #64748b;">${tenantEmail}</strong></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const logEntry: EmailLogRecord = {
+      id: `email-status-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+      toEmail: tenantEmail,
+      toName: tenantName,
+      subject: emailSubject,
+      bodyHtml: emailHtml,
+      bookingId: bookingId || `book-${Date.now()}`,
+      listingTitle,
+      guestName: tenantName,
+      status: 'sent',
+      serviceUsed: 'Rentora Email Gateway',
+      sentAt
+    };
+
+    serverEmailLogs.unshift(logEntry);
+
+    res.json({
+      success: true,
+      message: `Booking status update email successfully sent to ${tenantEmail}`,
+      log: logEntry
+    });
+  } catch (err: any) {
+    console.error("Error sending booking status email:", err);
+    res.status(500).json({ error: err.message || "Failed to process booking status email." });
+  }
+});
+
+// API Endpoint to send landlord listing creation confirmation
+app.post("/api/email/listing-created", async (req: any, res: any) => {
+  try {
+    const { landlordEmail, landlordName = 'Landlord', listingTitle, listingPrice, listingLocation, category } = req.body;
+    if (!landlordEmail || !listingTitle) {
+      return res.status(400).json({ error: "Landlord email and listing title are required." });
+    }
+
+    const emailSubject = `🚀 Your Listing "${listingTitle}" is Live & Verified on Rentora!`;
+    const sentAt = new Date().toISOString();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Listing Published Confirmation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+    
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #065f46 100%); padding: 28px 24px; text-align: left; color: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 22px; font-weight: 900; color: #10b981;">Rentora</span>
+        <span style="font-size: 11px; font-weight: 800; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 3px 8px; border-radius: 99px; text-transform: uppercase;">Owner Confirmation</span>
+      </div>
+      <h1 style="margin: 12px 0 4px 0; font-size: 20px; font-weight: 800; color: #ffffff;">
+        New Rental Property Published
+      </h1>
+      <p style="margin: 0; font-size: 13px; color: #e2e8f0;">
+        Congratulations ${landlordName}! Your property is now visible to active tenant renters.
+      </p>
+    </div>
+
+    <div style="padding: 24px;">
+      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+        <span style="font-size: 11px; font-weight: 800; color: #047857; text-transform: uppercase; display: block; margin-bottom: 4px;">Property Summary</span>
+        <h2 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #065f46;">${listingTitle}</h2>
+        <div style="font-size: 14px; font-weight: 700; color: #047857; margin-bottom: 4px;">
+          €${listingPrice}/month • ${category || 'Rental Property'}
+        </div>
+        <div style="font-size: 12px; color: #475569;">
+          Location: ${listingLocation || 'Verified Location'}
+        </div>
+      </div>
+
+      <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Recommended Owner Action Steps:</h3>
+      <ul style="padding-left: 20px; font-size: 12px; color: #475569; line-height: 1.6;">
+        <li><strong>Run Gemini AI Price Optimizer:</strong> Use the Landlord Dashboard AI tool to gauge market demand and suggested rent range.</li>
+        <li><strong>Configure Paystack Bank Payouts:</strong> Add your bank account to receive automated rent payouts instantly.</li>
+        <li><strong>Track Tenant Enquiries:</strong> Check your inbox or Landlord Dashboard for incoming booking applications.</li>
+      </ul>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://rentora-realestate.com" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 12px;">
+          Manage Property in Landlord Portal →
+        </a>
+      </div>
+    </div>
+
+    <div style="background-color: #f1f5f9; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+      <p style="margin: 0;">Dispatched to owner: <strong style="color: #64748b;">${landlordEmail}</strong></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const logEntry: EmailLogRecord = {
+      id: `email-listing-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+      toEmail: landlordEmail,
+      toName: landlordName,
+      subject: emailSubject,
+      bodyHtml: emailHtml,
+      bookingId: 'N/A (Listing Created)',
+      listingTitle,
+      guestName: landlordName,
+      status: 'sent',
+      serviceUsed: 'Rentora Email Gateway',
+      sentAt
+    };
+
+    serverEmailLogs.unshift(logEntry);
+
+    res.json({
+      success: true,
+      message: `Listing creation email successfully sent to ${landlordEmail}`,
+      log: logEntry
+    });
+  } catch (err: any) {
+    console.error("Error sending listing creation email:", err);
+    res.status(500).json({ error: err.message || "Failed to process listing creation email." });
+  }
+});
+
 // GET /api/email-logs
 app.get("/api/email-logs", (req: any, res: any) => {
   res.json({ logs: serverEmailLogs });

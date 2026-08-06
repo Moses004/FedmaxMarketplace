@@ -545,21 +545,33 @@ export function initializeStore() {
 // Ensure storage is set up
 initializeStore();
 
+let cachedListingsRaw: string | null = null;
+let cachedListingsParsed: Listing[] | null = null;
+
 export function getListings(): Listing[] {
   try {
     const raw = storage.getItem(LISTINGS_KEY);
+    if (raw === cachedListingsRaw && cachedListingsParsed) {
+      return cachedListingsParsed;
+    }
     const parsed: Listing[] = raw ? JSON.parse(raw) : INITIAL_LISTINGS;
-    return parsed.map(l => ({
+    const result = parsed.map(l => ({
       ...l,
       status: l.status || (l.id === 'list-1' ? 'new' : l.id === 'list-3' ? 'rented' : l.id === 'list-10' ? 'unavailable' : 'available')
     }));
+    cachedListingsRaw = raw;
+    cachedListingsParsed = result;
+    return result;
   } catch {
     return INITIAL_LISTINGS;
   }
 }
 
 export function saveListings(listings: Listing[]) {
-  storage.setItem(LISTINGS_KEY, JSON.stringify(listings));
+  const json = JSON.stringify(listings);
+  storage.setItem(LISTINGS_KEY, json);
+  cachedListingsRaw = json;
+  cachedListingsParsed = null;
 }
 
 export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): Listing {
@@ -593,9 +605,19 @@ export function updateListing(id: string, updatedFields: Partial<Listing>): List
   return null;
 }
 
+let cachedBookingsRaw: string | null = null;
+let cachedBookingsParsed: Booking[] | null = null;
+let lastBookingCheckTimestamp = 0;
+
 export function getBookings(): Booking[] {
   try {
     const raw = storage.getItem(BOOKINGS_KEY);
+    const now = Date.now();
+
+    if (raw === cachedBookingsRaw && cachedBookingsParsed && (now - lastBookingCheckTimestamp < 5000)) {
+      return cachedBookingsParsed;
+    }
+
     const bookings: Booking[] = raw ? JSON.parse(raw) : INITIAL_BOOKINGS;
 
     // Dynamically evaluate payment due status against current date
@@ -629,6 +651,10 @@ export function getBookings(): Booking[] {
 
     if (updated) {
       saveBookings(bookings);
+    } else {
+      cachedBookingsRaw = raw;
+      cachedBookingsParsed = bookings;
+      lastBookingCheckTimestamp = now;
     }
 
     return bookings;
@@ -638,7 +664,11 @@ export function getBookings(): Booking[] {
 }
 
 export function saveBookings(bookings: Booking[]) {
-  storage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
+  const json = JSON.stringify(bookings);
+  storage.setItem(BOOKINGS_KEY, json);
+  cachedBookingsRaw = json;
+  cachedBookingsParsed = bookings;
+  lastBookingCheckTimestamp = Date.now();
 }
 
 export function createBooking(booking: Omit<Booking, 'id' | 'createdAt' | 'status'>): Booking {

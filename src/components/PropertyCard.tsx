@@ -63,13 +63,17 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
     <motion.div
       id={`property-card-${listing.id}`}
       onClick={onClick}
-      whileHover={{ y: -6, scale: 1.012 }}
+      whileHover={{ 
+        y: -8, 
+        scale: 1.02,
+        boxShadow: '0 25px 35px -5px rgba(16, 185, 129, 0.12), 0 12px 18px -6px rgba(0, 0, 0, 0.08)'
+      }}
       whileTap={{ scale: 0.985 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`group bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border transition-shadow duration-300 cursor-pointer flex flex-col h-full ${
+      transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+      className={`group bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border transition-all duration-300 cursor-pointer flex flex-col h-full ${
         isSelected
           ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-xl'
-          : 'border-slate-100 dark:border-slate-800 hover:border-emerald-300/80 dark:hover:border-emerald-700/80 hover:shadow-xl'
+          : 'border-slate-100 dark:border-slate-800 hover:border-emerald-400/80 dark:hover:border-emerald-600/80 hover:shadow-2xl'
       }`}
     >
       {/* Property Image Container */}

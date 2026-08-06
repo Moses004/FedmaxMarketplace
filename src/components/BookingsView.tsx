@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Booking, User, Listing, BookingMessage, PropertyReview } from '../types';
 import { getBookings, updateBookingStatus, getListings, addBookingMessage, confirmBookingPayment, refundBooking, getReviewForBooking, saveOrUpdateReview } from '../services/store';
 import { 
@@ -7,6 +7,7 @@ import {
   MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, Key, AlertCircle, Info, PartyPopper, RotateCcw, Star
 } from 'lucide-react';
 import { validatePaystackKey } from '../utils/paystack';
+import { sendBookingStatusNotification } from '../services/emailService';
 import PaymentDueAlertBanner from './PaymentDueAlertBanner';
 
 declare global {
@@ -490,34 +491,57 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   }
 
   const isLandlord = currentUser.role === 'landlord';
-  const allBookings = getBookings();
-  const allListings = getListings();
+  const allBookings = useMemo(() => getBookings(), [actionMessage, isSendingMessage, checkoutBooking]);
+  const allListings = useMemo(() => getListings(), []);
 
   // Filter listings owned by current landlord
-  const landlordListings = allListings.filter(l => l.landlordId === currentUser.id);
-  const landlordListingIds = landlordListings.map(l => l.id);
+  const landlordListings = useMemo(() => {
+    return allListings.filter(l => l.landlordId === currentUser.id);
+  }, [allListings, currentUser.id]);
+
+  const landlordListingIds = useMemo(() => {
+    return landlordListings.map(l => l.id);
+  }, [landlordListings]);
 
   // Filter bookings:
   // - If landlord: Bookings for listings owned by this landlord
   // - If guest: Bookings made by this guest
-  const relevantBookings = isLandlord
-    ? allBookings.filter(b => landlordListingIds.includes(b.listingId))
-    : allBookings.filter(b => b.guestId === currentUser.id);
+  const relevantBookings = useMemo(() => {
+    return isLandlord
+      ? allBookings.filter(b => landlordListingIds.includes(b.listingId))
+      : allBookings.filter(b => b.guestId === currentUser.id);
+  }, [isLandlord, allBookings, landlordListingIds, currentUser.id]);
 
-  const tenantPaymentDueBooking = !isLandlord 
-    ? relevantBookings.find(b => b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
-    : null;
+  const tenantPaymentDueBooking = useMemo(() => {
+    return !isLandlord 
+      ? relevantBookings.find(b => b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+      : null;
+  }, [isLandlord, relevantBookings]);
 
-  const pendingBookings = relevantBookings.filter(b => b.status === 'pending');
-  const processedBookings = relevantBookings.filter(b => b.status !== 'pending');
+  const pendingBookings = useMemo(() => relevantBookings.filter(b => b.status === 'pending'), [relevantBookings]);
+  const processedBookings = useMemo(() => relevantBookings.filter(b => b.status !== 'pending'), [relevantBookings]);
 
-  const displayedBookings = activeTab === 'pending' ? pendingBookings : relevantBookings;
+  const displayedBookings = useMemo(() => activeTab === 'pending' ? pendingBookings : relevantBookings, [activeTab, pendingBookings, relevantBookings]);
 
   const handleAction = (bookingId: string, action: 'approved' | 'rejected') => {
     const updated = updateBookingStatus(bookingId, action);
     if (updated) {
-      setActionMessage(`Booking request ${action === 'approved' ? 'approved' : 'rejected'} successfully!`);
-      setTimeout(() => setActionMessage(null), 3000);
+      setActionMessage(`Booking request ${action === 'approved' ? 'approved' : 'rejected'} successfully! Email alert sent to tenant.`);
+      setTimeout(() => setActionMessage(null), 3500);
+
+      // Dispatch automated booking status email notification to tenant
+      sendBookingStatusNotification({
+        bookingId: updated.id,
+        tenantEmail: updated.guestEmail,
+        tenantName: updated.guestName,
+        landlordName: currentUser.name || 'Landlord',
+        listingTitle: updated.listingTitle,
+        status: action === 'approved' ? 'confirmed' : 'rejected',
+        note: action === 'approved' 
+          ? 'Your reservation is approved. Please review your lease payment terms to finalize.' 
+          : 'Thank you for applying. Unfortunately, this booking request could not be accepted at this time.'
+      }).catch(err => console.error("Error sending booking status update email:", err));
+
       onStatusChanged();
     }
   };

@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, login } from '../services/store';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
+import { sendWelcomeEmail } from '../services/emailService';
+import { useToast } from '../context/ToastContext';
 import { 
   GLOBAL_COUNTRIES, CountryData, searchCountries, 
   getDynamicMarketsForCountry, searchAddressSuggestions, GeocodedAddress, LAUNCH_REGIONS,
@@ -31,6 +33,7 @@ export default function AuthModal({
   initialMode = 'signup',
   isMandatory = false
 }: AuthModalProps) {
+  const toast = useToast();
   const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
   const [role, setRole] = useState<'guest' | 'landlord'>(initialRole);
 
@@ -188,6 +191,21 @@ export default function AuthModal({
           taxId: role === 'landlord' ? taxId.trim() : undefined,
           preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : undefined,
         });
+
+        // Trigger onboarding welcome email notification asynchronously
+        sendWelcomeEmail({
+          userEmail: newUser.email,
+          userName: newUser.name,
+          role: newUser.role,
+          country: newUser.country,
+          city: newUser.city,
+          preferredMarket: newUser.preferredMoveInRegion,
+        }).then(() => {
+          toast.success(
+            `Welcome to Rentora, ${newUser.name || 'Friend'}!`,
+            `Onboarding email alert successfully sent to ${newUser.email}`
+          );
+        }).catch(err => console.error("Welcome email dispatch error:", err));
 
         setIsSubmitting(false);
         onSuccess(newUser);

@@ -128,19 +128,6 @@ h2, h3 {
   border-color: #334155 !important;
 }
 
-.dark .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    #1e293b 0%,
-    #334155 35%,
-    #151d2a 50%,
-    #334155 65%,
-    #1e293b 100%
-  ) !important;
-  background-size: 250% 100% !important;
-  animation: skeletonPulse 1.8s ease-in-out infinite !important;
-}
-
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
@@ -164,19 +151,13 @@ h1, h2, h3, h4, h5, h6 {
   animation: spinSlow 8s linear infinite;
 }
 
-/* High-End Skeleton Shimmer & Pulse Animation */
-@keyframes skeletonPulse {
+/* High-End Wave Shimmer Skeleton Animation */
+@keyframes waveShimmer {
   0% {
     background-position: -200% 0;
-    opacity: 0.75;
-  }
-  50% {
-    background-position: 0% 0;
-    opacity: 1;
   }
   100% {
     background-position: 200% 0;
-    opacity: 0.75;
   }
 }
 
@@ -184,25 +165,26 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(
     90deg,
     #f1f5f9 0%,
-    #e2e8f0 35%,
-    #f8fafc 50%,
-    #e2e8f0 65%,
+    #e2e8f0 20%,
+    #ffffff 40%,
+    #e2e8f0 60%,
     #f1f5f9 100%
   );
-  background-size: 250% 100%;
-  animation: skeletonPulse 1.8s ease-in-out infinite;
+  background-size: 200% 100%;
+  animation: waveShimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.animate-shimmer-dark {
+.animate-shimmer-dark,
+.dark .animate-shimmer {
   background: linear-gradient(
     90deg,
-    #1e293b 0%,
-    #334155 35%,
-    #0f172a 50%,
-    #334155 65%,
-    #1e293b 100%
-  );
-  background-size: 250% 100%;
-  animation: skeletonPulse 1.8s ease-in-out infinite;
+    #0f172a 0%,
+    #1e293b 20%,
+    #334155 40%,
+    #1e293b 60%,
+    #0f172a 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: waveShimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
 }
 

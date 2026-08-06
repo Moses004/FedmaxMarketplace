@@ -1,31 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { Listing, User, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { Listing, User, Booking, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
 import { 
   getListings, getCurrentUser, login, logout, getBookings, getFavorites, toggleFavorite,
   getListingViews, incrementListingViews
 } from './services/store';
 import PropertyMap from './components/PropertyMap';
 import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
-import PropertyDetails from './components/PropertyDetails';
-import BookingsView, { BookingsViewSkeleton } from './components/BookingsView';
-import AddListingModal from './components/AddListingModal';
-import LandlordDashboard, { LandlordDashboardSkeleton } from './components/LandlordDashboard';
+import { BookingsViewSkeleton } from './components/BookingsView';
+import { LandlordDashboardSkeleton } from './components/LandlordDashboard';
 import AuthModal from './components/AuthModal';
-import EditProfileModal from './components/EditProfileModal';
-import EmailLogModal from './components/EmailLogModal';
 import PlacesAutocompleteSearch from './components/PlacesAutocompleteSearch';
 import PromotionalBanner from './components/PromotionalBanner';
 import Footer from './components/Footer';
-import ComparePropertiesModal from './components/ComparePropertiesModal';
 import CompareBar from './components/CompareBar';
 import MobileBottomNav from './components/MobileBottomNav';
-import CurrencyConverterModal from './components/CurrencyConverterModal';
-import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
-import SavedSearchAlertModal from './components/SavedSearchAlertModal';
 import { useToast } from './context/ToastContext';
+
+// Lazy-loaded sub-components for bundle optimization
+const PropertyDetails = lazy(() => import('./components/PropertyDetails'));
+const BookingsView = lazy(() => import('./components/BookingsView'));
+const LandlordDashboard = lazy(() => import('./components/LandlordDashboard'));
+const AddListingModal = lazy(() => import('./components/AddListingModal'));
+const ComparePropertiesModal = lazy(() => import('./components/ComparePropertiesModal'));
+const EditProfileModal = lazy(() => import('./components/EditProfileModal'));
+const EmailLogModal = lazy(() => import('./components/EmailLogModal'));
+const CurrencyConverterModal = lazy(() => import('./components/CurrencyConverterModal'));
+const RentAffordabilityCalculatorModal = lazy(() => import('./components/RentAffordabilityCalculatorModal'));
+const SavedSearchAlertModal = lazy(() => import('./components/SavedSearchAlertModal'));
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
-  User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, LogOut, Check,
+  User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, ChevronLeft, LogOut, Check,
   BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
@@ -57,18 +61,18 @@ const staggerItemVariants: Variants = {
 
 function ExploreTabSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6">
       {/* Search and filters bar skeleton */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl" />
-          <div className="w-28 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl shrink-0" />
-          <div className="w-24 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl shrink-0" />
+          <div className="flex-1 h-12 rounded-2xl animate-shimmer" />
+          <div className="w-28 h-12 rounded-2xl shrink-0 animate-shimmer" />
+          <div className="w-24 h-12 rounded-2xl shrink-0 animate-shimmer" />
         </div>
-        <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl w-full" />
+        <div className="h-10 rounded-xl w-full animate-shimmer" />
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="h-8 w-28 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0" />
+            <div key={i} className="h-8 w-28 rounded-xl shrink-0 animate-shimmer" />
           ))}
         </div>
       </div>
@@ -80,7 +84,7 @@ function ExploreTabSkeleton() {
             <PropertyCardSkeleton key={idx} />
           ))}
         </div>
-        <div className="hidden lg:block lg:col-span-5 h-[500px] bg-slate-100 dark:bg-slate-800 rounded-3xl border border-slate-200/50 dark:border-slate-800" />
+        <div className="hidden lg:block lg:col-span-5 h-[500px] rounded-3xl border border-slate-200/50 dark:border-slate-800 animate-shimmer" />
       </div>
     </div>
   );
@@ -88,13 +92,13 @@ function ExploreTabSkeleton() {
 
 function FavoritesTabSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6">
       <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-xs flex justify-between items-center">
         <div className="space-y-2">
-          <div className="h-6 w-48 bg-slate-200 dark:bg-slate-800 rounded-xl" />
-          <div className="h-4 w-64 bg-slate-100 dark:bg-slate-800/60 rounded-lg" />
+          <div className="h-6 w-48 rounded-xl animate-shimmer" />
+          <div className="h-4 w-64 rounded-lg animate-shimmer" />
         </div>
-        <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+        <div className="h-9 w-28 rounded-xl animate-shimmer" />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((idx) => (
@@ -284,8 +288,11 @@ export default function App() {
   };
 
   // Refresh lists and auth states
+  const [bookings, setBookings] = useState<Booking[]>(() => getBookings());
+
   const refreshData = () => {
     setListings(getListings());
+    setBookings(getBookings());
     setCurrentUser(getCurrentUser());
     setFavorites(getFavorites());
   };
@@ -461,93 +468,63 @@ export default function App() {
   };
 
   // Filter & Distance calculations
-  const currentRegionObj = LAUNCH_REGIONS.find((r) => r.id === selectedRegionId);
+  const currentRegionObj = useMemo(
+    () => LAUNCH_REGIONS.find((r) => r.id === selectedRegionId),
+    [selectedRegionId]
+  );
 
-  const listingsWithDistance = listings.map((listing) => {
-    let distanceKm: number | null = null;
-    if (userGeoLocation) {
-      distanceKm = getDistanceKm(userGeoLocation.lat, userGeoLocation.lng, listing.lat, listing.lng);
-    } else if (currentRegionObj) {
-      distanceKm = getDistanceKm(currentRegionObj.center.lat, currentRegionObj.center.lng, listing.lat, listing.lng);
-    }
-    return { listing, distanceKm };
-  });
+  const listingsWithDistance = useMemo(() => {
+    return listings.map((listing) => {
+      let distanceKm: number | null = null;
+      if (userGeoLocation) {
+        distanceKm = getDistanceKm(userGeoLocation.lat, userGeoLocation.lng, listing.lat, listing.lng);
+      } else if (currentRegionObj) {
+        distanceKm = getDistanceKm(currentRegionObj.center.lat, currentRegionObj.center.lng, listing.lat, listing.lng);
+      }
+      return { listing, distanceKm };
+    });
+  }, [listings, userGeoLocation, currentRegionObj]);
 
-  const filteredItems = listingsWithDistance.filter(({ listing, distanceKm }) => {
-    // Search query filter
-    const matchesSearch = 
-      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredItems = useMemo(() => {
+    return listingsWithDistance.filter(({ listing, distanceKm }) => {
+      // Search query filter
+      const matchesSearch = 
+        listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        listing.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Region & Location filter
-    let matchesRegion = true;
-    if (selectedRegionId === 'near_me') {
-      if (maxDistanceKm && distanceKm !== null) {
+      // Region & Location filter
+      let matchesRegion = true;
+      if (selectedRegionId === 'near_me') {
+        if (maxDistanceKm && distanceKm !== null) {
+          matchesRegion = distanceKm <= maxDistanceKm;
+        }
+      } else if (selectedRegionId !== 'all') {
+        const region = LAUNCH_REGIONS.find(r => r.id === selectedRegionId);
+        if (region) {
+          const queryLower = region.name.toLowerCase();
+          const matchesName = listing.location.toLowerCase().includes(queryLower) ||
+            (region.country === 'Nigeria' && listing.location.toLowerCase().includes('lagos')) ||
+            (region.country === 'United Kingdom' && listing.location.toLowerCase().includes('london')) ||
+            (region.country === 'Germany' && listing.location.toLowerCase().includes('berlin'));
+          const matchesProximity = distanceKm !== null && distanceKm <= 60;
+          matchesRegion = matchesName || matchesProximity;
+        }
+      }
+
+      // Explicit distance threshold check
+      if (maxDistanceKm !== null && distanceKm !== null && matchesRegion) {
         matchesRegion = distanceKm <= maxDistanceKm;
       }
-    } else if (selectedRegionId !== 'all') {
-      const region = LAUNCH_REGIONS.find(r => r.id === selectedRegionId);
-      if (region) {
-        const queryLower = region.name.toLowerCase();
-        const matchesName = listing.location.toLowerCase().includes(queryLower) ||
-          (region.country === 'Nigeria' && listing.location.toLowerCase().includes('lagos')) ||
-          (region.country === 'United Kingdom' && listing.location.toLowerCase().includes('london')) ||
-          (region.country === 'Germany' && listing.location.toLowerCase().includes('berlin'));
-        const matchesProximity = distanceKm !== null && distanceKm <= 60;
-        matchesRegion = matchesName || matchesProximity;
-      }
-    }
 
-    // Explicit distance threshold check
-    if (maxDistanceKm !== null && distanceKm !== null && matchesRegion) {
-      matchesRegion = distanceKm <= maxDistanceKm;
-    }
-
-    // Country / State / City Location Scope filter
-    let matchesLocationScope = true;
-    if (locationScopeMode === 'my_location') {
-      const targetCountry = currentUser?.country || selectedCountryFilter || 'Nigeria';
-      const isCountryMatch = 
-        (listing.country && listing.country.toLowerCase() === targetCountry.toLowerCase()) ||
-        listing.location.toLowerCase().includes(targetCountry.toLowerCase()) ||
-        (targetCountry.toLowerCase() === 'nigeria' && (
-          listing.location.toLowerCase().includes('nigeria') ||
-          listing.location.toLowerCase().includes('lagos') ||
-          listing.location.toLowerCase().includes('abuja') ||
-          listing.location.toLowerCase().includes('port harcourt')
-        ));
-
-      let isStateMatch = true;
-      if (selectedStateFilter !== 'all') {
-        const stateClean = selectedStateFilter.toLowerCase().replace('state', '').trim();
-        isStateMatch = 
-          (listing.state && listing.state.toLowerCase().includes(stateClean)) ||
-          listing.location.toLowerCase().includes(stateClean);
-      }
-
-      let isCityMatch = true;
-      if (selectedCityFilter !== 'all') {
-        isCityMatch = 
-          (listing.city && listing.city.toLowerCase().includes(selectedCityFilter.toLowerCase())) ||
-          listing.location.toLowerCase().includes(selectedCityFilter.toLowerCase());
-      }
-
-      let isAreaMatch = true;
-      if (selectedAreaFilter !== 'all') {
-        isAreaMatch = 
-          listing.location.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-          listing.description.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-          listing.title.toLowerCase().includes(selectedAreaFilter.toLowerCase());
-      }
-
-      matchesLocationScope = isCountryMatch && isStateMatch && isCityMatch && isAreaMatch;
-    } else if (locationScopeMode === 'custom') {
-      if (selectedCountryFilter && selectedCountryFilter !== 'all') {
+      // Country / State / City Location Scope filter
+      let matchesLocationScope = true;
+      if (locationScopeMode === 'my_location') {
+        const targetCountry = currentUser?.country || selectedCountryFilter || 'Nigeria';
         const isCountryMatch = 
-          (listing.country && listing.country.toLowerCase() === selectedCountryFilter.toLowerCase()) ||
-          listing.location.toLowerCase().includes(selectedCountryFilter.toLowerCase()) ||
-          (selectedCountryFilter.toLowerCase() === 'nigeria' && (
+          (listing.country && listing.country.toLowerCase() === targetCountry.toLowerCase()) ||
+          listing.location.toLowerCase().includes(targetCountry.toLowerCase()) ||
+          (targetCountry.toLowerCase() === 'nigeria' && (
             listing.location.toLowerCase().includes('nigeria') ||
             listing.location.toLowerCase().includes('lagos') ||
             listing.location.toLowerCase().includes('abuja') ||
@@ -578,33 +555,114 @@ export default function App() {
         }
 
         matchesLocationScope = isCountryMatch && isStateMatch && isCityMatch && isAreaMatch;
+      } else if (locationScopeMode === 'custom') {
+        if (selectedCountryFilter && selectedCountryFilter !== 'all') {
+          const isCountryMatch = 
+            (listing.country && listing.country.toLowerCase() === selectedCountryFilter.toLowerCase()) ||
+            listing.location.toLowerCase().includes(selectedCountryFilter.toLowerCase()) ||
+            (selectedCountryFilter.toLowerCase() === 'nigeria' && (
+              listing.location.toLowerCase().includes('nigeria') ||
+              listing.location.toLowerCase().includes('lagos') ||
+              listing.location.toLowerCase().includes('abuja') ||
+              listing.location.toLowerCase().includes('port harcourt')
+            ));
+
+          let isStateMatch = true;
+          if (selectedStateFilter !== 'all') {
+            const stateClean = selectedStateFilter.toLowerCase().replace('state', '').trim();
+            isStateMatch = 
+              (listing.state && listing.state.toLowerCase().includes(stateClean)) ||
+              listing.location.toLowerCase().includes(stateClean);
+          }
+
+          let isCityMatch = true;
+          if (selectedCityFilter !== 'all') {
+            isCityMatch = 
+              (listing.city && listing.city.toLowerCase().includes(selectedCityFilter.toLowerCase())) ||
+              listing.location.toLowerCase().includes(selectedCityFilter.toLowerCase());
+          }
+
+          let isAreaMatch = true;
+          if (selectedAreaFilter !== 'all') {
+            isAreaMatch = 
+              listing.location.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
+              listing.description.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
+              listing.title.toLowerCase().includes(selectedAreaFilter.toLowerCase());
+          }
+
+          matchesLocationScope = isCountryMatch && isStateMatch && isCityMatch && isAreaMatch;
+        }
       }
-    }
 
-    // Housing Type & Category filter
-    const matchesType = 
-      selectedType === 'all' || 
-      listing.type === selectedType ||
-      (selectedType === 'single-room' && (listing.type === 'room' || listing.type === 'single-room')) ||
-      (selectedType === 'self-contained' && (listing.type === 'studio' || listing.type === 'self-contained')) ||
-      (selectedType === '1-bedroom-flat' && (listing.type === 'apartment' || listing.type === '1-bedroom-flat'));
+      // Housing Type & Category filter
+      const matchesType = 
+        selectedType === 'all' || 
+        listing.type === selectedType ||
+        (selectedType === 'single-room' && (listing.type === 'room' || listing.type === 'single-room')) ||
+        (selectedType === 'self-contained' && (listing.type === 'studio' || listing.type === 'self-contained')) ||
+        (selectedType === '1-bedroom-flat' && (listing.type === 'apartment' || listing.type === '1-bedroom-flat'));
 
-    // Price filter
-    const matchesPrice = listing.price <= maxPrice;
+      // Price filter
+      const matchesPrice = listing.price <= maxPrice;
 
-    // Bedrooms filter
-    const matchesBedrooms = 
-      minBedrooms === 'all' ||
-      (minBedrooms === '0' && listing.bedrooms === 0) ||
-      (minBedrooms === '1' && listing.bedrooms === 1) ||
-      (minBedrooms === '2' && listing.bedrooms === 2) ||
-      (minBedrooms === '3+' && listing.bedrooms >= 3);
+      // Bedrooms filter
+      const matchesBedrooms = 
+        minBedrooms === 'all' ||
+        (minBedrooms === '0' && listing.bedrooms === 0) ||
+        (minBedrooms === '1' && listing.bedrooms === 1) ||
+        (minBedrooms === '2' && listing.bedrooms === 2) ||
+        (minBedrooms === '3+' && listing.bedrooms >= 3);
 
-    // Favorites filter
-    const matchesFavorites = currentTab !== 'favorites' || favorites.includes(listing.id);
+      // Favorites filter
+      const matchesFavorites = currentTab !== 'favorites' || favorites.includes(listing.id);
 
-    return matchesFavorites && matchesSearch && matchesRegion && matchesLocationScope && matchesType && matchesPrice && matchesBedrooms;
-  });
+      return matchesFavorites && matchesSearch && matchesRegion && matchesLocationScope && matchesType && matchesPrice && matchesBedrooms;
+    });
+  }, [
+    listingsWithDistance,
+    searchQuery,
+    selectedRegionId,
+    maxDistanceKm,
+    locationScopeMode,
+    currentUser,
+    selectedCountryFilter,
+    selectedStateFilter,
+    selectedCityFilter,
+    selectedAreaFilter,
+    selectedType,
+    maxPrice,
+    minBedrooms,
+    currentTab,
+    favorites,
+  ]);
+
+  // Pagination State & Reset
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(6);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchQuery,
+    selectedRegionId,
+    locationScopeMode,
+    selectedCountryFilter,
+    selectedStateFilter,
+    selectedCityFilter,
+    selectedAreaFilter,
+    selectedType,
+    maxPrice,
+    minBedrooms,
+    maxDistanceKm,
+    currentTab,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredItems, currentPage, itemsPerPage]);
 
   // Select a property card & scroll/zoom to it
   const handleSelectListing = (listing: Listing) => {
@@ -613,11 +671,22 @@ export default function App() {
     setMapCenter({ lat: listing.lat, lng: listing.lng });
     setMapZoom(14);
     
-    // Smooth scroll into listing element if listed on mobile screen bounds
-    const element = document.getElementById(`property-card-${listing.id}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Auto-navigate to page containing listing if not on current page
+    const listingIndex = filteredItems.findIndex(item => item.listing.id === listing.id);
+    if (listingIndex !== -1) {
+      const targetPage = Math.floor(listingIndex / itemsPerPage) + 1;
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      }
     }
+
+    // Smooth scroll into listing element if listed on mobile screen bounds
+    setTimeout(() => {
+      const element = document.getElementById(`property-card-${listing.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 50);
   };
 
   // Active Country & Location helper
@@ -905,7 +974,7 @@ export default function App() {
         onTabChange={handleTabChange}
         favoritesCount={favorites.length}
         comparedCount={comparedListings.length}
-        bookingsCount={currentUser ? getBookings().length : 0}
+        bookingsCount={currentUser ? bookings.length : 0}
         onOpenCompare={() => setShowCompareModal(true)}
         onOpenProfile={() => setShowAuthDropdown(true)}
         onOpenAddListing={currentUser?.role === 'landlord' ? () => setShowAddModal(true) : undefined}
@@ -1479,7 +1548,7 @@ export default function App() {
             </div>
 
             {/* VIEW MODE CONTROL BAR & LISTING HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div id="property-feed-top" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center gap-2 min-w-0">
                 <h3 className="font-display font-black text-slate-800 dark:text-white text-sm sm:text-base md:text-lg flex items-center gap-1.5 min-w-0 truncate">
                   <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
@@ -1626,42 +1695,144 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <motion.div
-                      key={`feed-${selectedType}-${selectedRegionId}-${searchQuery}-${selectedStateFilter}-${selectedCityFilter}-${selectedAreaFilter}-${minBedrooms}-${maxPrice}-${maxDistanceKm}-${mapViewMode}`}
-                      variants={staggerContainerVariants}
-                      initial="hidden"
-                      animate="show"
-                      className={`grid gap-4 ${
-                        mapViewMode === 'grid'
-                          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-                          : mapViewMode === 'map'
-                          ? 'grid-cols-1'
-                          : 'grid-cols-1 sm:grid-cols-2'
-                      }`}
-                    >
-                      {filteredItems.map(({ listing, distanceKm }) => (
-                        <motion.div key={listing.id} variants={staggerItemVariants}>
-                          <PropertyCard
-                            listing={listing}
-                            distanceKm={distanceKm}
-                            displayCurrency={displayCurrency}
-                            isSelected={selectedListing?.id === listing.id}
-                            onClick={() => handleSelectListing(listing)}
-                            isFavorited={favorites.includes(listing.id)}
-                            onToggleFavorite={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(listing.id);
-                              setFavorites(getFavorites());
-                            }}
-                            isCompared={comparedListings.some((l) => l.id === listing.id)}
-                            onToggleCompare={(e) => {
-                              e.stopPropagation();
-                              toggleCompareListing(listing);
-                            }}
-                          />
-                        </motion.div>
-                      ))}
-                    </motion.div>
+                    <>
+                      <motion.div
+                        key={`feed-${currentPage}-${itemsPerPage}-${selectedType}-${selectedRegionId}-${searchQuery}-${selectedStateFilter}-${selectedCityFilter}-${selectedAreaFilter}-${minBedrooms}-${maxPrice}-${maxDistanceKm}-${mapViewMode}`}
+                        variants={staggerContainerVariants}
+                        initial="hidden"
+                        animate="show"
+                        className={`grid gap-4 ${
+                          mapViewMode === 'grid'
+                            ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                            : mapViewMode === 'map'
+                            ? 'grid-cols-1'
+                            : 'grid-cols-1 sm:grid-cols-2'
+                        }`}
+                      >
+                        {paginatedItems.map(({ listing, distanceKm }) => (
+                          <motion.div key={listing.id} variants={staggerItemVariants}>
+                            <PropertyCard
+                              listing={listing}
+                              distanceKm={distanceKm}
+                              displayCurrency={displayCurrency}
+                              isSelected={selectedListing?.id === listing.id}
+                              onClick={() => handleSelectListing(listing)}
+                              isFavorited={favorites.includes(listing.id)}
+                              onToggleFavorite={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(listing.id);
+                                setFavorites(getFavorites());
+                              }}
+                              isCompared={comparedListings.some((l) => l.id === listing.id)}
+                              onToggleCompare={(e) => {
+                                e.stopPropagation();
+                                toggleCompareListing(listing);
+                              }}
+                            />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+
+                      {/* PAGINATION CONTROLS */}
+                      {filteredItems.length > 0 && (
+                        <div className="mt-6 pt-4 pb-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                          {/* Status text & items per page selector */}
+                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            <span>
+                              Showing <strong className="font-bold text-slate-800 dark:text-slate-200">{(currentPage - 1) * itemsPerPage + 1}</strong>–<strong className="font-bold text-slate-800 dark:text-slate-200">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</strong> of <strong className="font-bold text-slate-800 dark:text-slate-200">{filteredItems.length}</strong> rentals
+                            </span>
+                            <span className="text-slate-300 dark:text-slate-700">|</span>
+                            <div className="flex items-center gap-1.5">
+                              <span>Per page:</span>
+                              <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                  setItemsPerPage(Number(e.target.value));
+                                  setCurrentPage(1);
+                                }}
+                                className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                              >
+                                <option value={6}>6</option>
+                                <option value={12}>12</option>
+                                <option value={24}>24</option>
+                                <option value={48}>48</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Page Navigation Buttons */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (currentPage > 1) {
+                                    setCurrentPage(prev => prev - 1);
+                                    document.getElementById('property-feed-top')?.scrollIntoView({ behavior: 'smooth' });
+                                  }
+                                }}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-2xs"
+                                aria-label="Previous Page"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+
+                              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                                const isFirst = pageNum === 1;
+                                const isLast = pageNum === totalPages;
+                                const isAdjacent = Math.abs(pageNum - currentPage) <= 1;
+
+                                if (isFirst || isLast || isAdjacent) {
+                                  return (
+                                    <button
+                                      key={pageNum}
+                                      type="button"
+                                      onClick={() => {
+                                        setCurrentPage(pageNum);
+                                        document.getElementById('property-feed-top')?.scrollIntoView({ behavior: 'smooth' });
+                                      }}
+                                      className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                        currentPage === pageNum
+                                          ? 'bg-emerald-600 text-white shadow-xs'
+                                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                      }`}
+                                    >
+                                      {pageNum}
+                                    </button>
+                                  );
+                                } else if (
+                                  (pageNum === 2 && currentPage > 3) ||
+                                  (pageNum === totalPages - 1 && currentPage < totalPages - 2)
+                                ) {
+                                  return (
+                                    <span key={pageNum} className="px-0.5 text-slate-400 dark:text-slate-600 text-xs font-bold">
+                                      ...
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (currentPage < totalPages) {
+                                    setCurrentPage(prev => prev + 1);
+                                    document.getElementById('property-feed-top')?.scrollIntoView({ behavior: 'smooth' });
+                                  }
+                                }}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-2xs"
+                                aria-label="Next Page"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1700,20 +1871,22 @@ export default function App() {
           isTabLoading ? (
             <LandlordDashboardSkeleton />
           ) : (
-            <LandlordDashboard
-              currentUser={currentUser}
-              listings={listings}
-              bookings={getBookings()}
-              onAddListingClick={() => setShowAddModal(true)}
-              onViewBookingClick={() => handleTabChange('bookings')}
-              onViewListingClick={(listing) => {
-                setSelectedListing(listing);
-                incrementListingViews(listing.id);
-                handleTabChange('explore');
-              }}
-              onRefreshData={refreshData}
-              onEditProfileClick={() => setShowEditProfileModal(true)}
-            />
+            <Suspense fallback={<LandlordDashboardSkeleton />}>
+              <LandlordDashboard
+                currentUser={currentUser}
+                listings={listings}
+                bookings={bookings}
+                onAddListingClick={() => setShowAddModal(true)}
+                onViewBookingClick={() => handleTabChange('bookings')}
+                onViewListingClick={(listing) => {
+                  setSelectedListing(listing);
+                  incrementListingViews(listing.id);
+                  handleTabChange('explore');
+                }}
+                onRefreshData={refreshData}
+                onEditProfileClick={() => setShowEditProfileModal(true)}
+              />
+            </Suspense>
           )
         ) : currentTab === 'favorites' ? (
           isTabLoading ? (
@@ -1808,10 +1981,12 @@ export default function App() {
             <BookingsViewSkeleton />
           ) : (
             <div className="animate-fade-in bg-white border border-slate-100 shadow-sm rounded-3xl p-6 lg:p-8">
-              <BookingsView 
-                currentUser={currentUser}
-                onStatusChanged={refreshData}
-              />
+              <Suspense fallback={<BookingsViewSkeleton />}>
+                <BookingsView 
+                  currentUser={currentUser}
+                  onStatusChanged={refreshData}
+                />
+              </Suspense>
             </div>
           )
         )}
@@ -1846,24 +2021,33 @@ export default function App() {
       {/* POPUP: PROPERTY DETAIL DRAWER MODAL */}
       <AnimatePresence>
         {selectedListing && (
-          <PropertyDetails
-            listing={selectedListing}
-            currentUser={currentUser}
-            displayCurrency={displayCurrency}
-            onClose={() => setSelectedListing(null)}
-            onBookingCreated={() => {
-              setSelectedListing(null);
-              setCurrentTab('bookings');
-              refreshData();
-            }}
-            onSwitchToGuest={() => {
-              setAuthModalRole('guest');
-              setAuthModalMode('login');
-              setShowAuthModal(true);
-            }}
-            isCompared={comparedListings.some((l) => l.id === selectedListing.id)}
-            onToggleCompare={() => toggleCompareListing(selectedListing)}
-          />
+          <Suspense fallback={
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-lg w-full flex flex-col items-center gap-4 text-center shadow-2xl border border-slate-100 dark:border-slate-800">
+                <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Loading property details...</p>
+              </div>
+            </div>
+          }>
+            <PropertyDetails
+              listing={selectedListing}
+              currentUser={currentUser}
+              displayCurrency={displayCurrency}
+              onClose={() => setSelectedListing(null)}
+              onBookingCreated={() => {
+                setSelectedListing(null);
+                setCurrentTab('bookings');
+                refreshData();
+              }}
+              onSwitchToGuest={() => {
+                setAuthModalRole('guest');
+                setAuthModalMode('login');
+                setShowAuthModal(true);
+              }}
+              isCompared={comparedListings.some((l) => l.id === selectedListing.id)}
+              onToggleCompare={() => toggleCompareListing(selectedListing)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -1875,40 +2059,84 @@ export default function App() {
         onClear={clearCompareListings}
       />
 
-      {/* POPUP: COMPARE PROPERTIES SIDE-BY-SIDE MODAL */}
-      <ComparePropertiesModal
-        isOpen={showCompareModal}
-        onClose={() => setShowCompareModal(false)}
-        listings={listings}
-        comparedListings={comparedListings}
-        displayCurrency={displayCurrency}
-        onRemoveCompare={removeCompareListing}
-        onAddCompare={toggleCompareListing}
-        onClearCompare={clearCompareListings}
-        onSelectListingDetails={(listing) => setSelectedListing(listing)}
-      />
+      <Suspense fallback={null}>
+        {/* POPUP: COMPARE PROPERTIES SIDE-BY-SIDE MODAL */}
+        <ComparePropertiesModal
+          isOpen={showCompareModal}
+          onClose={() => setShowCompareModal(false)}
+          listings={listings}
+          comparedListings={comparedListings}
+          displayCurrency={displayCurrency}
+          onRemoveCompare={removeCompareListing}
+          onAddCompare={toggleCompareListing}
+          onClearCompare={clearCompareListings}
+          onSelectListingDetails={(listing) => setSelectedListing(listing)}
+        />
 
-      {/* POPUP: ADD LISTING STEPPER MODAL */}
-      {showAddModal && (
-        <AddListingModal
-          onClose={() => setShowAddModal(false)}
-          onListingCreated={() => {
-            setShowAddModal(false);
+        {/* POPUP: ADD LISTING STEPPER MODAL */}
+        {showAddModal && (
+          <AddListingModal
+            onClose={() => setShowAddModal(false)}
+            onListingCreated={() => {
+              setShowAddModal(false);
+              refreshData();
+            }}
+          />
+        )}
+
+        {/* POPUP: EDIT PROFILE MODAL */}
+        <EditProfileModal
+          isOpen={showEditProfileModal}
+          onClose={() => setShowEditProfileModal(false)}
+          currentUser={currentUser}
+          onSaveSuccess={(updatedUser) => {
+            setCurrentUser(updatedUser);
             refreshData();
           }}
         />
-      )}
 
-      {/* POPUP: EDIT PROFILE MODAL */}
-      <EditProfileModal
-        isOpen={showEditProfileModal}
-        onClose={() => setShowEditProfileModal(false)}
-        currentUser={currentUser}
-        onSaveSuccess={(updatedUser) => {
-          setCurrentUser(updatedUser);
-          refreshData();
-        }}
-      />
+        {/* POPUP: EMAIL NOTIFICATIONS LOGS MODAL */}
+        <EmailLogModal
+          isOpen={showEmailLogsModal}
+          onClose={() => setShowEmailLogsModal(false)}
+          landlordEmail={currentUser?.email}
+        />
+
+        {/* POPUP: FX CURRENCY CONVERTER MODAL */}
+        <CurrencyConverterModal
+          isOpen={showCurrencyConverterModal}
+          onClose={() => setShowCurrencyConverterModal(false)}
+          activeCurrency={displayCurrency}
+          onSelectCurrency={(code) => {
+            handleCurrencyChange(code);
+            setShowCurrencyConverterModal(false);
+          }}
+        />
+
+        {/* POPUP: RENT AFFORDABILITY & MOVE-IN CASH CALCULATOR MODAL */}
+        <RentAffordabilityCalculatorModal
+          isOpen={showAffordabilityCalculatorModal}
+          onClose={() => setShowAffordabilityCalculatorModal(false)}
+          userCurrency={displayCurrency}
+          onApplyBudgetToFilter={(maxBudgetUSD) => {
+            setMaxPrice(maxBudgetUSD);
+            toast.success('Rent Budget Applied', `Maximum price filter set to $${maxBudgetUSD.toLocaleString()} USD equivalent.`);
+          }}
+        />
+
+        {/* POPUP: SAVED SEARCH & INSTANT ALERTS MODAL */}
+        <SavedSearchAlertModal
+          isOpen={showSavedSearchAlertModal}
+          onClose={() => setShowSavedSearchAlertModal(false)}
+          currentSearchQuery={searchQuery}
+          selectedCountry={selectedCountryFilter}
+          selectedCity={selectedCityFilter}
+          selectedArea={selectedAreaFilter}
+          selectedCategory={selectedType}
+          maxPrice={maxPrice.toString()}
+          userEmail={currentUser?.email || ''}
+        />
+      </Suspense>
 
       {/* POPUP: COMPREHENSIVE SIGN UP & AUTH MODAL */}
       <AuthModal
@@ -1929,48 +2157,6 @@ export default function App() {
           toast.success('Authentication Successful', `Welcome, ${user.name || user.email}!`);
           refreshData();
         }}
-      />
-
-      {/* POPUP: EMAIL NOTIFICATIONS LOGS MODAL */}
-      <EmailLogModal
-        isOpen={showEmailLogsModal}
-        onClose={() => setShowEmailLogsModal(false)}
-        landlordEmail={currentUser?.email}
-      />
-
-      {/* POPUP: FX CURRENCY CONVERTER MODAL */}
-      <CurrencyConverterModal
-        isOpen={showCurrencyConverterModal}
-        onClose={() => setShowCurrencyConverterModal(false)}
-        activeCurrency={displayCurrency}
-        onSelectCurrency={(code) => {
-          handleCurrencyChange(code);
-          setShowCurrencyConverterModal(false);
-        }}
-      />
-
-      {/* POPUP: RENT AFFORDABILITY & MOVE-IN CASH CALCULATOR MODAL */}
-      <RentAffordabilityCalculatorModal
-        isOpen={showAffordabilityCalculatorModal}
-        onClose={() => setShowAffordabilityCalculatorModal(false)}
-        userCurrency={displayCurrency}
-        onApplyBudgetToFilter={(maxBudgetUSD) => {
-          setMaxPrice(maxBudgetUSD);
-          toast.success('Rent Budget Applied', `Maximum price filter set to $${maxBudgetUSD.toLocaleString()} USD equivalent.`);
-        }}
-      />
-
-      {/* POPUP: SAVED SEARCH & INSTANT ALERTS MODAL */}
-      <SavedSearchAlertModal
-        isOpen={showSavedSearchAlertModal}
-        onClose={() => setShowSavedSearchAlertModal(false)}
-        currentSearchQuery={searchQuery}
-        selectedCountry={selectedCountryFilter}
-        selectedCity={selectedCityFilter}
-        selectedArea={selectedAreaFilter}
-        selectedCategory={selectedType}
-        maxPrice={maxPrice.toString()}
-        userEmail={currentUser?.email || ''}
       />
 
     </div>
