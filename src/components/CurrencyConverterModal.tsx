@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, DollarSign, ArrowRightLeft, Check, Globe, Calculator, Sparkles, TrendingUp, Info } from 'lucide-react';
 import { SUPPORTED_CURRENCIES, convertUSDToCurrency, convertCurrencyToUSD, formatCurrencyAmount, CurrencyInfo } from '../utils/currency';
@@ -20,8 +20,15 @@ export default function CurrencyConverterModal({
   const [toCurrency, setToCurrency] = useState<string>(activeCurrency || 'NGN');
   const [amount, setAmount] = useState<number>(1500); // Default 1,500 USD monthly rent
 
+  // Synchronize target currency with activeCurrency prop changes
+  useEffect(() => {
+    if (activeCurrency) {
+      setToCurrency(activeCurrency);
+    }
+  }, [activeCurrency]);
+
   // Keyboard Escape listener
-  React.useEffect(() => {
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && isOpen) {
         onClose();

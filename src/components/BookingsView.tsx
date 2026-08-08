@@ -4,11 +4,15 @@ import { getBookings, updateBookingStatus, getListings, addBookingMessage, confi
 import { 
   Check, X, Calendar, User as UserIcon, Mail, Euro, 
   Clock, CheckCircle, XCircle, ArrowRight, Building, Sparkles,
-  MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, Key, AlertCircle, Info, PartyPopper, RotateCcw, Star
+  MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, Key, AlertCircle, Info, PartyPopper, RotateCcw, Star,
+  Wrench, Zap, ArrowUpRight, ShieldCheck
 } from 'lucide-react';
 import { validatePaystackKey } from '../utils/paystack';
 import { sendBookingStatusNotification } from '../services/emailService';
 import PaymentDueAlertBanner from './PaymentDueAlertBanner';
+import ReportMaintenanceModal from './ReportMaintenanceModal';
+import LeaseTermsModal from './LeaseTermsModal';
+import { useToast } from '../context/ToastContext';
 
 declare global {
   interface Window {
@@ -101,6 +105,11 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isSavingReview, setIsSavingReview] = useState<boolean>(false);
   const [reviewSavedSuccess, setReviewSavedSuccess] = useState<boolean>(false);
+
+  // Quick Actions modal states
+  const [showReportMaintenanceModal, setShowReportMaintenanceModal] = useState<boolean>(false);
+  const [showLeaseModal, setShowLeaseModal] = useState<boolean>(false);
+  const [selectedLeaseBooking, setSelectedLeaseBooking] = useState<Booking | null>(null);
 
   const handleSaveTenantReview = () => {
     if (!reviewModalBooking || !currentUser) return;
@@ -490,8 +499,22 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     );
   }
 
+  const toast = useToast();
+  const [refreshCounter, setRefreshCounter] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    onStatusChanged();
+    setRefreshCounter(prev => prev + 1);
+    toast.success('Payment & Booking Status Updated', 'Successfully re-fetched latest payment records from database.');
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
+  };
+
   const isLandlord = currentUser.role === 'landlord';
-  const allBookings = useMemo(() => getBookings(), [actionMessage, isSendingMessage, checkoutBooking]);
+  const allBookings = useMemo(() => getBookings(), [actionMessage, isSendingMessage, checkoutBooking, refreshCounter]);
   const allListings = useMemo(() => getListings(), []);
 
   // Filter listings owned by current landlord
@@ -522,6 +545,28 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const processedBookings = useMemo(() => relevantBookings.filter(b => b.status !== 'pending'), [relevantBookings]);
 
   const displayedBookings = useMemo(() => activeTab === 'pending' ? pendingBookings : relevantBookings, [activeTab, pendingBookings, relevantBookings]);
+
+  const handleQuickPayRent = () => {
+    const targetBooking = tenantPaymentDueBooking || relevantBookings.find(b => b.status === 'confirmed' || b.status === 'approved') || relevantBookings[0];
+    if (targetBooking) {
+      setCheckoutBooking(targetBooking);
+      setCheckoutStep(2);
+      setLeaseSignName(targetBooking.leaseSignedName || targetBooking.guestName || currentUser.name);
+    } else {
+      setActionMessage('No active bookings available for payment. Browse properties to submit a rental application.');
+      setTimeout(() => setActionMessage(null), 4000);
+    }
+  };
+
+  const handleQuickViewLease = () => {
+    const targetBooking = relevantBookings.find(b => b.status === 'confirmed' || b.status === 'approved') || relevantBookings[0];
+    if (targetBooking) {
+      setSelectedLeaseBooking(targetBooking);
+    } else {
+      setSelectedLeaseBooking(null);
+    }
+    setShowLeaseModal(true);
+  };
 
   const handleAction = (bookingId: string, action: 'approved' | 'rejected') => {
     const updated = updateBookingStatus(bookingId, action);
@@ -639,10 +684,23 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-            {isLandlord ? 'Owner Approvals Hub' : 'My Bookings & Requests'}
-          </h2>
-          <p className="text-sm text-slate-500">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+              {isLandlord ? 'Owner Approvals Hub' : 'My Bookings & Requests'}
+            </h2>
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              title="Manually fetch latest payment & booking status from database"
+              aria-label="Refresh payment status"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 active:scale-95 text-slate-700 hover:text-slate-900 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-extrabold border border-slate-200/80 shadow-2xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            </button>
+          </div>
+          <p className="text-sm text-slate-500 mt-0.5">
             {isLandlord 
               ? 'Manage check-in requests, guest messages, and room approvals for your listings.'
               : 'Track the real-time status of your housing applications and reservation receipts.'}
@@ -679,6 +737,108 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
         <div className="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl text-center text-xs text-emerald-700 font-semibold animate-fade-in flex items-center justify-center gap-2">
           <CheckCircle className="w-4 h-4 text-emerald-600" />
           <span>{actionMessage}</span>
+        </div>
+      )}
+
+      {/* Tenant Quick Actions Card */}
+      {!isLandlord && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 text-white shadow-xl border border-slate-800/80 relative overflow-hidden">
+          {/* Decorative backdrop elements */}
+          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute right-1/3 -top-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-emerald-500/20 border border-emerald-400/30 rounded-xl text-emerald-400 shadow-xs">
+                  <Zap className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-display font-black text-lg text-white tracking-tight flex items-center gap-2">
+                    Tenant Quick Actions
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Instant access to core tenant services for faster navigation
+                  </p>
+                </div>
+              </div>
+              <span className="self-start sm:self-center text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full">
+                Tenant Portal
+              </span>
+            </div>
+
+            {/* 3 Quick Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              
+              {/* Action 1: Report Maintenance */}
+              <button
+                type="button"
+                onClick={() => setShowReportMaintenanceModal(true)}
+                className="group bg-white/10 hover:bg-amber-500/20 border border-white/15 hover:border-amber-400/50 p-4 rounded-2xl transition-all text-left flex flex-col justify-between hover:shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="p-2.5 bg-amber-500/20 text-amber-300 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-all">
+                    <Wrench className="w-5 h-5" />
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-amber-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </div>
+                <div>
+                  <span className="block font-black text-sm text-white group-hover:text-amber-200 transition-colors">
+                    Report Maintenance
+                  </span>
+                  <span className="block text-[11px] text-slate-300 mt-0.5">
+                    Submit repair or service request
+                  </span>
+                </div>
+              </button>
+
+              {/* Action 2: Pay Rent */}
+              <button
+                type="button"
+                onClick={handleQuickPayRent}
+                className="group bg-white/10 hover:bg-emerald-500/20 border border-white/15 hover:border-emerald-400/50 p-4 rounded-2xl transition-all text-left flex flex-col justify-between hover:shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="p-2.5 bg-emerald-500/20 text-emerald-300 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <CreditCard className="w-5 h-5" />
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </div>
+                <div>
+                  <span className="block font-black text-sm text-white group-hover:text-emerald-200 transition-colors">
+                    Pay Rent
+                  </span>
+                  <span className="block text-[11px] text-slate-300 mt-0.5">
+                    SafePay / Paystack instant checkout
+                  </span>
+                </div>
+              </button>
+
+              {/* Action 3: View Lease */}
+              <button
+                type="button"
+                onClick={handleQuickViewLease}
+                className="group bg-white/10 hover:bg-sky-500/20 border border-white/15 hover:border-sky-400/50 p-4 rounded-2xl transition-all text-left flex flex-col justify-between hover:shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="p-2.5 bg-sky-500/20 text-sky-300 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition-all">
+                    <FileText className="w-5 h-5" />
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </div>
+                <div>
+                  <span className="block font-black text-sm text-white group-hover:text-sky-200 transition-colors">
+                    View Lease
+                  </span>
+                  <span className="block text-[11px] text-slate-300 mt-0.5">
+                    Signed agreement &amp; house rules
+                  </span>
+                </div>
+              </button>
+
+            </div>
+          </div>
         </div>
       )}
 
@@ -2212,6 +2372,24 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
           </div>
         </div>
       )}
+
+      {/* REPORT MAINTENANCE MODAL */}
+      <ReportMaintenanceModal
+        isOpen={showReportMaintenanceModal}
+        onClose={() => setShowReportMaintenanceModal(false)}
+        bookings={relevantBookings}
+        userEmail={currentUser.email}
+        userName={currentUser.name}
+      />
+
+      {/* VIEW LEASE TERMS MODAL */}
+      <LeaseTermsModal
+        isOpen={showLeaseModal}
+        onClose={() => setShowLeaseModal(false)}
+        propertyTitle={selectedLeaseBooking?.listingTitle || 'Standard Residential Rental Lease'}
+        landlordName={selectedLeaseBooking?.guestName ? 'Verified Landlord' : 'Rentora RealEstate'}
+        monthlyRent={selectedLeaseBooking?.listingPrice || 1200}
+      />
     </div>
   );
 }

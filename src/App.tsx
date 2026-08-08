@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { Listing, User, Booking, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
 import { 
   getListings, getCurrentUser, login, logout, getBookings, getFavorites, toggleFavorite,
   getListingViews, incrementListingViews
 } from './services/store';
 import PropertyMap from './components/PropertyMap';
+import HotPropertiesShowcase from './components/HotPropertiesShowcase';
 import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
 import { BookingsViewSkeleton } from './components/BookingsView';
 import { LandlordDashboardSkeleton } from './components/LandlordDashboard';
@@ -16,21 +17,22 @@ import CompareBar from './components/CompareBar';
 import MobileBottomNav from './components/MobileBottomNav';
 import { useToast } from './context/ToastContext';
 
-// Lazy-loaded sub-components for bundle optimization
-const PropertyDetails = lazy(() => import('./components/PropertyDetails'));
-const BookingsView = lazy(() => import('./components/BookingsView'));
-const LandlordDashboard = lazy(() => import('./components/LandlordDashboard'));
-const AddListingModal = lazy(() => import('./components/AddListingModal'));
-const ComparePropertiesModal = lazy(() => import('./components/ComparePropertiesModal'));
-const EditProfileModal = lazy(() => import('./components/EditProfileModal'));
-const EmailLogModal = lazy(() => import('./components/EmailLogModal'));
-const CurrencyConverterModal = lazy(() => import('./components/CurrencyConverterModal'));
-const RentAffordabilityCalculatorModal = lazy(() => import('./components/RentAffordabilityCalculatorModal'));
-const SavedSearchAlertModal = lazy(() => import('./components/SavedSearchAlertModal'));
+// Sub-components
+import PropertyDetails from './components/PropertyDetails';
+import BookingsView from './components/BookingsView';
+import LandlordDashboard from './components/LandlordDashboard';
+import AddListingModal from './components/AddListingModal';
+import ComparePropertiesModal from './components/ComparePropertiesModal';
+import EditProfileModal from './components/EditProfileModal';
+import EmailLogModal from './components/EmailLogModal';
+import CurrencyConverterModal from './components/CurrencyConverterModal';
+import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
+import SavedSearchAlertModal from './components/SavedSearchAlertModal';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, ChevronLeft, LogOut, Check,
-  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell
+  BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell,
+  Flame, Layers
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getStatesForCountry, getCitiesForState, getAreasForCity } from './utils/location';
@@ -885,7 +887,7 @@ export default function App() {
                     </div>
 
                     {(currentUser.city || currentUser.country) && (
-                      <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 mt-1 truncate">
+                      <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 mt-1 truncate min-w-0">
                         <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span className="truncate">{[currentUser.city, currentUser.state, currentUser.country].filter(Boolean).join(', ')}</span>
                       </span>
@@ -1567,26 +1569,26 @@ export default function App() {
 
               {/* View Switcher Controls */}
               <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                {/* Dedicated Collapse/Expand Map Button */}
+                {/* Dedicated Collapse/Expand Showcase Button */}
                 <button
                   type="button"
                   onClick={toggleMapCollapse}
                   className={`flex items-center gap-1.5 text-xs font-bold px-3 sm:px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
                     mapViewMode === 'grid'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs'
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white border-amber-500 shadow-xs'
                       : 'bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-slate-100 border-slate-800 shadow-xs'
                   }`}
-                  title={mapViewMode === 'grid' ? "Expand Map View" : "Collapse Map View"}
+                  title={mapViewMode === 'grid' ? "Expand Hot Properties Showcase Reel" : "Collapse Showcase Reel"}
                 >
                   {mapViewMode === 'grid' ? (
                     <>
-                      <Eye className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                      <span className="text-xs">Expand Map</span>
+                      <Flame className="w-3.5 h-3.5 text-amber-300 animate-pulse shrink-0" />
+                      <span className="text-xs">Showcase Reel</span>
                     </>
                   ) : (
                     <>
                       <EyeOff className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                      <span className="text-xs">Collapse Map</span>
+                      <span className="text-xs">Hide Reel</span>
                     </>
                   )}
                 </button>
@@ -1600,7 +1602,7 @@ export default function App() {
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                    title="Collapse map for full-screen property grid"
+                    title="Grid view only"
                   >
                     <GridIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="hidden md:inline">Grid</span>
@@ -1614,9 +1616,9 @@ export default function App() {
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                    title="Side-by-side properties & interactive map"
+                    title="Side-by-side properties & hot showcase reel"
                   >
-                    <MapIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <Layers className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                     <span className="hidden md:inline">Split</span>
                   </button>
 
@@ -1628,10 +1630,10 @@ export default function App() {
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-slate-700'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                    title="Expand interactive map view"
+                    title="Full-screen Hot Properties Showcase Reel"
                   >
-                    <Maximize2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                    <span className="hidden md:inline">Map</span>
+                    <Flame className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span className="hidden md:inline font-bold text-rose-500">Showcase</span>
                   </button>
                 </div>
               </div>
@@ -1837,19 +1839,27 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Interactive Map (Collapsible) */}
+              {/* Right Column: Hot Properties & New Listings Showcase Reel */}
               {mapViewMode !== 'grid' && (
-                <div className={`transition-all duration-300 rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm shrink-0 ${
+                <div className={`transition-all duration-300 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm shrink-0 ${
                   mapViewMode === 'map'
-                    ? 'lg:col-span-8 h-[550px] lg:h-full'
-                    : 'lg:col-span-5 h-[380px] lg:h-full'
+                    ? 'lg:col-span-8 h-[580px] lg:h-full'
+                    : 'lg:col-span-5 h-[480px] lg:h-full'
                 }`}>
-                  <PropertyMap
+                  <HotPropertiesShowcase
                     listings={filteredItems.map(item => item.listing)}
                     selectedListing={selectedListing}
                     onSelectListing={handleSelectListing}
-                    center={mapCenter}
-                    zoom={mapZoom}
+                    favorites={favorites}
+                    onToggleFavorite={(e, listingId) => {
+                      e.stopPropagation();
+                      toggleFavorite(listingId);
+                      setFavorites(getFavorites());
+                    }}
+                    onBookTour={handleSelectListing}
+                    displayCurrency={displayCurrency}
+                    mapCenter={mapCenter}
+                    mapZoom={mapZoom}
                   />
                 </div>
               )}
@@ -1871,22 +1881,20 @@ export default function App() {
           isTabLoading ? (
             <LandlordDashboardSkeleton />
           ) : (
-            <Suspense fallback={<LandlordDashboardSkeleton />}>
-              <LandlordDashboard
-                currentUser={currentUser}
-                listings={listings}
-                bookings={bookings}
-                onAddListingClick={() => setShowAddModal(true)}
-                onViewBookingClick={() => handleTabChange('bookings')}
-                onViewListingClick={(listing) => {
-                  setSelectedListing(listing);
-                  incrementListingViews(listing.id);
-                  handleTabChange('explore');
-                }}
-                onRefreshData={refreshData}
-                onEditProfileClick={() => setShowEditProfileModal(true)}
-              />
-            </Suspense>
+            <LandlordDashboard
+              currentUser={currentUser}
+              listings={listings}
+              bookings={bookings}
+              onAddListingClick={() => setShowAddModal(true)}
+              onViewBookingClick={() => handleTabChange('bookings')}
+              onViewListingClick={(listing) => {
+                setSelectedListing(listing);
+                incrementListingViews(listing.id);
+                handleTabChange('explore');
+              }}
+              onRefreshData={refreshData}
+              onEditProfileClick={() => setShowEditProfileModal(true)}
+            />
           )
         ) : currentTab === 'favorites' ? (
           isTabLoading ? (
@@ -1981,12 +1989,10 @@ export default function App() {
             <BookingsViewSkeleton />
           ) : (
             <div className="animate-fade-in bg-white border border-slate-100 shadow-sm rounded-3xl p-6 lg:p-8">
-              <Suspense fallback={<BookingsViewSkeleton />}>
-                <BookingsView 
-                  currentUser={currentUser}
-                  onStatusChanged={refreshData}
-                />
-              </Suspense>
+              <BookingsView 
+                currentUser={currentUser}
+                onStatusChanged={refreshData}
+              />
             </div>
           )
         )}
@@ -2031,8 +2037,17 @@ export default function App() {
           }>
             <PropertyDetails
               listing={selectedListing}
+              allListings={listings}
+              onSelectListing={(newListing) => {
+                setSelectedListing(newListing);
+              }}
               currentUser={currentUser}
               displayCurrency={displayCurrency}
+              favorites={favorites}
+              onToggleFavorite={(listingId) => {
+                toggleFavorite(listingId);
+                setFavorites(getFavorites());
+              }}
               onClose={() => setSelectedListing(null)}
               onBookingCreated={() => {
                 setSelectedListing(null);

@@ -17,6 +17,7 @@ export const PROPERTY_TYPES: [PropertyType, ...PropertyType[]] = [
   'room',
   'apartment',
   'studio',
+  'others',
 ];
 
 export const listingSchema = z.object({

@@ -8,10 +8,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const GOOGLE_MAPS_API_KEY =
+const getRawKey = () =>
   (typeof process !== 'undefined' ? process.env?.GOOGLE_MAPS_PLATFORM_KEY : '') ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   '';
+
+const GOOGLE_MAPS_API_KEY = (getRawKey() || '').trim().replace(/^["']|["']$/g, '');
 
 const isPlaceholderKey = (key: string): boolean => {
   if (!key) return true;
@@ -23,7 +25,8 @@ const isPlaceholderKey = (key: string): boolean => {
     lower.includes('test') ||
     lower.includes('your_api_key') ||
     lower.includes('yourkey') ||
-    key.length < 35
+    lower.includes('my_google_maps') ||
+    key.length < 10
   );
 };
 

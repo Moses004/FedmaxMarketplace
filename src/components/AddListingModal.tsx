@@ -472,7 +472,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                           setType(cat.id);
                           clearFieldError('type');
                           // Smart default bedroom assignment based on selected category
-                          if (cat.id === 'self-contained' || cat.id === 'office-commercial' || cat.id === 'studio') {
+                          if (cat.id === 'self-contained' || cat.id === 'office-commercial' || cat.id === 'studio' || cat.id === 'others') {
                             setBedrooms(0);
                           } else if (cat.id === 'single-room' || cat.id === '1-bedroom-flat' || cat.id === 'shared-apartment' || cat.id === 'room') {
                             setBedrooms(1);
@@ -498,6 +498,17 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                     );
                   })}
                 </div>
+
+                {type === 'others' && (
+                  <div className="p-3 bg-fuchsia-50/80 border border-fuchsia-200 rounded-2xl flex items-start gap-2.5 text-xs text-fuchsia-900 animate-fade-in shadow-xs">
+                    <Sparkles className="w-4 h-4 text-fuchsia-600 shrink-0 mt-0.5" />
+                    <div className="text-[11px] leading-relaxed">
+                      <span className="font-bold block text-fuchsia-950">Custom Property / Special Accommodation</span>
+                      <span>Describe your unique property details (e.g. Creative Event Space, Industrial Warehouse, Floating Houseboat, Container Home, Co-Working Suite, or Storage Lot) clearly in the title & description fields below.</span>
+                    </div>
+                  </div>
+                )}
+
                 {fieldErrors.type && (
                   <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -1153,9 +1164,9 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                       >
                         <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-1.5">
-                          <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between">
-                            <span>{img.label}</span>
-                            <Plus className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between min-w-0">
+                            <span className="truncate">{img.label}</span>
+                            <Plus className="w-3 h-3 text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </span>
                         </div>
                       </div>

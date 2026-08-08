@@ -39,6 +39,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
     'room': 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
     'studio': 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
     'apartment': 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    'others': 'bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800',
   };
 
   const typeLabels: Record<string, string> = {
@@ -57,6 +58,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
     'room': 'Single Room',
     'studio': 'Self-Contained',
     'apartment': 'Apartment',
+    'others': 'Others / Custom',
   };
 
   return (
@@ -179,7 +181,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Floating Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start max-w-[55%] sm:max-w-[62%]">
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start max-w-[calc(100%-3.5rem)]">
           <div className="flex flex-wrap items-center gap-1.5 max-w-full">
             <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold border shadow-sm truncate max-w-full ${typeColors[listing.type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
               {typeLabels[listing.type] || listing.type}
@@ -195,23 +197,24 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Video Walkthrough Badge Indicator */}
-        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm">
+        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm max-w-[40%] truncate">
           <Play className="w-2.5 h-2.5 text-rose-400 fill-rose-400 shrink-0" />
-          <span className="truncate">HD Video Tour</span>
+          <span className="truncate hidden sm:inline">HD Video Tour</span>
+          <span className="truncate sm:hidden">Video</span>
         </div>
 
         {/* Floating Price */}
-        <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10 max-w-[55%]">
-          <div className="flex items-baseline gap-0.5 sm:gap-1 max-w-full truncate">
-            <span className="text-base sm:text-lg tracking-tight font-black text-white truncate">{primaryFormatted}</span>
+        <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10 max-w-[55%] min-w-0">
+          <div className="flex items-baseline gap-0.5 sm:gap-1 max-w-full truncate min-w-0">
+            <span className="text-sm sm:text-base md:text-lg tracking-tight font-black text-white truncate">{primaryFormatted}</span>
             <span className="text-[10px] sm:text-xs text-emerald-300 font-extrabold shrink-0">{periodLabel}</span>
           </div>
-          <div className="flex items-center gap-1.5 -mt-0.5 max-w-full truncate">
-            <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 tracking-tight truncate">
+          <div className="flex items-center gap-1 -mt-0.5 max-w-full truncate min-w-0">
+            <span className="text-[8.5px] sm:text-[10px] font-bold text-slate-300 tracking-tight truncate">
               {monthlyEquivalentText}
             </span>
             {secondaryFormatted && (
-              <span className="text-[8.5px] font-bold text-emerald-400 tracking-tight truncate hidden sm:inline">
+              <span className="text-[8px] sm:text-[8.5px] font-bold text-emerald-400 tracking-tight truncate hidden sm:inline">
                 ({secondaryFormatted})
               </span>
             )}

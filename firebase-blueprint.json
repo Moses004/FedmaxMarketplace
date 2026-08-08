@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile record for renters and landlords.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "Email address" },
+        "name": { "type": "string", "description": "Display name" },
+        "role": { "type": "string", "enum": ["guest", "landlord", "admin"] },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "country": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Listing": {
+      "title": "Listing",
+      "description": "Property rental listing created by landlords.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "price": { "type": "number" },
+        "location": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "country": { "type": "string" },
+        "type": { "type": "string" },
+        "bedrooms": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "landlordUid": { "type": "string" },
+        "landlordName": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "availableFrom": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "price", "location", "landlordUid"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Rental reservation booking created by renters.",
+      "type": "object",
+      "properties": {
+        "bookingCode": { "type": "string" },
+        "listingId": { "type": "string" },
+        "listingTitle": { "type": "string" },
+        "guestUid": { "type": "string" },
+        "guestEmail": { "type": "string" },
+        "guestName": { "type": "string" },
+        "moveInDate": { "type": "string" },
+        "moveOutDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "approved", "rejected", "cancelled"] },
+        "totalPrice": { "type": "number" },
+        "landlordUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bookingCode", "listingTitle", "guestUid", "guestEmail", "status"]
+    },
+    "MaintenanceRequest": {
+      "title": "MaintenanceRequest",
+      "description": "Maintenance request submitted by renters.",
+      "type": "object",
+      "properties": {
+        "ticketCode": { "type": "string" },
+        "listingTitle": { "type": "string" },
+        "tenantUid": { "type": "string" },
+        "tenantEmail": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "issueTitle": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending Review", "In Progress", "Scheduled", "Resolved"] },
+        "landlordNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketCode", "listingTitle", "tenantUid", "tenantEmail", "issueTitle", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile collection"
+    },
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/Listing" },
+      "description": "Rental property listings collection"
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Bookings collection"
+    },
+    "/maintenanceRequests/{ticketId}": {
+      "schema": { "$ref": "#/entities/MaintenanceRequest" },
+      "description": "Maintenance requests collection"
+    }
+  }
+}

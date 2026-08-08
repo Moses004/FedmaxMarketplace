@@ -1520,9 +1520,9 @@ Disbursement Status:${tx.status.toUpperCase()}
                             >
                               {listing.title}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate">
-                              <MapPin className="w-3 h-3 text-slate-300" />
-                              {listing.location}
+                            <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate min-w-0">
+                              <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
+                              <span className="truncate">{listing.location}</span>
                             </span>
                           </div>
                         </td>
@@ -3265,9 +3265,9 @@ Disbursement Status:${tx.status.toUpperCase()}
                   <span className="font-bold text-slate-800 text-xs truncate block">
                     {deletingListing.title}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate">
-                    <MapPin className="w-3 h-3 text-slate-300" />
-                    {deletingListing.location}
+                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate min-w-0">
+                    <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
+                    <span className="truncate">{deletingListing.location}</span>
                   </span>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs font-mono font-bold text-slate-700">

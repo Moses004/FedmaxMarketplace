@@ -6,10 +6,38 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Process-level unhandled error/rejection safety nets to prevent Node container crashes
+process.on("uncaughtException", (err) => {
+  console.error("[CRITICAL] Uncaught Exception intercepted:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[CRITICAL] Unhandled Promise Rejection at:", promise, "reason:", reason);
+});
+
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Express JSON Syntax Error Catch Middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err instanceof SyntaxError && "status" in err && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Invalid JSON format in request payload." });
+  }
+  next(err);
+});
+
+// Server health check route for Cloud Run and platform monitoring
+app.get("/api/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development"
+  });
+});
 
 // ==========================================
 // EMAIL NOTIFICATION SYSTEM FOR LANDLORDS
@@ -29,6 +57,13 @@ interface EmailLogRecord {
 }
 
 const serverEmailLogs: EmailLogRecord[] = [];
+
+function addEmailLog(logEntry: EmailLogRecord) {
+  serverEmailLogs.unshift(logEntry);
+  if (serverEmailLogs.length > 500) {
+    serverEmailLogs.length = 500;
+  }
+}
 
 // API Endpoint to send landlord booking request email notification
 app.post("/api/send-booking-email", async (req: any, res: any) => {
@@ -207,7 +242,7 @@ app.post("/api/send-booking-email", async (req: any, res: any) => {
       sentAt
     };
 
-    serverEmailLogs.unshift(logEntry);
+    addEmailLog(logEntry);
 
     res.json({
       success: true,
@@ -326,7 +361,7 @@ app.post("/api/email/welcome", async (req: any, res: any) => {
       sentAt
     };
 
-    serverEmailLogs.unshift(logEntry);
+    addEmailLog(logEntry);
 
     res.json({
       success: true,
@@ -433,7 +468,7 @@ app.post("/api/email/booking-status", async (req: any, res: any) => {
       sentAt
     };
 
-    serverEmailLogs.unshift(logEntry);
+    addEmailLog(logEntry);
 
     res.json({
       success: true,
@@ -528,7 +563,7 @@ app.post("/api/email/listing-created", async (req: any, res: any) => {
       sentAt
     };
 
-    serverEmailLogs.unshift(logEntry);
+    addEmailLog(logEntry);
 
     res.json({
       success: true,
@@ -542,14 +577,22 @@ app.post("/api/email/listing-created", async (req: any, res: any) => {
 });
 
 // GET /api/email-logs
-app.get("/api/email-logs", (req: any, res: any) => {
-  res.json({ logs: serverEmailLogs });
+app.get("/api/email-logs", (_req: any, res: any) => {
+  try {
+    res.json({ logs: serverEmailLogs });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch email logs" });
+  }
 });
 
 // DELETE /api/email-logs/clear
-app.delete("/api/email-logs/clear", (req: any, res: any) => {
-  serverEmailLogs.length = 0;
-  res.json({ success: true, message: "Email logs cleared." });
+app.delete("/api/email-logs/clear", (_req: any, res: any) => {
+  try {
+    serverEmailLogs.length = 0;
+    res.json({ success: true, message: "Email logs cleared." });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to clear email logs" });
+  }
 });
 
 // API routes FIRST
@@ -584,7 +627,7 @@ Here is the property context:
 - Description: ${listingDescription || "No description provided."}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: message,
       config: {
         systemInstruction,
@@ -635,7 +678,7 @@ Your task is to reply to their latest message. Keep your reply extremely natural
 If they ask about utility bills, parking, cleaning, or keys, answer reasonably and welcomingly. Keep in character as ${landlordName || "Carlos"}.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: "Generate the landlord reply to the thread.",
       config: {
         systemInstruction,
@@ -682,7 +725,7 @@ Generate a detailed, objective neighborhood scorecard and local area report.
 Your output must be a valid JSON object matching the requested schema. Ensure transitScore, safetyScore, amenitiesScore, and nightlifeScore are realistic integer ratings from 1 to 10 (where 10 is outstanding). Give detailed descriptions explaining what makes the transit, safety, and general vibe unique for this neighborhood in Madrid/Barcelona. Add 2-3 specific "localSecrets" (e.g., hidden parks, best tapas bars, quiet spots).`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: "Produce the JSON neighborhood scorecard report.",
       config: {
         systemInstruction,
@@ -770,7 +813,7 @@ Generate a highly detailed optimization report in Spanish or English (mix is fin
 Your output must be a valid JSON object matching the requested schema. Provide a suggested competitive price range (min and max values), a demand score (1-100), detailed feedback on pricing, 3 actionable upgrade tips to justify higher rent, an optimized title, and an optimized, high-converting description.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: "Analyze this listing and output the optimization JSON scorecard.",
       config: {
         systemInstruction,
@@ -866,7 +909,7 @@ Instructions:
 4. Format output strictly as JSON with a single string property "enhancedDescription".`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -933,7 +976,7 @@ Format your output strictly as a valid JSON object matching this schema:
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -1034,6 +1077,127 @@ Format your output strictly as a valid JSON object matching this schema:
         { title: "Google Maps Location Intelligence", uri: "https://maps.google.com" }
       ]
     });
+  }
+});
+
+// AI-Powered Maintenance Request Triage API Endpoint
+app.post("/api/triage-maintenance", async (req: any, res: any) => {
+  try {
+    const { issueTitle = '', issueCategory = '', description = '', listingTitle = '' } = req.body || {};
+
+    if (!issueTitle && !description) {
+      return res.status(400).json({ error: "Missing required maintenance description or title." });
+    }
+
+    const fullText = `Title: ${issueTitle}. Category: ${issueCategory}. Details: ${description}`;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
+
+        const prompt = `You are an expert Property Operations AI Assistant for Rentora RealEstate.
+Analyze the following maintenance issue report from a tenant and triage its urgency and risk level.
+
+Tenant Issue Details:
+- Title: "${issueTitle}"
+- Category: "${issueCategory}"
+- Property: "${listingTitle}"
+- Detailed Description: "${description}"
+
+Strictly categorize the urgency into one of 4 priority levels:
+1. "emergency" - Immediate severe safety, water flooding, gas leak, electrical fire spark, total heating failure in subzero weather, or complete security compromise (main door lock broken/door unsealed).
+2. "high" - Major inconvenience or potential property damage if not handled within 24 hours (e.g. active contained water leak, broken refrigerator, no hot water, air conditioning broken in heatwave).
+3. "medium" - Functional disruption requiring repair within 2-3 days (e.g. clogged slow drain, stove burner malfunctioning, noisy dishwasher, broken window blind).
+4. "low" - Minor cosmetic or non-urgent maintenance (e.g. squeaky door hinges, loose cabinet knob, scuffed wall paint, light bulb replacement).
+
+Provide output strictly matching this JSON structure:
+{
+  "priority": "low" | "medium" | "high" | "emergency",
+  "reasoning": "1-2 concise sentences explaining why this priority was assigned based on safety, property damage risk, or habitability.",
+  "recommendedAction": "1 concise sentence recommending immediate safety advice or next action for tenant/landlord.",
+  "estimatedTurnaround": "Target resolution window (e.g. 'Immediate / Under 2 Hours', 'Within 24 Hours', '2-3 Business Days', '3-5 Business Days')",
+  "riskFactors": ["Array of 1-3 risk points, e.g. 'Electrical Hazard', 'Structural Water Damage', 'Habitability Impact']
+}`;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.2,
+          }
+        });
+
+        const responseText = response.text || '';
+        const parsed = JSON.parse(responseText);
+
+        return res.json({
+          priority: ['low', 'medium', 'high', 'emergency'].includes(parsed.priority) ? parsed.priority : 'medium',
+          reasoning: parsed.reasoning || "Triage complete based on tenant report details.",
+          recommendedAction: parsed.recommendedAction || "Notify landlord and schedule technician review.",
+          estimatedTurnaround: parsed.estimatedTurnaround || "24-48 Hours",
+          riskFactors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors : [],
+          aiGenerated: true
+        });
+      } catch (geminiErr: any) {
+        console.warn("[Triage Maintenance] Gemini API call failed, falling back to heuristic engine.", geminiErr?.message);
+      }
+    }
+
+    // Smart Rule-Based Fallback Heuristic Engine
+    const lowerText = fullText.toLowerCase();
+    let priority: 'low' | 'medium' | 'high' | 'emergency' = 'medium';
+    let reasoning = 'Issue involves standard functional maintenance requiring prompt attention.';
+    let recommendedAction = 'Landlord notified to schedule maintenance inspection.';
+    let estimatedTurnaround = '24-48 Hours';
+    let riskFactors: string[] = ['Standard Tenant Request'];
+
+    if (/gas|fire|smoke|spark|explosion|flood|burst pipe|flooding|lockout|unlocked|shattered door/i.test(lowerText)) {
+      priority = 'emergency';
+      reasoning = 'Critical risk detected: immediate threat to resident safety, structural flooding, or severe security breach.';
+      recommendedAction = 'Shut off main supply valves or electrical breakers immediately and contact emergency response.';
+      estimatedTurnaround = 'Under 2 Hours (Emergency Response)';
+      riskFactors = ['Resident Safety Hazard', 'Imminent Structural Damage'];
+    } else if (/leak|no heat|no hot water|refrigerator|fridge|power outage|breaker|stove/i.test(lowerText)) {
+      priority = 'high';
+      reasoning = 'High severity issue affecting vital daily living appliances, climate control, or active water containment.';
+      recommendedAction = 'Dispatch certified technician for same-day inspection and repair.';
+      estimatedTurnaround = 'Within 24 Hours';
+      riskFactors = ['Habitability Impact', 'Appliance Breakdown'];
+    } else if (/drain|clog|faucet|ac|air condition|noise|door lock|window/i.test(lowerText)) {
+      priority = 'medium';
+      reasoning = 'Moderate functional disruption impacting property usage without immediate structural or safety risk.';
+      recommendedAction = 'Coordinate technician visit during standard operating hours.';
+      estimatedTurnaround = '2-3 Business Days';
+      riskFactors = ['Operational Inconvenience'];
+    } else {
+      priority = 'low';
+      reasoning = 'Minor cosmetic or non-critical item with low operational impact.';
+      recommendedAction = 'Log issue for scheduled routine maintenance round.';
+      estimatedTurnaround = '3-5 Business Days';
+      riskFactors = ['Cosmetic Issue'];
+    }
+
+    return res.json({
+      priority,
+      reasoning,
+      recommendedAction,
+      estimatedTurnaround,
+      riskFactors,
+      aiGenerated: false
+    });
+
+  } catch (error: any) {
+    console.error("[Triage Maintenance Error]:", error);
+    res.status(500).json({ error: "Failed to triage maintenance request." });
   }
 });
 
@@ -1518,26 +1682,27 @@ app.get("/api/og-image", (req: any, res: any) => {
 
 // Dynamic Social Pre-render / Open Graph HTML endpoint
 app.get("/og/:id", (req: any, res: any) => {
-  const listingId = req.params.id;
-  const title = String(req.query.title || 'Verified Luxury Residence').trim();
-  const price = String(req.query.price || '1500').trim();
-  const location = String(req.query.location || 'Madrid, Spain').trim();
-  const image = String(req.query.image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80').trim();
-  const bedrooms = String(req.query.bedrooms || '2').trim();
-  const bathrooms = String(req.query.bathrooms || '2').trim();
-  const size = String(req.query.size || '80').trim();
-  const type = String(req.query.type || 'Apartment').trim();
+  try {
+    const listingId = req.params.id;
+    const title = String(req.query.title || 'Verified Luxury Residence').trim();
+    const price = String(req.query.price || '1500').trim();
+    const location = String(req.query.location || 'Madrid, Spain').trim();
+    const image = String(req.query.image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80').trim();
+    const bedrooms = String(req.query.bedrooms || '2').trim();
+    const bathrooms = String(req.query.bathrooms || '2').trim();
+    const size = String(req.query.size || '80').trim();
+    const type = String(req.query.type || 'Apartment').trim();
 
-  const host = req.headers.host || 'rentora-realestate.com';
-  const protocol = req.headers['x-forwarded-proto'] || 'https';
-  const baseUrl = `${protocol}://${host}`;
+    const host = req.headers.host || 'rentora-realestate.com';
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const baseUrl = `${protocol}://${host}`;
 
-  const ogImageUrl = `${baseUrl}/api/og-image?title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&location=${encodeURIComponent(location)}&image=${encodeURIComponent(image)}&bedrooms=${bedrooms}&bathrooms=${bathrooms}&size=${size}&type=${encodeURIComponent(type)}`;
+    const ogImageUrl = `${baseUrl}/api/og-image?title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&location=${encodeURIComponent(location)}&image=${encodeURIComponent(image)}&bedrooms=${bedrooms}&bathrooms=${bathrooms}&size=${size}&type=${encodeURIComponent(type)}`;
 
-  const pageTitle = `${title} | €${price}/mo | Rentora RealEstate`;
-  const description = `${type} for rent in ${location}. ${bedrooms} bed, ${bathrooms} bath, ${size}m². Inspected & verified by Rentora RealEstate. Instant online lease booking available.`;
+    const pageTitle = `${title} | €${price}/mo | Rentora RealEstate`;
+    const description = `${type} for rent in ${location}. ${bedrooms} bed, ${bathrooms} bath, ${size}m². Inspected & verified by Rentora RealEstate. Instant online lease booking available.`;
 
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1573,8 +1738,12 @@ app.get("/og/:id", (req: any, res: any) => {
 </body>
 </html>`;
 
-  res.setHeader('Content-Type', 'text/html');
-  return res.status(200).send(html);
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(200).send(html);
+  } catch (err: any) {
+    console.error("OG HTML generation error:", err);
+    return res.status(500).send("<html><body><h1>Error generating preview</h1></body></html>");
+  }
 });
 
 // Dynamic XML Sitemap Service for SEO Indexing
@@ -1688,6 +1857,18 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   return res.status(200).send(robotsTxt);
+});
+
+// Global Express Fallback Error Handler Middleware
+app.use((err: any, _req: any, res: any, _next: any) => {
+  console.error("[EXPRESS GLOBAL ERROR]", err);
+  if (res.headersSent) {
+    return;
+  }
+  return res.status(500).json({
+    error: "An unexpected error occurred on the server.",
+    message: process.env.NODE_ENV === "development" ? String(err.message || err) : "Internal Server Error"
+  });
 });
 
 async function startServer() {

@@ -241,12 +241,12 @@ export default function PromotionalBanner({ onListPropertyClick, onExploreClick 
   return (
     <section 
       aria-label="Platform Updates and Promotional Announcements"
-      className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8 animate-fade-in"
+      className="w-full my-4 sm:my-6 animate-fade-in"
     >
       <div 
         onMouseEnter={() => setIsPlaying(false)}
         onMouseLeave={() => setIsPlaying(true)}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white shadow-2xl border border-emerald-900/60 p-6 sm:p-8 lg:p-10 transition-all duration-500"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white shadow-2xl border border-emerald-900/60 p-4 sm:p-6 lg:p-8 transition-all duration-500 w-full"
       >
         
         {/* Dynamic Background Glows */}

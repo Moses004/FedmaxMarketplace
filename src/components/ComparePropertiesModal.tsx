@@ -308,7 +308,7 @@ export default function ComparePropertiesModal({
                           <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 line-clamp-1">
                             {listing.title}
                           </h4>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 truncate min-w-0">
                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                             <span className="truncate">{listing.location}</span>
                           </span>

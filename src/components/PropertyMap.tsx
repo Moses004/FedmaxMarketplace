@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { Listing } from '../types';
-import { MapPin, Info, Compass, ZoomIn, ZoomOut, Search, Home, Building, Bed } from 'lucide-react';
+import { MapPin, Info, Compass, ZoomIn, ZoomOut, Search, Home, Building, Bed, Sparkles } from 'lucide-react';
 
 const getListingIcon = (type: string, className = "w-3.5 h-3.5") => {
   switch (type) {
@@ -14,6 +14,8 @@ const getListingIcon = (type: string, className = "w-3.5 h-3.5") => {
     case 'studio':
     case 'office-commercial':
       return <Building className={className} />;
+    case 'others':
+      return <Sparkles className={className} />;
     case '1-bedroom-flat':
     case '2-bedroom-flat':
     case '3plus-bedroom-flat':
@@ -36,10 +38,12 @@ interface PropertyMapProps {
   zoom: number;
 }
 
-const GOOGLE_MAPS_API_KEY =
+const getRawKey = () =>
   (typeof process !== 'undefined' ? process.env?.GOOGLE_MAPS_PLATFORM_KEY : '') ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   '';
+
+const GOOGLE_MAPS_API_KEY = (getRawKey() || '').trim().replace(/^["']|["']$/g, '');
 
 const isPlaceholderKey = (key: string): boolean => {
   if (!key) return true;
@@ -52,15 +56,12 @@ const isPlaceholderKey = (key: string): boolean => {
     lower.includes('your_api_key') ||
     lower.includes('yourkey') ||
     lower.includes('my_google_maps') ||
-    key.length < 35 // A real Google Maps API key is always 39 characters long
+    key.length < 10
   );
 };
 
-// Static check: Real API keys start with AIzaSy. This filters out placeholders.
-const hasValidKey =
-  Boolean(GOOGLE_MAPS_API_KEY) &&
-  GOOGLE_MAPS_API_KEY.startsWith('AIzaSy') &&
-  !isPlaceholderKey(GOOGLE_MAPS_API_KEY);
+// Valid API key check accepts any provided key string that isn't a dummy placeholder
+const hasValidKey = Boolean(GOOGLE_MAPS_API_KEY) && !isPlaceholderKey(GOOGLE_MAPS_API_KEY);
 
 // Custom minimal light silver map styles matching Rentora RealEstate premium branding
 const SILVER_MAP_STYLE = [

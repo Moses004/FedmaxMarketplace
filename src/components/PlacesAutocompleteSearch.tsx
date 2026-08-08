@@ -68,15 +68,23 @@ export default function PlacesAutocompleteSearch({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Initialize Google Places Autocomplete Service if Google Maps JS API is available
+  // Initialize Google Places Autocomplete Service when Google Maps JS API is ready
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).google?.maps?.places) {
-      try {
-        autocompleteServiceRef.current = new (window as any).google.maps.places.AutocompleteService();
-      } catch (err) {
-        console.info('[PlacesAutocomplete] Google Places Service not loaded or initialized:', err);
+    const initPlaces = () => {
+      if (typeof window !== 'undefined' && (window as any).google?.maps?.places) {
+        if (!autocompleteServiceRef.current) {
+          try {
+            autocompleteServiceRef.current = new (window as any).google.maps.places.AutocompleteService();
+          } catch (err) {
+            console.info('[PlacesAutocomplete] Google Places Service init exception:', err);
+          }
+        }
       }
-    }
+    };
+
+    initPlaces();
+    const timer = setInterval(initPlaces, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // Generate suggestions based on user input

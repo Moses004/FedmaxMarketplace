@@ -398,6 +398,31 @@ const INITIAL_LISTINGS: Listing[] = [
     ],
     landlordId: 'landlord-2',
     availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-others-1',
+    title: 'Waterfront Creative Event Studio & Pavilion',
+    description: 'Unique multi-purpose waterfront glasshouse venue with acoustic insulation, ambient lighting, private terrace dock, and customizable layout. Ideal for private events, creative studios, workshops, or pop-up spaces.',
+    price: 3200,
+    pricePeriod: 'annual',
+    currency: 'USD',
+    type: 'others',
+    location: 'Victoria Island Waterfront, Lagos, Nigeria',
+    country: 'Nigeria',
+    state: 'Lagos State',
+    city: 'Lagos',
+    lat: 6.4281,
+    lng: 3.4219,
+    bedrooms: 0,
+    bathrooms: 3,
+    size: 220,
+    amenities: ['Waterfront Deck', 'Acoustic Soundproofing', 'Private VIP Lounge', 'High-Speed Wi-Fi', '24/7 Power', 'Valet Parking'],
+    images: [
+      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-10'
   }
 ];
 

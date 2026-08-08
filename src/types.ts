@@ -13,7 +13,8 @@ export type PropertyType =
   | 'office-commercial'
   | 'room' 
   | 'apartment' 
-  | 'studio';
+  | 'studio'
+  | 'others';
 
 export type ListingStatus = 'available' | 'new' | 'rented' | 'unavailable' | 'pending_review';
 
@@ -72,6 +73,7 @@ export const PROPERTY_CATEGORY_OPTIONS: { id: PropertyType; label: string; descr
   { id: 'villa', label: 'Luxury Villa', description: 'Private luxury house with garden or swimming pool' },
   { id: 'shared-apartment', label: 'Shared Flat / Co-living', description: 'Shared residence with dedicated community amenities' },
   { id: 'office-commercial', label: 'Commercial / Office', description: 'Retail store, workshop, desk space or office suite' },
+  { id: 'others', label: 'Others / Custom', description: 'Event hall, warehouse, boat house, land, container home, or unique space' },
 ];
 
 export interface BookingMessage {

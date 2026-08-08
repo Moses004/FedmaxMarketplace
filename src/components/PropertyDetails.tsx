@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Listing, User, Booking } from '../types';
 import { createBooking, getCurrentUser, getReviewsForListing } from '../services/store';
 import { sendLandlordBookingNotification } from '../services/emailService';
@@ -10,7 +10,7 @@ import {
   Bus, ShoppingBag, GraduationCap, ExternalLink, Compass, Store, Navigation, Search,
   Copy, CheckCheck, Globe, Download, Image as ImageIcon, ArrowLeftRight,
   Video, Play, Pause, Volume2, VolumeX, RotateCcw, Film, Camera,
-  Phone, MessageCircle, Building2, Award, User as UserIcon, Clock, Calculator
+  Phone, MessageCircle, Building2, Award, User as UserIcon, Clock, Calculator, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -38,8 +38,14 @@ interface POIData {
   webSources?: Array<{ title: string; uri: string }>;
 }
 
+// Client-side cache for high-performance instant loading
+const neighborhoodCache = new Map<string, any>();
+const poiCache = new Map<string, any>();
+
 interface PropertyDetailsProps {
   listing: Listing;
+  allListings?: Listing[];
+  onSelectListing?: (listing: Listing) => void;
   onClose: () => void;
   currentUser: User | null;
   onBookingCreated: () => void;
@@ -47,10 +53,14 @@ interface PropertyDetailsProps {
   isCompared?: boolean;
   onToggleCompare?: () => void;
   displayCurrency?: string;
+  favorites?: string[];
+  onToggleFavorite?: (listingId: string) => void;
 }
 
 export default function PropertyDetails({
   listing,
+  allListings = [],
+  onSelectListing,
   onClose,
   currentUser,
   onBookingCreated,
@@ -58,10 +68,47 @@ export default function PropertyDetails({
   isCompared,
   onToggleCompare,
   displayCurrency = 'regional',
+  favorites = [],
+  onToggleFavorite,
 }: PropertyDetailsProps) {
   const [activeTab, setActiveTab] = useState<'photos' | 'description'>('photos');
   const [selectedPhoto, setSelectedPhoto] = useState<number>(0);
   const [direction, setDirection] = useState<number>(0);
+
+  // Similar & Related Properties scoring logic
+  const relatedListings = useMemo(() => {
+    if (!allListings || allListings.length === 0) return [];
+
+    const candidateListings = allListings.filter(l => l.id !== listing.id);
+
+    const scored = candidateListings.map(candidate => {
+      let score = 0;
+      // Matching property type
+      if (candidate.type === listing.type) score += 10;
+
+      // Location match
+      const currentLoc = listing.location.toLowerCase();
+      const candidateLoc = candidate.location.toLowerCase();
+      const currentParts = currentLoc.split(',').map(s => s.trim());
+      const candidateParts = candidateLoc.split(',').map(s => s.trim());
+
+      if (currentParts.some(p => p && candidateParts.includes(p))) {
+        score += 8;
+      }
+
+      // Bedroom count proximity
+      if (Math.abs(candidate.bedrooms - listing.bedrooms) <= 1) score += 5;
+
+      // Price range proximity (within +/- 35%)
+      const priceRatio = candidate.price / (listing.price || 1);
+      if (priceRatio >= 0.65 && priceRatio <= 1.35) score += 5;
+
+      return { candidate, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 4).map(item => item.candidate);
+  }, [allListings, listing]);
 
   // Video Tour & Gallery States
   const [mediaMode, setMediaMode] = useState<'photos' | 'video'>('photos');
@@ -163,25 +210,40 @@ export default function PropertyDetails({
 
   useEffect(() => {
     let active = true;
+    const cacheKey = `${listing.id}-${listing.location}`;
+
+    if (neighborhoodCache.has(cacheKey)) {
+      setNeighborhoodData(neighborhoodCache.get(cacheKey));
+      setIsReportLoading(false);
+      return;
+    }
+
     const loadNeighborhood = async () => {
       setIsReportLoading(true);
       setReportError(null);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
       try {
         const response = await fetch('/api/neighborhood-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location: listing.location, listingName: listing.title })
+          body: JSON.stringify({ location: listing.location, listingName: listing.title }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!response.ok) throw new Error('Failed to load guide');
         const data = await response.json();
         if (active) {
+          neighborhoodCache.set(cacheKey, data);
           setNeighborhoodData(data);
         }
       } catch (err) {
-        console.error(err);
+        clearTimeout(timeoutId);
         if (active) {
-          // Fallback static guide in case Gemini is not configured / fails
-          setNeighborhoodData({
+          // Fallback static guide in case API takes long or fails
+          const fallbackData = {
             neighborhoodName: listing.location.split(',')[0] || "Local Area",
             transitScore: 8,
             safetyScore: 9,
@@ -195,7 +257,9 @@ export default function PropertyDetails({
               "A quiet courtyard park is tucked behind the main boulevard, ideal for morning yoga.",
               "The direct bus express route can cut your commute to the downtown core by 15 minutes."
             ]
-          });
+          };
+          neighborhoodCache.set(cacheKey, fallbackData);
+          setNeighborhoodData(fallbackData);
         }
       } finally {
         if (active) setIsReportLoading(false);
@@ -215,8 +279,19 @@ export default function PropertyDetails({
 
   useEffect(() => {
     let active = true;
+    const cacheKey = `poi-${listing.id}-${listing.location}`;
+
+    if (poiCache.has(cacheKey)) {
+      setPoiData(poiCache.get(cacheKey));
+      setIsPoiLoading(false);
+      return;
+    }
+
     const fetchPOI = async () => {
       setIsPoiLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
       try {
         const response = await fetch('/api/points-of-interest', {
           method: 'POST',
@@ -226,20 +301,23 @@ export default function PropertyDetails({
             lng: listing.lng,
             location: listing.location,
             title: listing.title
-          })
+          }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!response.ok) throw new Error('Failed to fetch POI data');
         const data = await response.json();
         
         if (active) {
           if ((data.transit && data.transit.length > 0) || (data.grocery && data.grocery.length > 0) || (data.schools && data.schools.length > 0)) {
+            poiCache.set(cacheKey, data);
             setPoiData(data);
           } else {
             applyFallbackPoi();
           }
         }
       } catch (err) {
-        console.error("POI Fetch Error:", err);
+        clearTimeout(timeoutId);
         if (active) {
           applyFallbackPoi();
         }
@@ -585,7 +663,7 @@ export default function PropertyDetails({
                 </span>
                 <PropertyStatusBadge status={listing.status} size="md" />
                 <span className="text-slate-400 text-xs hidden sm:inline">•</span>
-                <span className="text-slate-500 dark:text-slate-400 text-xs font-medium flex items-center gap-1 truncate max-w-full">
+                <span className="text-slate-500 dark:text-slate-400 text-xs font-medium flex items-center gap-1 truncate max-w-full min-w-0">
                   <MapPin className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <span className="truncate">{listing.location.split(',')[1] || listing.location}</span>
                 </span>
@@ -1475,6 +1553,120 @@ export default function PropertyDetails({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* RELATED & SIMILAR PROPERTIES SECTION */}
+        {relatedListings.length > 0 && (
+          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                    Similar & Related Properties
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Handpicked residences matching this {listing.type.replace('-', ' ')} with similar features and location
+                </p>
+              </div>
+            </div>
+
+            {/* Grid of Related Property Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {relatedListings.map((relItem) => {
+                const relPrices = getListingPrices(relItem, displayCurrency);
+                const relImage = relItem.images && relItem.images.length > 0 ? relItem.images[0] : '';
+                const isRelFav = favorites?.includes(relItem.id);
+
+                return (
+                  <div
+                    key={relItem.id}
+                    onClick={() => {
+                      if (onSelectListing) {
+                        onSelectListing(relItem);
+                        // Smooth scroll to top of modal
+                        const scrollContainer = document.querySelector('.overflow-y-auto');
+                        if (scrollContainer) {
+                          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className="bg-white dark:bg-slate-800/90 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden shadow-xs hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                  >
+                    <div className="relative h-36 w-full overflow-hidden bg-slate-900">
+                      <img
+                        src={relImage}
+                        alt={relItem.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                      
+                      {/* Floating Type Badge */}
+                      <div className="absolute top-2 left-2 z-10 max-w-[65%] min-w-0">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-900/80 backdrop-blur-md text-emerald-300 border border-emerald-500/30 truncate block">
+                          {relItem.type}
+                        </span>
+                      </div>
+
+                      {/* Floating Favorite Button */}
+                      {onToggleFavorite && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(relItem.id);
+                          }}
+                          className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-md border transition-all z-10 cursor-pointer ${
+                            isRelFav
+                              ? 'bg-rose-500/20 border-rose-500 text-rose-400 shadow-sm'
+                              : 'bg-slate-900/60 border-white/20 text-white hover:text-rose-400'
+                          }`}
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isRelFav ? 'fill-rose-500' : ''}`} />
+                        </button>
+                      )}
+
+                      {/* Price Badge on Image */}
+                      <div className="absolute bottom-2 left-2 right-2 flex items-baseline justify-between text-white z-10 min-w-0">
+                        <div className="text-xs font-extrabold text-emerald-300 drop-shadow-sm truncate min-w-0">
+                          {relPrices.primaryFormatted} <span className="text-[10px] font-normal text-slate-200">{relPrices.periodLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-1.5">
+                      <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {relItem.title}
+                      </h4>
+                      
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 min-w-0">
+                        <MapPin className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="truncate">{relItem.location}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 pt-1.5 border-t border-slate-100 dark:border-slate-700/60">
+                        <span className="flex items-center gap-1">
+                          <Bed className="w-3 h-3 text-slate-400" />
+                          {relItem.bedrooms} bed
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Bath className="w-3 h-3 text-slate-400" />
+                          {relItem.bathrooms} bath
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Maximize className="w-3 h-3 text-slate-400" />
+                          {relItem.size} m²
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Side: Sticky Checkout / Booking Form */}
@@ -2003,7 +2195,7 @@ export default function PropertyDetails({
                     type="text"
                     readOnly
                     value={ogShareUrl}
-                    className="bg-transparent text-xs text-slate-300 px-2 flex-1 focus:outline-none font-mono select-all truncate"
+                    className="bg-transparent text-xs text-slate-300 px-2 flex-1 min-w-0 focus:outline-none font-mono select-all truncate"
                   />
                   <button
                     onClick={() => {
