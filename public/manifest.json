@@ -1,0 +1,56 @@
+{
+  "name": "Rentora RealEstate | Verified Property Rentals",
+  "short_name": "Rentora",
+  "description": "Find, verify, and rent luxury apartments, long-term homes, and studio flats with digital lease verification and instant direct payouts.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["business", "lifestyle", "finance", "travel"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search Rentals",
+      "short_name": "Search",
+      "description": "Explore verified properties near you",
+      "url": "/?tab=explore",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Saved Properties",
+      "short_name": "Saved",
+      "description": "View your saved favorite listings",
+      "url": "/?tab=favorites",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Landlord Portal",
+      "short_name": "Landlord",
+      "description": "Manage listings, leases, and payouts",
+      "url": "/?tab=landlord",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    }
+  ]
+}

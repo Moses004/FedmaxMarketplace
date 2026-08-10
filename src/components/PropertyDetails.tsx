@@ -23,6 +23,7 @@ import EnergyEfficiencyGauge from './EnergyEfficiencyGauge';
 import ScheduleTourModal from './ScheduleTourModal';
 import SmartRentSplitterModal from './SmartRentSplitterModal';
 import NearbyPlaces from './NearbyPlaces';
+import FullScreenImageGallery from './FullScreenImageGallery';
 
 interface POIItem {
   name: string;
@@ -190,6 +191,7 @@ export default function PropertyDetails({
   const [showLeaseTermsModal, setShowLeaseTermsModal] = useState(false);
   const [showScheduleTourModal, setShowScheduleTourModal] = useState(false);
   const [showSmartSplitterModal, setShowSmartSplitterModal] = useState(false);
+  const [showFullScreenGallery, setShowFullScreenGallery] = useState(false);
   
   // Neighborhood Smart Guide State & Effect
   interface NeighborhoodGuide {
@@ -637,14 +639,14 @@ export default function PropertyDetails({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto pt-safe pb-safe modal-scroll-area"
     >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 24 }}
         transition={{ type: "spring", stiffness: 320, damping: 28 }}
-        className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row h-[92vh] sm:h-[90vh] my-0 sm:my-auto relative"
+        className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row h-[92vh] h-[92dvh] sm:h-[90vh] sm:h-[90dvh] my-0 sm:my-auto relative modal-scroll-area"
       >
         
         {/* Mobile Grab Bar handle */}
@@ -815,6 +817,17 @@ export default function PropertyDetails({
                 </>
               )}
 
+              {/* Top Left Fullscreen Gallery Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setShowFullScreenGallery(true)}
+                className="absolute top-3 left-3 z-20 bg-slate-900/80 hover:bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-extrabold backdrop-blur-md transition-all shadow-xl border border-white/20 flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer"
+                title="Open Fullscreen Swipe & Pinch-to-Zoom Gallery"
+              >
+                <Maximize className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden xs:inline text-[11px]">Pinch & Zoom</span>
+              </button>
+
               {/* Quick Launch Video Tour Button */}
               <button
                 type="button"
@@ -822,20 +835,20 @@ export default function PropertyDetails({
                   setMediaMode('video');
                   setIsVideoPlaying(true);
                 }}
-                className="absolute bottom-4 right-4 z-20 bg-slate-900/90 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold backdrop-blur-md transition-all shadow-xl border border-white/20 flex items-center gap-2.5 hover:scale-105 active:scale-95 cursor-pointer"
+                className="absolute top-3 right-3 sm:top-auto sm:bottom-4 sm:right-4 z-20 bg-slate-900/90 hover:bg-slate-900 text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-extrabold backdrop-blur-md transition-all shadow-xl border border-white/20 flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
               >
-                <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center shrink-0 shadow-sm">
-                  <Play className="w-3 h-3 text-white fill-white translate-x-0.5" />
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-500 flex items-center justify-center shrink-0 shadow-sm">
+                  <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white fill-white translate-x-0.5" />
                 </div>
-                <div className="text-left">
-                  <span className="block text-[9px] text-rose-300 uppercase font-black tracking-wider leading-none">Interactive Tour</span>
-                  <span className="text-xs font-extrabold text-white leading-tight">Watch Video Walk-through</span>
+                <div className="text-left hidden xs:block">
+                  <span className="block text-[8px] sm:text-[9px] text-rose-300 uppercase font-black tracking-wider leading-none">Interactive Tour</span>
+                  <span className="text-[11px] sm:text-xs font-extrabold text-white leading-tight">Watch Video</span>
                 </div>
               </button>
 
               {/* Dots */}
               {listing.images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/60 backdrop-blur-md px-3 py-1.5 rounded-full flex gap-1.5 z-20">
+                <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/60 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full flex gap-1.5 z-20">
                   {listing.images.map((_, idx) => (
                     <button
                       key={idx}
@@ -843,8 +856,8 @@ export default function PropertyDetails({
                         setDirection(idx > selectedPhoto ? 1 : -1);
                         setSelectedPhoto(idx);
                       }}
-                      className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                        idx === selectedPhoto ? 'bg-emerald-400 w-4' : 'bg-white/50 hover:bg-white'
+                      className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all cursor-pointer ${
+                        idx === selectedPhoto ? 'bg-emerald-400 w-3.5 sm:w-4' : 'bg-white/50 hover:bg-white'
                       }`}
                     />
                   ))}
@@ -1438,7 +1451,7 @@ export default function PropertyDetails({
         {!isChatOpen && (
           <button
             onClick={() => setIsChatOpen(true)}
-            className="absolute bottom-6 right-6 z-30 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 px-4 rounded-full shadow-xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-indigo-500/20"
+            className="fixed md:absolute bottom-6 right-4 md:right-6 z-30 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-2.5 px-3.5 sm:py-3 sm:px-4 rounded-full shadow-xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-indigo-500/20"
             id="ask-ai-button"
           >
             <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300/25 animate-pulse" />
@@ -1454,7 +1467,7 @@ export default function PropertyDetails({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 25, scale: 0.95 }}
               transition={{ type: "spring", damping: 25, stiffness: 350 }}
-              className="absolute bottom-6 right-6 z-40 w-full max-w-[360px] h-[460px] bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden"
+              className="fixed md:absolute bottom-6 right-3 md:right-6 left-3 md:left-auto z-40 w-[calc(100%-1.5rem)] md:w-full max-w-[360px] h-[460px] max-h-[75vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden"
               id="ai-chat-box"
             >
               {/* Chat Header */}
@@ -2250,6 +2263,15 @@ export default function PropertyDetails({
           displayCurrency={displayCurrency}
         />
       )}
+
+      {/* Full-Screen Touch & Pinch-to-Zoom Image Gallery */}
+      <FullScreenImageGallery
+        isOpen={showFullScreenGallery}
+        onClose={() => setShowFullScreenGallery(false)}
+        images={listing.images}
+        initialIndex={selectedPhoto}
+        title={listing.title}
+      />
     </motion.div>
   );
 }

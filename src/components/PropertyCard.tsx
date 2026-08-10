@@ -156,7 +156,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
               {isCompared ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                  <span className="text-[11px]">Comparing</span>
+                  <span className="text-[11px] hidden sm:inline">Comparing</span>
                 </>
               ) : (
                 <>
@@ -181,7 +181,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Floating Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start max-w-[calc(100%-3.5rem)]">
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start max-w-[calc(100%-5.5rem)]">
           <div className="flex flex-wrap items-center gap-1.5 max-w-full">
             <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold border shadow-sm truncate max-w-full ${typeColors[listing.type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
               {typeLabels[listing.type] || listing.type}
@@ -197,7 +197,7 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Video Walkthrough Badge Indicator */}
-        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm max-w-[40%] truncate">
+        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm max-w-[32%] sm:max-w-[40%] truncate">
           <Play className="w-2.5 h-2.5 text-rose-400 fill-rose-400 shrink-0" />
           <span className="truncate hidden sm:inline">HD Video Tour</span>
           <span className="truncate sm:hidden">Video</span>

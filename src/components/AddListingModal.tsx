@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { createListing, getCurrentUser } from '../services/store';
 import { sendListingCreatedNotification } from '../services/emailService';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
-import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity } from '../utils/location';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
+import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity, getCoordinatesForUserLocation } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
 
@@ -34,6 +34,36 @@ const PRESET_AMENITIES = [
   'Fully Equipped Kitchen',
   'Rainfall Shower'
 ];
+
+const compressImageDataUrl = (dataUrl: string, maxWidth = 1024, quality = 0.72): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!dataUrl || !dataUrl.startsWith('data:image')) {
+      resolve(dataUrl);
+      return;
+    }
+    const img = new window.Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+  });
+};
 
 export default function AddListingModal({ onClose, onListingCreated }: AddListingModalProps) {
   const [step, setStep] = useState(1);
@@ -137,14 +167,15 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
 
     validImageFiles.forEach((file) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const resultUrl = e.target?.result as string;
         if (resultUrl) {
+          const compressedUrl = await compressImageDataUrl(resultUrl, 1024, 0.72);
           const newPhoto = {
             id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            url: resultUrl,
+            url: compressedUrl,
             fileName: file.name,
-            sizeKb: Math.round(file.size / 1024),
+            sizeKb: Math.round(compressedUrl.length / 1024),
             source: 'device' as const
           };
           setUploadedPhotos(prev => [newPhoto, ...prev]);
@@ -350,10 +381,16 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     let lat = customLat;
     let lng = customLng;
     if (lat === null || lng === null) {
-      const randomOffsetLat = (Math.random() - 0.5) * 0.04;
-      const randomOffsetLng = (Math.random() - 0.5) * 0.05;
-      lat = 40.4167 + randomOffsetLat;
-      lng = -3.7037 + randomOffsetLng;
+      const baseCoords = getCoordinatesForUserLocation({
+        country: modalCountry,
+        state: modalState !== 'all' ? modalState : undefined,
+        city: modalCity !== 'all' ? modalCity : undefined,
+        streetAddress: location
+      });
+      const randomOffsetLat = (Math.random() - 0.5) * 0.01;
+      const randomOffsetLng = (Math.random() - 0.5) * 0.01;
+      lat = baseCoords.lat + randomOffsetLat;
+      lng = baseCoords.lng + randomOffsetLng;
     }
 
     setTimeout(() => {
@@ -409,7 +446,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto pt-safe pb-safe modal-scroll-area"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-listing-modal-title"
@@ -419,7 +456,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ type: "spring", duration: 0.35, bounce: 0.05 }}
-        className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] max-h-[92dvh] modal-scroll-area"
       >
         
         {/* Header */}

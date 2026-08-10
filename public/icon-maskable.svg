@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="gradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="houseGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Full bleed square for maskable safe area -->
+  <rect width="512" height="512" fill="url(#gradMask)"/>
+  <!-- Scaled down icon content inside safe zone -->
+  <g transform="translate(25.6, 25.6) scale(0.9)">
+    <path d="M135 384 V235 L256 128 L377 235 V384 H298 V288 H214 V384 Z" fill="url(#houseGradMask)"/>
+    <circle cx="256" cy="208" r="26" fill="#10b981"/>
+  </g>
+</svg>

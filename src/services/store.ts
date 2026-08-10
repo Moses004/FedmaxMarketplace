@@ -153,6 +153,83 @@ const INITIAL_LISTINGS: Listing[] = [
     availableFrom: '2026-08-15'
   },
   {
+    id: 'list-ng-uyo-1',
+    title: 'Luxury 3-Bedroom Serviced Flat in Ewet Housing Estate',
+    description: 'Exquisite 3-bedroom luxury flat located in serene, gated Ewet Housing Estate, Uyo, Akwa Ibom State. Features 24/7 constant power with solar inverter backup, all rooms ensuite, fitted kitchen, security guard, clean treated borehole water, and paved parking lot. Walking distance to Tropicana Entertainment Centre.',
+    price: 6800,
+    pricePeriod: 'annual',
+    localPrice: 10200000,
+    currency: 'NGN',
+    annualDiscountPercentage: 12,
+    type: '3plus-bedroom-flat',
+    location: 'Ewet Housing Estate, Uyo, Akwa Ibom State, Nigeria',
+    country: 'Nigeria',
+    state: 'Akwa Ibom State',
+    city: 'Uyo',
+    lat: 5.0298,
+    lng: 7.9288,
+    bedrooms: 3,
+    bathrooms: 3,
+    size: 130,
+    amenities: ['24/7 Constant Electricity', 'Solar Inverter Backup', 'All Rooms Ensuite', 'Armed Security', 'Fully Fitted Kitchen', 'Water Treatment Plant', 'High-Speed Fiber Internet'],
+    images: [
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+    ],
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4',
+    landlordId: 'landlord-3',
+    landlordName: 'Arc. Anietie Udoh',
+    contactRole: 'property_manager',
+    agentCompany: 'Akwa Ibom Luxury Homes Ltd',
+    contactPhone: '+234 803 777 9900',
+    contactWhatsApp: '+234 803 777 9900',
+    contactEmail: 'anietie@akwaimpactproperties.ng',
+    agentLicense: 'AK-REDAN Cert #0128',
+    availableFrom: '2026-08-01',
+    energyRating: 'A+',
+    estimatedMonthlyUtilitiesUSD: 60,
+    solarPowered: true,
+    hvacType: 'Inverter Multi-Split Air Conditioning',
+    insulationQuality: 'High'
+  },
+  {
+    id: 'list-ng-uyo-2',
+    title: 'Executive 2-Bedroom Bungalow in Shelter Afrique Estate',
+    description: 'Modern, freshly built 2-bedroom bungalow unit situated in quiet, prestigious Shelter Afrique Estate, Uyo, Akwa Ibom State. Comes with private ensuite bedrooms, spacious living lounge, POP ceilings, inverter standby system, clean borehole water, and dedicated parking for 3 vehicles.',
+    price: 4800,
+    pricePeriod: 'annual',
+    localPrice: 7200000,
+    currency: 'NGN',
+    annualDiscountPercentage: 10,
+    type: '2-bedroom-flat',
+    location: 'Shelter Afrique Estate, Uyo, Akwa Ibom State, Nigeria',
+    country: 'Nigeria',
+    state: 'Akwa Ibom State',
+    city: 'Uyo',
+    lat: 5.0425,
+    lng: 7.9250,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 100,
+    amenities: ['Inverter Electricity Backup', 'Private Ensuite Bedrooms', 'POP Ceilings', '24/7 Security Gate', 'Parking Space', 'Water Treatment Plant'],
+    images: [
+      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-3',
+    landlordName: 'Dr. Edidiong Effiong',
+    contactRole: 'landlord',
+    contactPhone: '+234 802 333 4455',
+    contactWhatsApp: '+234 802 333 4455',
+    contactEmail: 'edidiong.effiong@gmail.com',
+    availableFrom: '2026-08-05',
+    energyRating: 'B',
+    estimatedMonthlyUtilitiesUSD: 40,
+    solarPowered: false,
+    hvacType: 'Split AC + Inverter Unit',
+    insulationQuality: 'Standard'
+  },
+  {
     id: 'list-1',
     title: 'Bright Premium Room near Plaza Mayor',
     description: 'Fully furnished, exterior room in a newly renovated shared apartment. Outstanding location in the historical center of Madrid, just a 2-minute walk from Plaza Mayor and Sol. Features a comfortable double bed, spacious wardrobe, desk, chair, and private balcony. Fully equipped shared kitchen, high-speed Wi-Fi, and weekly cleaning of common areas included.',
@@ -423,6 +500,235 @@ const INITIAL_LISTINGS: Listing[] = [
     ],
     landlordId: 'landlord-1',
     availableFrom: '2026-08-10'
+  },
+  {
+    id: 'list-us-1',
+    title: 'Luxury Beverly Hills 2-Bedroom Residence in Los Angeles',
+    description: 'Exquisite 2-bedroom luxury condo in prestigious Beverly Hills, Los Angeles. Features floor-to-ceiling glass windows, private balcony, marble baths, high-speed fiber internet, rooftop pool, and 24/7 concierge.',
+    price: 3200,
+    pricePeriod: 'monthly',
+    currency: 'USD',
+    type: '2-bedroom-flat',
+    location: 'Wilshire Blvd, Beverly Hills, Los Angeles, California, United States',
+    country: 'United States',
+    state: 'California',
+    city: 'Los Angeles',
+    lat: 34.0696,
+    lng: -118.4053,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 110,
+    amenities: ['Rooftop Swimming Pool', '24/7 Concierge & Doorman', 'Balcony with City Views', 'High-Speed Fiber Internet', 'EV Charging Station', 'In-Unit Washer & Dryer'],
+    images: [
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-us-2',
+    title: 'Manhattan High-Rise Executive Suite in New York',
+    description: 'Modern luxury executive studio located on 5th Avenue, Midtown Manhattan. Walk to Central Park, Broadway, and top corporate headquarters. Features panoramic skyline views, custom chef kitchen, and private gym access.',
+    price: 3800,
+    pricePeriod: 'monthly',
+    currency: 'USD',
+    type: 'studio',
+    location: '5th Avenue, Midtown Manhattan, New York, NY, United States',
+    country: 'United States',
+    state: 'New York',
+    city: 'New York',
+    lat: 40.7549,
+    lng: -73.9840,
+    bedrooms: 0,
+    bathrooms: 1,
+    size: 50,
+    amenities: ['Skyline Views', 'Private Fitness Center', '24/7 Doorman', 'Central AC & Heating', 'Dishwasher', 'Smart Home Locks'],
+    images: [
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-15'
+  },
+  {
+    id: 'list-uk-1',
+    title: 'Modern Kensington 2-Bed Residence in London',
+    description: 'Sophisticated 2-bedroom luxury flat in Royal Borough of Kensington and Chelsea. Features high ceilings, wooden floorboards, private garden access, ultra-fast broadband, and premium finishes.',
+    price: 2400,
+    pricePeriod: 'monthly',
+    currency: 'GBP',
+    type: '2-bedroom-flat',
+    location: 'High Street Kensington, London, Greater London, United Kingdom',
+    country: 'United Kingdom',
+    state: 'Greater London',
+    city: 'London',
+    lat: 51.5010,
+    lng: -0.1920,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 88,
+    amenities: ['Private Garden Access', 'Floor Heating', 'High-Speed Broadband', 'Period Architecture', 'Dishwasher', 'Washer-Dryer'],
+    images: [
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-10'
+  },
+  {
+    id: 'list-ca-1',
+    title: 'Downtown Waterfront Luxury Condo in Toronto',
+    description: 'Chic waterfront 1-bedroom suite in Downtown Toronto with stunning views of Lake Ontario and CN Tower. Includes indoor heated pool, sauna, underground parking, and 24/7 concierge.',
+    price: 2600,
+    pricePeriod: 'monthly',
+    currency: 'CAD',
+    type: '1-bedroom-flat',
+    location: 'York Street, Downtown Toronto, Ontario, Canada',
+    country: 'Canada',
+    state: 'Ontario',
+    city: 'Toronto',
+    lat: 43.6426,
+    lng: -79.3871,
+    bedrooms: 1,
+    bathrooms: 1,
+    size: 65,
+    amenities: ['Lake Views', 'Indoor Swimming Pool & Sauna', 'Underground Parking', 'Balcony', 'In-Suite Laundry', 'Fitness Gym'],
+    images: [
+      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-de-1',
+    title: 'Stylish Mitte Loft Apartment in Berlin',
+    description: 'Designer loft apartment in historic Berlin-Mitte. Walking distance to Alexanderplatz and Hackescher Markt. High ceilings, parquet floors, fully integrated kitchen, and quiet internal courtyard balcony.',
+    price: 1650,
+    pricePeriod: 'monthly',
+    currency: 'EUR',
+    type: 'apartment',
+    location: 'Friedrichstraße, Mitte, Berlin, Germany',
+    country: 'Germany',
+    state: 'Berlin',
+    city: 'Berlin',
+    lat: 52.5186,
+    lng: 13.3892,
+    bedrooms: 1,
+    bathrooms: 1,
+    size: 70,
+    amenities: ['Parquet Flooring', 'Courtyard Balcony', 'High-Speed Fiber Internet', 'Integrated Appliances', 'Bicycle Storage'],
+    images: [
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-20'
+  },
+  {
+    id: 'list-gh-1',
+    title: 'Luxury 2-Bedroom Serviced Flat in Cantonments, Accra',
+    description: 'Premier 2-bedroom apartment in upscale Cantonments, Accra. Comes with standby generator, swimming pool, gym, 24/7 security guard, clean water storage, and balcony.',
+    price: 2200,
+    pricePeriod: 'monthly',
+    localPrice: 35200,
+    currency: 'GHS',
+    type: '2-bedroom-flat',
+    location: 'Cantonments Road, Accra, Greater Accra, Ghana',
+    country: 'Ghana',
+    state: 'Greater Accra',
+    city: 'Accra',
+    lat: 5.5800,
+    lng: -0.1700,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 90,
+    amenities: ['Standby Generator', 'Swimming Pool', '24/7 Security Patrol', 'Fitted Kitchen', 'Air Conditioning', 'High-Speed Wi-Fi'],
+    images: [
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-ke-1',
+    title: 'Executive 2-Bedroom Residence in Westlands, Nairobi',
+    description: 'Modern 2-bedroom master ensuite flat in Westlands, Nairobi. Features borehole water supply, backup generator, solar water heating, high-speed lift, and panoramic city views.',
+    price: 950,
+    pricePeriod: 'monthly',
+    localPrice: 125000,
+    currency: 'KES',
+    type: '2-bedroom-flat',
+    location: 'Waiyaki Way, Westlands, Nairobi, Kenya',
+    country: 'Kenya',
+    state: 'Nairobi County',
+    city: 'Nairobi',
+    lat: -1.2683,
+    lng: 36.8078,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 85,
+    amenities: ['Borehole Water System', 'Full Backup Generator', 'Solar Water Heater', 'High-Speed Lifts', '24/7 Manned Gate'],
+    images: [
+      'https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
+  },
+  {
+    id: 'list-za-1',
+    title: 'Ocean View Luxury Apartment in Sea Point, Cape Town',
+    description: 'Breathtaking 2-bedroom oceanfront flat in Sea Point, Cape Town. Enjoy stunning Atlantic sunsets from your private terrace. Walk to the Promenade, cafes, and tidal pools.',
+    price: 1350,
+    pricePeriod: 'monthly',
+    localPrice: 24500,
+    currency: 'ZAR',
+    type: '2-bedroom-flat',
+    location: 'Beach Road, Sea Point, Cape Town, South Africa',
+    country: 'South Africa',
+    state: 'Western Cape',
+    city: 'Cape Town',
+    lat: -33.9142,
+    lng: 18.3881,
+    bedrooms: 2,
+    bathrooms: 2,
+    size: 95,
+    amenities: ['Oceanfront Terrace', 'Inverter Power System', 'Biometric Access', 'Secure Parking', 'Air Conditioning', 'Fiber Internet'],
+    images: [
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-10'
+  },
+  {
+    id: 'list-ae-1',
+    title: 'Dubai Marina Waterfront Luxury Penthouse',
+    description: 'Ultra-modern luxury suite in Dubai Marina with direct marina walk access, infinity pool, sauna, smart home automation, and private covered parking.',
+    price: 3500,
+    pricePeriod: 'monthly',
+    localPrice: 12800,
+    currency: 'AED',
+    type: 'penthouse',
+    location: 'Dubai Marina Walk, Dubai, United Arab Emirates',
+    country: 'United Arab Emirates',
+    state: 'Dubai',
+    city: 'Dubai',
+    lat: 25.0772,
+    lng: 55.1332,
+    bedrooms: 2,
+    bathrooms: 2.5,
+    size: 130,
+    amenities: ['Marina Waterfront View', 'Infinity Swimming Pool', 'Valet Parking', 'Smart Home Automation', '24/7 Security & Concierge'],
+    images: [
+      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+    ],
+    landlordId: 'landlord-1',
+    availableFrom: '2026-08-01'
   }
 ];
 
@@ -526,23 +832,38 @@ const INITIAL_USERS: User[] = [
   }
 ];
 
-// Safe storage wrapper (supports sandboxed environments where localStorage might throw)
+// Safe storage wrapper (supports sandboxed environments where localStorage might throw or exceed quota)
 class MemoryStorage {
   private store: Record<string, string> = {};
 
   getItem(key: string): string | null {
     try {
-      return localStorage.getItem(key);
+      const val = localStorage.getItem(key);
+      if (val !== null) {
+        this.store[key] = val;
+        return val;
+      }
     } catch {
-      return this.store[key] || null;
+      // ignore
     }
+    return this.store[key] || null;
   }
 
   setItem(key: string, value: string): void {
+    this.store[key] = value;
     try {
       localStorage.setItem(key, value);
+    } catch (err) {
+      console.warn(`localStorage.setItem failed for key "${key}". Preserving in memory store.`, err);
+    }
+  }
+
+  removeItem(key: string): void {
+    delete this.store[key];
+    try {
+      localStorage.removeItem(key);
     } catch {
-      this.store[key] = value;
+      // ignore
     }
   }
 }
@@ -554,6 +875,22 @@ const LISTINGS_KEY = 'fedmax_listings';
 const BOOKINGS_KEY = 'fedmax_bookings';
 const CURRENT_USER_KEY = 'fedmax_current_user';
 const USERS_KEY = 'fedmax_users';
+const DELETED_LISTINGS_KEY = 'fedmax_deleted_listing_ids';
+
+function getDeletedListingIds(): Set<string> {
+  try {
+    const raw = storage.getItem(DELETED_LISTINGS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedListingId(id: string) {
+  const ids = getDeletedListingIds();
+  ids.add(id);
+  storage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(Array.from(ids)));
+}
 
 export function initializeStore() {
   if (!storage.getItem(LISTINGS_KEY)) {
@@ -576,19 +913,59 @@ let cachedListingsParsed: Listing[] | null = null;
 export function getListings(): Listing[] {
   try {
     const raw = storage.getItem(LISTINGS_KEY);
+    const deletedIds = getDeletedListingIds();
+
     if (raw === cachedListingsRaw && cachedListingsParsed) {
-      return cachedListingsParsed;
+      return cachedListingsParsed.filter(l => !deletedIds.has(l.id));
     }
-    const parsed: Listing[] = raw ? JSON.parse(raw) : INITIAL_LISTINGS;
+    let parsed: Listing[] = raw ? JSON.parse(raw) : INITIAL_LISTINGS;
+    
+    // Auto-merge missing seed listings if missing from stored state AND not explicitly deleted
+    if (Array.isArray(parsed)) {
+      const existingIds = new Set(parsed.map(l => l.id));
+      let newlyAdded = false;
+      for (const initListing of INITIAL_LISTINGS) {
+        if (!existingIds.has(initListing.id) && !deletedIds.has(initListing.id)) {
+          parsed.push(initListing);
+          newlyAdded = true;
+        }
+      }
+
+      if (deletedIds.size > 0) {
+        parsed = parsed.filter(l => !deletedIds.has(l.id));
+      }
+
+      if (newlyAdded) {
+        try {
+          storage.setItem(LISTINGS_KEY, JSON.stringify(parsed));
+        } catch {
+          // ignore storage write errors
+        }
+      }
+    } else {
+      parsed = INITIAL_LISTINGS.filter(l => !deletedIds.has(l.id));
+    }
+
     const result = parsed.map(l => ({
       ...l,
       status: l.status || (l.id === 'list-1' ? 'new' : l.id === 'list-3' ? 'rented' : l.id === 'list-10' ? 'unavailable' : 'available')
     }));
-    cachedListingsRaw = raw;
+    cachedListingsRaw = storage.getItem(LISTINGS_KEY);
     cachedListingsParsed = result;
     return result;
   } catch {
-    return INITIAL_LISTINGS;
+    const deletedIds = getDeletedListingIds();
+    return INITIAL_LISTINGS.filter(l => !deletedIds.has(l.id));
+  }
+}
+
+function notifyStoreChange() {
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new Event('fedmax_store_change'));
+    } catch {
+      // ignore event dispatch errors
+    }
   }
 }
 
@@ -597,6 +974,7 @@ export function saveListings(listings: Listing[]) {
   storage.setItem(LISTINGS_KEY, json);
   cachedListingsRaw = json;
   cachedListingsParsed = null;
+  notifyStoreChange();
 }
 
 export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): Listing {
@@ -604,7 +982,7 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
   const currentUser = getCurrentUser();
   const newListing: Listing = {
     ...listing,
-    id: `list-${Date.now()}`,
+    id: `list-user-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
     landlordId: currentUser ? currentUser.id : 'landlord-1',
     status: listing.status || 'new'
   };
@@ -614,6 +992,7 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
 }
 
 export function deleteListing(id: string) {
+  saveDeletedListingId(id);
   const listings = getListings();
   const filtered = listings.filter(l => l.id !== id);
   saveListings(filtered);
@@ -694,6 +1073,7 @@ export function saveBookings(bookings: Booking[]) {
   cachedBookingsRaw = json;
   cachedBookingsParsed = bookings;
   lastBookingCheckTimestamp = Date.now();
+  notifyStoreChange();
 }
 
 export function createBooking(booking: Omit<Booking, 'id' | 'createdAt' | 'status'>): Booking {
@@ -873,6 +1253,7 @@ export function registerUser(payload: Partial<User> & { name: string; email: str
 
   storage.setItem(USERS_KEY, JSON.stringify(users));
   storage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  notifyStoreChange();
   return user;
 }
 
@@ -894,6 +1275,7 @@ export function updateUserProfile(updatedData: Partial<User> & { id: string }): 
 
   storage.setItem(USERS_KEY, JSON.stringify(users));
   storage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+  notifyStoreChange();
   return updatedUser;
 }
 

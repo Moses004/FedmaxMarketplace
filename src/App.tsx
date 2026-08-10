@@ -28,6 +28,7 @@ import EmailLogModal from './components/EmailLogModal';
 import CurrencyConverterModal from './components/CurrencyConverterModal';
 import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
 import SavedSearchAlertModal from './components/SavedSearchAlertModal';
+import { SEOMetadataManager } from './components/SEOMetadataManager';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, ChevronLeft, LogOut, Check,
@@ -35,7 +36,7 @@ import {
   Flame, Layers
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
-import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getStatesForCountry, getCitiesForState, getAreasForCity } from './utils/location';
+import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getCoordinatesForUserLocation, getStatesForCountry, getCitiesForState, getAreasForCity, resolveLocationMeta, matchesLocationSearch } from './utils/location';
 import { SUPPORTED_CURRENCIES, resolveUserDefaultCurrency, detectIPCurrency } from './utils/currency';
 import emptySearchImg from './assets/images/empty_search_results_1785810450193.jpg';
 import emptySavedImg from './assets/images/empty_saved_properties_1785810460564.jpg';
@@ -251,6 +252,39 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [selectedRegionId, selectedType, maxPrice, minBedrooms, locationScopeMode, selectedCountryFilter, selectedStateFilter, selectedCityFilter, selectedAreaFilter]);
 
+  // Auto-sync location & coordinates when user logs in or registers
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.country) {
+        setSelectedCountryFilter(currentUser.country);
+      }
+      if (currentUser.state) {
+        setSelectedStateFilter(currentUser.state);
+      } else {
+        setSelectedStateFilter('all');
+      }
+      if (currentUser.city) {
+        setSelectedCityFilter(currentUser.city);
+      } else {
+        setSelectedCityFilter('all');
+      }
+      if (currentUser.streetAddress) {
+        setSelectedAreaFilter(currentUser.streetAddress);
+      } else if (currentUser.preferredMoveInRegion) {
+        const areaName = currentUser.preferredMoveInRegion.split(',')[0].trim();
+        setSelectedAreaFilter(areaName);
+      } else {
+        setSelectedAreaFilter('all');
+      }
+
+      setLocationScopeMode('my_location');
+      const coords = getCoordinatesForUserLocation(currentUser);
+      setUserGeoLocation(coords);
+      setMapCenter(coords);
+      setMapZoom(13);
+    }
+  }, [currentUser]);
+
   // UI States
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -272,20 +306,22 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState({ lat: 40.4167, lng: -3.7037 }); // Madrid default
   const [mapZoom, setMapZoom] = useState(13);
   const [mapViewMode, setMapViewMode] = useState<'split' | 'grid' | 'map'>('split');
-  const [lastActiveMapMode, setLastActiveMapMode] = useState<'split' | 'map'>('split');
+  const [recentViewMode, setRecentViewMode] = useState<'split' | 'grid' | 'map'>('split');
 
-  const handleSetMapViewMode = (mode: 'split' | 'grid' | 'map') => {
-    if (mode !== 'grid') {
-      setLastActiveMapMode(mode);
-    }
-    setMapViewMode(mode);
+  const handleSetMapViewMode = (newMode: 'split' | 'grid' | 'map') => {
+    setMapViewMode((prevMode) => {
+      if (prevMode !== newMode) {
+        setRecentViewMode(prevMode);
+      }
+      return newMode;
+    });
   };
 
   const toggleMapCollapse = () => {
     if (mapViewMode === 'grid') {
-      setMapViewMode(lastActiveMapMode || 'split');
+      handleSetMapViewMode(recentViewMode && recentViewMode !== 'grid' ? recentViewMode : 'split');
     } else {
-      setMapViewMode('grid');
+      handleSetMapViewMode('grid');
     }
   };
 
@@ -359,6 +395,15 @@ export default function App() {
 
   useEffect(() => {
     refreshData();
+    const handleStoreUpdate = () => {
+      refreshData();
+    };
+    window.addEventListener('fedmax_store_change', handleStoreUpdate);
+    window.addEventListener('storage', handleStoreUpdate);
+    return () => {
+      window.removeEventListener('fedmax_store_change', handleStoreUpdate);
+      window.removeEventListener('storage', handleStoreUpdate);
+    };
   }, []);
 
   // Sync location scope & map position whenever currentUser changes
@@ -430,9 +475,20 @@ export default function App() {
       setMapCenter({ lat: coords.lat, lng: coords.lng });
       setMapZoom(13);
       setSelectedRegionId('near_me');
-      if (!maxDistanceKm) setMaxDistanceKm(25);
+      if (!maxDistanceKm) setMaxDistanceKm(30);
+      toast.success('Location Found', 'Showing properties near your GPS location.');
     } catch (err) {
-      console.warn("User geolocation error:", err);
+      console.warn("User geolocation error, falling back to registered user location:", err);
+      const fallbackCoords = getCoordinatesForUserLocation(currentUser);
+      setUserGeoLocation(fallbackCoords);
+      setMapCenter(fallbackCoords);
+      setMapZoom(12);
+      setSelectedRegionId('near_me');
+      if (!maxDistanceKm) setMaxDistanceKm(50);
+      toast.info(
+        'Using Registered Location',
+        `GPS permission unconfirmed. Showing properties near ${currentUser?.city || currentUser?.country || 'your registered location'}.`
+      );
     } finally {
       setIsLocatingUser(false);
     }
@@ -478,122 +534,32 @@ export default function App() {
   const listingsWithDistance = useMemo(() => {
     return listings.map((listing) => {
       let distanceKm: number | null = null;
-      if (userGeoLocation) {
-        distanceKm = getDistanceKm(userGeoLocation.lat, userGeoLocation.lng, listing.lat, listing.lng);
+      const effectiveLocation = userGeoLocation || (currentUser ? getCoordinatesForUserLocation(currentUser) : null);
+      if (effectiveLocation) {
+        distanceKm = getDistanceKm(effectiveLocation.lat, effectiveLocation.lng, listing.lat, listing.lng);
       } else if (currentRegionObj) {
         distanceKm = getDistanceKm(currentRegionObj.center.lat, currentRegionObj.center.lng, listing.lat, listing.lng);
       }
       return { listing, distanceKm };
     });
-  }, [listings, userGeoLocation, currentRegionObj]);
+  }, [listings, userGeoLocation, currentUser, currentRegionObj]);
 
-  const filteredItems = useMemo(() => {
-    return listingsWithDistance.filter(({ listing, distanceKm }) => {
-      // Search query filter
-      const matchesSearch = 
-        listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const { filteredItems, fallbackReason } = useMemo(() => {
+    const targetCountry = currentUser?.country || selectedCountryFilter || 'Nigeria';
 
-      // Region & Location filter
-      let matchesRegion = true;
-      if (selectedRegionId === 'near_me') {
-        if (maxDistanceKm && distanceKm !== null) {
-          matchesRegion = distanceKm <= maxDistanceKm;
-        }
-      } else if (selectedRegionId !== 'all') {
-        const region = LAUNCH_REGIONS.find(r => r.id === selectedRegionId);
-        if (region) {
-          const queryLower = region.name.toLowerCase();
-          const matchesName = listing.location.toLowerCase().includes(queryLower) ||
-            (region.country === 'Nigeria' && listing.location.toLowerCase().includes('lagos')) ||
-            (region.country === 'United Kingdom' && listing.location.toLowerCase().includes('london')) ||
-            (region.country === 'Germany' && listing.location.toLowerCase().includes('berlin'));
-          const matchesProximity = distanceKm !== null && distanceKm <= 60;
-          matchesRegion = matchesName || matchesProximity;
-        }
-      }
+    const checkMatch = (
+      item: { listing: Listing; distanceKm: number | null },
+      scopeLevel: 'strict' | 'country_only' | 'global_proximity'
+    ) => {
+      const { listing, distanceKm } = item;
 
-      // Explicit distance threshold check
-      if (maxDistanceKm !== null && distanceKm !== null && matchesRegion) {
-        matchesRegion = distanceKm <= maxDistanceKm;
-      }
+      // Favorites tab check
+      if (currentTab === 'favorites' && !favorites.includes(listing.id)) return false;
 
-      // Country / State / City Location Scope filter
-      let matchesLocationScope = true;
-      if (locationScopeMode === 'my_location') {
-        const targetCountry = currentUser?.country || selectedCountryFilter || 'Nigeria';
-        const isCountryMatch = 
-          (listing.country && listing.country.toLowerCase() === targetCountry.toLowerCase()) ||
-          listing.location.toLowerCase().includes(targetCountry.toLowerCase()) ||
-          (targetCountry.toLowerCase() === 'nigeria' && (
-            listing.location.toLowerCase().includes('nigeria') ||
-            listing.location.toLowerCase().includes('lagos') ||
-            listing.location.toLowerCase().includes('abuja') ||
-            listing.location.toLowerCase().includes('port harcourt')
-          ));
-
-        let isStateMatch = true;
-        if (selectedStateFilter !== 'all') {
-          const stateClean = selectedStateFilter.toLowerCase().replace('state', '').trim();
-          isStateMatch = 
-            (listing.state && listing.state.toLowerCase().includes(stateClean)) ||
-            listing.location.toLowerCase().includes(stateClean);
-        }
-
-        let isCityMatch = true;
-        if (selectedCityFilter !== 'all') {
-          isCityMatch = 
-            (listing.city && listing.city.toLowerCase().includes(selectedCityFilter.toLowerCase())) ||
-            listing.location.toLowerCase().includes(selectedCityFilter.toLowerCase());
-        }
-
-        let isAreaMatch = true;
-        if (selectedAreaFilter !== 'all') {
-          isAreaMatch = 
-            listing.location.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-            listing.description.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-            listing.title.toLowerCase().includes(selectedAreaFilter.toLowerCase());
-        }
-
-        matchesLocationScope = isCountryMatch && isStateMatch && isCityMatch && isAreaMatch;
-      } else if (locationScopeMode === 'custom') {
-        if (selectedCountryFilter && selectedCountryFilter !== 'all') {
-          const isCountryMatch = 
-            (listing.country && listing.country.toLowerCase() === selectedCountryFilter.toLowerCase()) ||
-            listing.location.toLowerCase().includes(selectedCountryFilter.toLowerCase()) ||
-            (selectedCountryFilter.toLowerCase() === 'nigeria' && (
-              listing.location.toLowerCase().includes('nigeria') ||
-              listing.location.toLowerCase().includes('lagos') ||
-              listing.location.toLowerCase().includes('abuja') ||
-              listing.location.toLowerCase().includes('port harcourt')
-            ));
-
-          let isStateMatch = true;
-          if (selectedStateFilter !== 'all') {
-            const stateClean = selectedStateFilter.toLowerCase().replace('state', '').trim();
-            isStateMatch = 
-              (listing.state && listing.state.toLowerCase().includes(stateClean)) ||
-              listing.location.toLowerCase().includes(stateClean);
-          }
-
-          let isCityMatch = true;
-          if (selectedCityFilter !== 'all') {
-            isCityMatch = 
-              (listing.city && listing.city.toLowerCase().includes(selectedCityFilter.toLowerCase())) ||
-              listing.location.toLowerCase().includes(selectedCityFilter.toLowerCase());
-          }
-
-          let isAreaMatch = true;
-          if (selectedAreaFilter !== 'all') {
-            isAreaMatch = 
-              listing.location.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-              listing.description.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
-              listing.title.toLowerCase().includes(selectedAreaFilter.toLowerCase());
-          }
-
-          matchesLocationScope = isCountryMatch && isStateMatch && isCityMatch && isAreaMatch;
-        }
+      // Search query filter using location index mapping & keyword expansion
+      if (searchQuery.trim()) {
+        const matches = matchesLocationSearch(listing, searchQuery);
+        if (!matches) return false;
       }
 
       // Housing Type & Category filter
@@ -603,9 +569,10 @@ export default function App() {
         (selectedType === 'single-room' && (listing.type === 'room' || listing.type === 'single-room')) ||
         (selectedType === 'self-contained' && (listing.type === 'studio' || listing.type === 'self-contained')) ||
         (selectedType === '1-bedroom-flat' && (listing.type === 'apartment' || listing.type === '1-bedroom-flat'));
+      if (!matchesType) return false;
 
       // Price filter
-      const matchesPrice = listing.price <= maxPrice;
+      if (listing.price > maxPrice) return false;
 
       // Bedrooms filter
       const matchesBedrooms = 
@@ -614,12 +581,115 @@ export default function App() {
         (minBedrooms === '1' && listing.bedrooms === 1) ||
         (minBedrooms === '2' && listing.bedrooms === 2) ||
         (minBedrooms === '3+' && listing.bedrooms >= 3);
+      if (!matchesBedrooms) return false;
 
-      // Favorites filter
-      const matchesFavorites = currentTab !== 'favorites' || favorites.includes(listing.id);
+      // Region & Near me filter
+      if (selectedRegionId === 'near_me') {
+        if (scopeLevel === 'strict' && maxDistanceKm !== null && distanceKm !== null) {
+          if (distanceKm > maxDistanceKm) return false;
+        }
+      } else if (selectedRegionId !== 'all') {
+        const region = LAUNCH_REGIONS.find(r => r.id === selectedRegionId);
+        if (region) {
+          const queryLower = region.name.toLowerCase();
+          const matchesName = listing.location.toLowerCase().includes(queryLower) ||
+            (listing.city && listing.city.toLowerCase().includes(queryLower)) ||
+            (region.country === 'Nigeria' && (
+              listing.country?.toLowerCase() === 'nigeria' ||
+              listing.location.toLowerCase().includes('nigeria')
+            )) ||
+            (region.country === 'United Kingdom' && listing.location.toLowerCase().includes('london')) ||
+            (region.country === 'Germany' && listing.location.toLowerCase().includes('berlin'));
+          const matchesProximity = distanceKm !== null && distanceKm <= 80;
+          if (!matchesName && !matchesProximity && scopeLevel === 'strict') return false;
+        }
+      }
 
-      return matchesFavorites && matchesSearch && matchesRegion && matchesLocationScope && matchesType && matchesPrice && matchesBedrooms;
-    });
+      // Country / State / City Location Scope filter
+      if (locationScopeMode === 'my_location' || (locationScopeMode === 'custom' && selectedCountryFilter && selectedCountryFilter !== 'all')) {
+        const country = locationScopeMode === 'my_location' ? targetCountry : selectedCountryFilter;
+
+        if (scopeLevel === 'strict' || scopeLevel === 'country_only') {
+          const isCountryMatch = 
+            (listing.country && listing.country.toLowerCase() === country.toLowerCase()) ||
+            listing.location.toLowerCase().includes(country.toLowerCase()) ||
+            (country.toLowerCase() === 'nigeria' && (
+              (listing.country && listing.country.toLowerCase().includes('nigeria')) ||
+              listing.location.toLowerCase().includes('nigeria') ||
+              listing.location.toLowerCase().includes('lagos') ||
+              listing.location.toLowerCase().includes('abuja') ||
+              listing.location.toLowerCase().includes('port harcourt') ||
+              listing.location.toLowerCase().includes('uyo') ||
+              listing.location.toLowerCase().includes('akwa ibom') ||
+              (listing.state && listing.state.toLowerCase().includes('akwa ibom'))
+            ));
+
+          if (!isCountryMatch && scopeLevel === 'strict') return false;
+        }
+
+        if (scopeLevel === 'strict') {
+          if (selectedStateFilter !== 'all') {
+            const stateClean = selectedStateFilter.toLowerCase().replace('state', '').trim();
+            const matchesState = (listing.state && listing.state.toLowerCase().includes(stateClean)) ||
+              listing.location.toLowerCase().includes(stateClean) ||
+              (selectedStateFilter.toLowerCase().includes('akwa ibom') && (
+                listing.location.toLowerCase().includes('uyo') ||
+                (listing.city && listing.city.toLowerCase().includes('uyo'))
+              ));
+            if (!matchesState) return false;
+          }
+
+          if (selectedCityFilter !== 'all') {
+            const cityClean = selectedCityFilter.toLowerCase().trim();
+            const matchesCity = (listing.city && listing.city.toLowerCase().includes(cityClean)) ||
+              listing.location.toLowerCase().includes(cityClean);
+            if (!matchesCity) return false;
+          }
+
+          if (selectedAreaFilter !== 'all') {
+            const matchesArea = listing.location.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
+              listing.description.toLowerCase().includes(selectedAreaFilter.toLowerCase()) ||
+              listing.title.toLowerCase().includes(selectedAreaFilter.toLowerCase());
+            if (!matchesArea) return false;
+          }
+        }
+      }
+
+      return true;
+    };
+
+    // Pass 1: Strict match
+    let items = listingsWithDistance.filter(item => checkMatch(item, 'strict'));
+    let reason: 'none' | 'expanded_country' | 'expanded_global' = 'none';
+
+    // Pass 2: Expand to Country-wide if strict scoping yields 0 items
+    if (items.length === 0 && (locationScopeMode !== 'all' || selectedRegionId === 'near_me')) {
+      const countryItems = listingsWithDistance.filter(item => checkMatch(item, 'country_only'));
+      if (countryItems.length > 0) {
+        items = countryItems;
+        reason = 'expanded_country';
+      }
+    }
+
+    // Pass 3: Expand Globally sorted by proximity distance if 0 items remain
+    if (items.length === 0 && (locationScopeMode !== 'all' || selectedRegionId === 'near_me')) {
+      const globalItems = listingsWithDistance.filter(item => checkMatch(item, 'global_proximity'));
+      if (globalItems.length > 0) {
+        items = globalItems;
+        reason = 'expanded_global';
+      }
+    }
+
+    // Sort items by proximity distance when near_me or fallback is active
+    if (selectedRegionId === 'near_me' || reason !== 'none') {
+      items.sort((a, b) => {
+        if (a.distanceKm === null) return 1;
+        if (b.distanceKm === null) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    }
+
+    return { filteredItems: items, fallbackReason: reason };
   }, [
     listingsWithDistance,
     searchQuery,
@@ -697,11 +767,37 @@ export default function App() {
     c => c.name.toLowerCase() === activeCountryName.toLowerCase()
   ) || GLOBAL_COUNTRIES.find(c => c.name === 'Nigeria') || GLOBAL_COUNTRIES[0];
 
+  const selectedLocationName = useMemo(() => {
+    if (selectedCityFilter && selectedCityFilter !== 'all') return selectedCityFilter;
+    if (selectedStateFilter && selectedStateFilter !== 'all') return selectedStateFilter;
+    if (selectedCountryFilter && selectedCountryFilter !== 'all') return selectedCountryFilter;
+    if (selectedRegionId && selectedRegionId !== 'all') {
+      return LAUNCH_REGIONS.find(r => r.id === selectedRegionId)?.name || 'Europe';
+    }
+    return 'Global';
+  }, [selectedCityFilter, selectedStateFilter, selectedCountryFilter, selectedRegionId]);
+
+  const activeCurrencySymbol = SUPPORTED_CURRENCIES[displayCurrency]?.symbol || '$';
+
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen min-h-dvh w-full max-w-full overflow-x-hidden bg-slate-50/50 flex flex-col font-sans select-none antialiased">
+      
+      {/* CENTRALIZED DYNAMIC SEO METADATA MANAGER */}
+      <SEOMetadataManager
+        currentTab={currentTab}
+        selectedListing={selectedListing}
+        filteredCount={filteredItems.length}
+        searchQuery={searchQuery}
+        selectedType={selectedType}
+        selectedLocationName={selectedLocationName}
+        currencySymbol={activeCurrencySymbol}
+        topListings={filteredItems.slice(0, 10).map(item => item.listing)}
+        showInspectorTrigger={true}
+        hasCompareBar={comparedListings.length > 0}
+      />
       
       {/* PREMIUM HEADER BAR */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm/50 px-4 lg:px-8 py-3.5">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm/50 px-3 sm:px-4 lg:px-8 py-3 pt-safe">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
           {/* Logo and Tagline */}
@@ -985,10 +1081,10 @@ export default function App() {
 
       {/* FLOATING MAP / LIST TOGGLE BUTTON ON MOBILE (FLIPX / AIRBNB UX) */}
       {(currentTab === 'explore' || currentTab === 'favorites') && (
-        <div className="md:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 animate-fade-in pointer-events-auto">
+        <div className={`md:hidden fixed ${comparedListings.length > 0 ? 'bottom-[calc(env(safe-area-inset-bottom,0px)+10rem)]' : 'bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)]'} left-1/2 -translate-x-1/2 z-30 animate-fade-in pointer-events-auto transition-all duration-300`}>
           <button
             type="button"
-            onClick={() => handleSetMapViewMode(mapViewMode === 'map' ? 'grid' : 'map')}
+            onClick={() => handleSetMapViewMode(mapViewMode === 'map' ? (recentViewMode !== 'map' ? recentViewMode : 'grid') : 'map')}
             className="bg-slate-900 text-white dark:bg-emerald-600 dark:text-white px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-black ring-4 ring-white/50 dark:ring-slate-900/50 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-700/50"
           >
             {mapViewMode === 'map' ? (
@@ -1007,7 +1103,7 @@ export default function App() {
       )}
 
       {/* CORE VIEWPORT */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 mb-20 md:mb-8 overflow-hidden">
+      <main className={`flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-8 ${comparedListings.length > 0 ? 'mb-36 md:mb-14' : 'mb-24 md:mb-8'} overflow-hidden min-w-0 transition-all duration-300`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentTab}
@@ -1026,84 +1122,89 @@ export default function App() {
             {/* SEARCH AND FILTERS BAR */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 lg:p-5 space-y-4">
               
-              {/* Row 1: Search and Region Selector */}
+              {/* Row 1: Search and Quick Control Action Buttons */}
               <div className="flex flex-col md:flex-row gap-3">
-                <PlacesAutocompleteSearch
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  onSelectLocation={(loc) => {
-                    if (loc.lat && loc.lng) {
-                      setMapCenter({ lat: loc.lat, lng: loc.lng });
-                      setMapZoom(loc.zoom || 14);
-                    }
-                  }}
-                  listings={listings}
-                />
+                <div className="flex-1 min-w-0">
+                  <PlacesAutocompleteSearch
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    onSelectLocation={(loc) => {
+                      if (loc.lat && loc.lng) {
+                        setMapCenter({ lat: loc.lat, lng: loc.lng });
+                        setMapZoom(loc.zoom || 14);
+                      }
+                    }}
+                    listings={listings}
+                  />
+                </div>
 
-                {/* GPS Locate Me Button */}
-                <button
-                  type="button"
-                  onClick={handleGetUserLocation}
-                  disabled={isLocatingUser}
-                  className={`px-3.5 py-2.5 border rounded-2xl text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
-                    selectedRegionId === 'near_me'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                      : 'bg-white border-slate-200/80 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50'
-                  }`}
-                >
-                  {isLocatingUser ? (
-                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
-                  ) : (
-                    <LocateFixed className="w-4 h-4 text-emerald-500" />
-                  )}
-                  <span className="hidden sm:inline">Near Me</span>
-                </button>
+                {/* Quick Action Buttons Row (Horizontal Scroll on Mobile) */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 pb-0.5">
+                  {/* GPS Locate Me Button */}
+                  <button
+                    type="button"
+                    onClick={handleGetUserLocation}
+                    disabled={isLocatingUser}
+                    className={`px-3 py-2 border rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                      selectedRegionId === 'near_me'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                        : 'bg-white border-slate-200/80 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    {isLocatingUser ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                    ) : (
+                      <LocateFixed className="w-4 h-4 text-emerald-500" />
+                    )}
+                    <span>Near Me</span>
+                  </button>
 
-                {/* Filter Panel Toggle */}
-                <button
-                  onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-                  className={`p-2.5 px-4 border rounded-2xl text-xs font-bold flex items-center gap-2 shrink-0 transition-colors cursor-pointer ${
-                    showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000 || maxDistanceKm !== null
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span>Filters</span>
-                </button>
+                  {/* Filter Panel Toggle */}
+                  <button
+                    onClick={() => setShowFiltersPanel(!showFiltersPanel)}
+                    className={`px-3.5 py-2 border rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                      showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000 || maxDistanceKm !== null
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" />
+                    <span>Filters</span>
+                  </button>
 
-                {/* Rent Affordability Calculator Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowAffordabilityCalculatorModal(true)}
-                  className="p-2.5 px-3.5 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
-                  title="Open Rent Affordability Calculator"
-                >
-                  <Calculator className="w-4 h-4 text-emerald-600" />
-                  <span className="hidden sm:inline">Rent Calc</span>
-                </button>
+                  {/* Rent Affordability Calculator Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAffordabilityCalculatorModal(true)}
+                    className="px-3 py-2 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+                    title="Open Rent Affordability Calculator"
+                  >
+                    <Calculator className="w-4 h-4 text-emerald-600" />
+                    <span>Rent Calc</span>
+                  </button>
 
-                {/* Save Search Alert Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowSavedSearchAlertModal(true)}
-                  className="p-2.5 px-3.5 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
-                  title="Save Search & Get Instant Property Alerts"
-                >
-                  <Bell className="w-4 h-4 text-emerald-600" />
-                  <span className="hidden sm:inline">Save Alert</span>
-                </button>
+                  {/* Save Search Alert Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowSavedSearchAlertModal(true)}
+                    className="px-3 py-2 border border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+                    title="Save Search & Get Instant Property Alerts"
+                  >
+                    <Bell className="w-4 h-4 text-emerald-600" />
+                    <span>Save Alert</span>
+                  </button>
+                </div>
               </div>
 
               {/* LOCATION SCOPING BAR (Signup Location, Country/State/City filters) */}
               <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/80 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   
                   {/* Scope Mode Buttons */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                     <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-emerald-600" />
-                      <span>Scope:</span>
+                      <span className="hidden sm:inline">Scope:</span>
                     </span>
 
                     {/* Mode 1: My Signup Location */}
@@ -1115,15 +1216,15 @@ export default function App() {
                           setSelectedCountryFilter(currentUser.country);
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
                         locationScopeMode === 'my_location'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
                           : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
                       }`}
                     >
-                      <span>{activeCountryObj.flag} My Signup Location ({currentUser?.country || 'Nigeria'})</span>
+                      <span>{activeCountryObj.flag} My Location</span>
                       {currentUser && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-white/20 font-black">
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-white/20 font-black hidden xs:inline">
                           {currentUser.city || currentUser.state || 'Match Profile'}
                         </span>
                       )}
@@ -1133,14 +1234,15 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setLocationScopeMode('custom')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
                         locationScopeMode === 'custom'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
                           : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
                       }`}
                     >
                       <Filter className="w-3.5 h-3.5" />
-                      <span>Filter by Country/State</span>
+                      <span className="hidden xs:inline">Filter by Country/State</span>
+                      <span className="xs:hidden">Filter</span>
                     </button>
 
                     {/* Mode 3: All Global Locations */}
@@ -1151,37 +1253,37 @@ export default function App() {
                         setSelectedStateFilter('all');
                         setSelectedCityFilter('all');
                       }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shrink-0 cursor-pointer ${
                         locationScopeMode === 'all'
                           ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                           : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       <Globe className="w-3.5 h-3.5" />
-                      <span>All Global Locations</span>
+                      <span>All Global</span>
                     </button>
                   </div>
 
                   {/* Right Side: Currency Auto-Detect Badge & Property Count */}
-                  <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+                  <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 shrink-0">
                     
                     {/* Auto-Detected Currency Selector Pill */}
-                    <div className="flex items-center gap-1.5 bg-white border border-slate-200/90 rounded-xl px-2.5 py-1 text-xs shadow-2xs transition-all hover:border-emerald-300">
+                    <div className="relative flex items-center gap-1.5 bg-white border border-slate-200/90 rounded-xl px-2.5 py-1 text-xs shadow-2xs transition-all hover:border-emerald-300 max-w-full">
                       <span className="text-slate-400 font-extrabold uppercase text-[9.5px] tracking-wider shrink-0 flex items-center gap-1">
                         <Globe className="w-3 h-3 text-emerald-600" />
                         <span className="hidden sm:inline">Currency:</span>
                       </span>
                       
-                      <div className="flex items-center gap-1">
-                        <span className="text-emerald-700 font-extrabold text-xs">
+                      <div className="flex items-center gap-1 min-w-0 shrink">
+                        <span className="text-emerald-700 font-extrabold text-xs whitespace-nowrap">
                           {SUPPORTED_CURRENCIES[displayCurrency]?.flag} {displayCurrency} ({SUPPORTED_CURRENCIES[displayCurrency]?.symbol})
                         </span>
                         {isDetectingCurrency ? (
-                          <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin" />
+                          <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin shrink-0" />
                         ) : (
                           <span 
                             title={currencySourceInfo.label}
-                            className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 hidden md:inline-block cursor-help"
+                            className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 hidden md:inline-block cursor-help shrink-0"
                           >
                             {currencySourceInfo.source === 'profile'
                               ? 'Profile Auto'
@@ -1194,10 +1296,21 @@ export default function App() {
                         )}
                       </div>
 
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrencyConverterModal(true)}
+                        className="ml-1 pl-1.5 border-l border-slate-200 text-slate-500 hover:text-emerald-700 transition-colors flex items-center gap-1 font-extrabold text-[10px] shrink-0 relative z-20 cursor-pointer"
+                        title="Open FX Currency Calculator"
+                      >
+                        <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="hidden lg:inline">FX Calc</span>
+                      </button>
+
+                      {/* Overlay native select element so tapping anywhere on the pill opens currency selection smoothly */}
                       <select
                         value={displayCurrency}
                         onChange={(e) => handleCurrencyChange(e.target.value)}
-                        className="bg-transparent text-[11px] font-extrabold text-slate-700 focus:outline-none cursor-pointer border-l border-slate-200 pl-1.5 ml-0.5"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                         aria-label="Select Local Display Currency"
                       >
                         {Object.values(SUPPORTED_CURRENCIES).map((c) => (
@@ -1206,15 +1319,6 @@ export default function App() {
                           </option>
                         ))}
                       </select>
-
-                      <button
-                        onClick={() => setShowCurrencyConverterModal(true)}
-                        className="ml-1 pl-1.5 border-l border-slate-200 text-slate-500 hover:text-emerald-700 transition-colors flex items-center gap-1 font-extrabold text-[10px]"
-                        title="Open FX Currency Calculator"
-                      >
-                        <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden lg:inline">FX Calc</span>
-                      </button>
                     </div>
 
                     {/* Property Count Badge */}
@@ -1639,6 +1743,47 @@ export default function App() {
               </div>
             </div>
 
+            {/* Smart Fallback & Expansion Notice Banner */}
+            {fallbackReason !== 'none' && (
+              <div className="bg-emerald-50 dark:bg-slate-900/90 border border-emerald-200/90 dark:border-emerald-800/80 rounded-2xl p-3.5 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="p-2 bg-emerald-600 text-white rounded-xl shrink-0 mt-0.5 sm:mt-0 shadow-xs">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                        {fallbackReason === 'expanded_country' 
+                          ? `Verified Properties in ${currentUser?.country || selectedCountryFilter}`
+                          : 'Nearest Verified Properties'}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold">
+                        {currentUser?.city ? `${currentUser.city}, ${currentUser.country}` : currentUser?.country || 'User Profile'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                      {fallbackReason === 'expanded_country'
+                        ? `New properties in ${currentUser?.city || 'your city'} are undergoing background verification. Showing verified listings across ${currentUser?.country || selectedCountryFilter}.`
+                        : `Listings directly in ${currentUser?.city || currentUser?.country || 'your city'} are currently being verified. Displaying nearest verified properties sorted by proximity.`}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationScopeMode('all');
+                    setSelectedRegionId('all');
+                    setSelectedStateFilter('all');
+                    setSelectedCityFilter('all');
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shrink-0 transition-all cursor-pointer shadow-xs self-end sm:self-auto"
+                >
+                  Explore All Global Homes
+                </button>
+              </div>
+            )}
+
             {/* DUAL PANE LISTING ROW */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px] h-auto lg:h-[calc(100vh-270px)]">
               
@@ -1844,7 +1989,7 @@ export default function App() {
                 <div className={`transition-all duration-300 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm shrink-0 ${
                   mapViewMode === 'map'
                     ? 'lg:col-span-8 h-[580px] lg:h-full'
-                    : 'lg:col-span-5 h-[480px] lg:h-full'
+                    : 'lg:col-span-5 h-[520px] sm:h-[560px] lg:h-full'
                 }`}>
                   <HotPropertiesShowcase
                     listings={filteredItems.map(item => item.listing)}

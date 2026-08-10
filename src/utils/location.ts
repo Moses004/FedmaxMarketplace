@@ -1108,6 +1108,33 @@ export const LAUNCH_REGIONS: LaunchRegion[] = [
     popularNeighborhoods: ['Victoria Island', 'Ikoyi', 'Lekki Phase 1', 'Ikeja GRA', 'Surulere', 'Yaba']
   },
   {
+    id: 'uyo',
+    name: 'Uyo',
+    country: 'Nigeria',
+    flag: '🇳🇬',
+    center: { lat: 5.0377, lng: 7.9128 },
+    zoom: 13,
+    popularNeighborhoods: ['Ewet Housing Estate', 'Osongama Estate', 'Shelter Afrique', 'Udoudoma Avenue', 'Aka Road', 'Abak Road', 'Ikot Ekpene Road']
+  },
+  {
+    id: 'abuja',
+    name: 'Abuja',
+    country: 'Nigeria',
+    flag: '🇳🇬',
+    center: { lat: 9.0765, lng: 7.3986 },
+    zoom: 12,
+    popularNeighborhoods: ['Maitama', 'Asokoro', 'Gwarinpa', 'Wuse 2', 'Jabi', 'Apo']
+  },
+  {
+    id: 'port-harcourt',
+    name: 'Port Harcourt',
+    country: 'Nigeria',
+    flag: '🇳🇬',
+    center: { lat: 4.8156, lng: 7.0498 },
+    zoom: 12,
+    popularNeighborhoods: ['GRA Phase 2', 'Trans Amadi', 'Ada George', 'Rumuogba', 'Old GRA']
+  },
+  {
     id: 'london',
     name: 'London',
     country: 'United Kingdom',
@@ -1126,6 +1153,155 @@ export const LAUNCH_REGIONS: LaunchRegion[] = [
     popularNeighborhoods: ['Mitte', 'Kreuzberg', 'Neukölln', 'Prenzlauer Berg', 'Friedrichshain']
   }
 ];
+
+export const KNOWN_CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  // Nigeria
+  'lagos': { lat: 6.5244, lng: 3.3792 },
+  'lekki': { lat: 6.4474, lng: 3.4723 },
+  'ikeja': { lat: 6.5912, lng: 3.3580 },
+  'victoria island': { lat: 6.4281, lng: 3.4219 },
+  'ikoyi': { lat: 6.4549, lng: 3.4316 },
+  'abuja': { lat: 9.0765, lng: 7.3986 },
+  'maitama': { lat: 9.0882, lng: 7.4983 },
+  'port harcourt': { lat: 4.8156, lng: 7.0498 },
+  'ibadan': { lat: 7.3775, lng: 3.9470 },
+  'kano': { lat: 12.0022, lng: 8.5920 },
+  'enugu': { lat: 6.4584, lng: 7.5464 },
+  'uyo': { lat: 5.0377, lng: 7.9128 },
+  'ewet housing estate': { lat: 5.0298, lng: 7.9288 },
+  'shelter afrique': { lat: 5.0425, lng: 7.9250 },
+  'osongama estate': { lat: 5.0180, lng: 7.9350 },
+  'udoudoma avenue': { lat: 5.0250, lng: 7.9180 },
+  'aka road': { lat: 5.0310, lng: 7.9050 },
+  'abak road': { lat: 5.0350, lng: 7.8920 },
+  'ikot ekpene road': { lat: 5.0480, lng: 7.9010 },
+  'akwa ibom': { lat: 5.0377, lng: 7.9128 },
+  'akwa ibom state': { lat: 5.0377, lng: 7.9128 },
+  'calabar': { lat: 4.9757, lng: 8.3417 },
+  'benin city': { lat: 6.3350, lng: 5.6037 },
+  'asaba': { lat: 6.1983, lng: 6.7277 },
+  'nigeria': { lat: 6.5244, lng: 3.3792 },
+
+  // United States
+  'los angeles': { lat: 34.0522, lng: -118.2437 },
+  'beverly hills': { lat: 34.0696, lng: -118.4053 },
+  'california': { lat: 34.0522, lng: -118.2437 },
+  'new york': { lat: 40.7128, lng: -74.0060 },
+  'manhattan': { lat: 40.7549, lng: -73.9840 },
+  'miami': { lat: 25.7617, lng: -80.1918 },
+  'florida': { lat: 25.7617, lng: -80.1918 },
+  'san francisco': { lat: 37.7749, lng: -122.4194 },
+  'chicago': { lat: 41.8781, lng: -87.6298 },
+  'houston': { lat: 29.7604, lng: -95.3698 },
+  'texas': { lat: 29.7604, lng: -95.3698 },
+  'united states': { lat: 37.0902, lng: -95.7129 },
+
+  // United Kingdom
+  'london': { lat: 51.5074, lng: -0.1278 },
+  'greater london': { lat: 51.5074, lng: -0.1278 },
+  'manchester': { lat: 53.4808, lng: -2.2426 },
+  'birmingham': { lat: 52.4862, lng: -1.8904 },
+  'edinburgh': { lat: 55.9533, lng: -3.1883 },
+  'united kingdom': { lat: 51.5074, lng: -0.1278 },
+
+  // Canada
+  'toronto': { lat: 43.6532, lng: -79.3832 },
+  'ontario': { lat: 43.6532, lng: -79.3832 },
+  'vancouver': { lat: 49.2827, lng: -123.1207 },
+  'montreal': { lat: 45.5017, lng: -73.5673 },
+  'canada': { lat: 43.6532, lng: -79.3832 },
+
+  // Germany
+  'berlin': { lat: 52.5200, lng: 13.4050 },
+  'munich': { lat: 48.1351, lng: 11.5820 },
+  'bavaria': { lat: 48.1351, lng: 11.5820 },
+  'frankfurt': { lat: 50.1109, lng: 8.6821 },
+  'germany': { lat: 52.5200, lng: 13.4050 },
+
+  // Ghana
+  'accra': { lat: 5.6037, lng: -0.1870 },
+  'cantonments': { lat: 5.5800, lng: -0.1700 },
+  'greater accra': { lat: 5.6037, lng: -0.1870 },
+  'kumasi': { lat: 6.6885, lng: -1.6244 },
+  'ghana': { lat: 5.6037, lng: -0.1870 },
+
+  // Kenya
+  'nairobi': { lat: -1.2921, lng: 36.8219 },
+  'westlands': { lat: -1.2683, lng: 36.8078 },
+  'nairobi county': { lat: -1.2921, lng: 36.8219 },
+  'mombasa': { lat: -4.0435, lng: 39.6682 },
+  'kenya': { lat: -1.2921, lng: 36.8219 },
+
+  // South Africa
+  'cape town': { lat: -33.9249, lng: 18.4241 },
+  'sea point': { lat: -33.9142, lng: 18.3881 },
+  'johannesburg': { lat: -26.2041, lng: 28.0473 },
+  'south africa': { lat: -33.9249, lng: 18.4241 },
+
+  // United Arab Emirates
+  'dubai': { lat: 25.2048, lng: 55.2708 },
+  'abu dhabi': { lat: 24.4539, lng: 54.3773 },
+  'united arab emirates': { lat: 25.2048, lng: 55.2708 },
+
+  // Spain
+  'madrid': { lat: 40.4167, lng: -3.7037 },
+  'barcelona': { lat: 41.3851, lng: 2.1734 },
+  'valencia': { lat: 39.4699, lng: -0.3763 },
+  'seville': { lat: 37.3891, lng: -5.9845 },
+  'spain': { lat: 40.4167, lng: -3.7037 },
+
+  // France
+  'paris': { lat: 48.8566, lng: 2.3522 },
+  'france': { lat: 48.8566, lng: 2.3522 },
+};
+
+export function getCoordinatesForUserLocation(user?: { country?: string; state?: string; city?: string; streetAddress?: string; preferredMoveInRegion?: string } | null): { lat: number; lng: number } {
+  if (!user) return { lat: 6.5244, lng: 3.3792 }; // Lagos default
+
+  const streetKey = user.streetAddress?.toLowerCase().trim();
+  const preferredKey = user.preferredMoveInRegion?.toLowerCase().trim();
+  const cityKey = user.city?.toLowerCase().trim();
+  const stateKey = user.state?.toLowerCase().trim();
+  const countryKey = user.country?.toLowerCase().trim();
+
+  // Check exact keys for subtown or preferred market
+  if (preferredKey && KNOWN_CITY_COORDINATES[preferredKey]) {
+    return KNOWN_CITY_COORDINATES[preferredKey];
+  }
+  if (streetKey && KNOWN_CITY_COORDINATES[streetKey]) {
+    return KNOWN_CITY_COORDINATES[streetKey];
+  }
+
+  // Check exact city, state, country
+  if (cityKey && KNOWN_CITY_COORDINATES[cityKey]) {
+    return KNOWN_CITY_COORDINATES[cityKey];
+  }
+  if (stateKey && KNOWN_CITY_COORDINATES[stateKey]) {
+    return KNOWN_CITY_COORDINATES[stateKey];
+  }
+  if (countryKey && KNOWN_CITY_COORDINATES[countryKey]) {
+    return KNOWN_CITY_COORDINATES[countryKey];
+  }
+
+  // Search partial matches for subtown or preferred region
+  for (const [key, coords] of Object.entries(KNOWN_CITY_COORDINATES)) {
+    if (preferredKey && (preferredKey.includes(key) || key.includes(preferredKey))) return coords;
+    if (streetKey && (streetKey.includes(key) || key.includes(streetKey))) return coords;
+    if (cityKey && (key.includes(cityKey) || cityKey.includes(key))) return coords;
+    if (stateKey && (key.includes(stateKey) || stateKey.includes(key))) return coords;
+    if (countryKey && (key.includes(countryKey) || countryKey.includes(key))) return coords;
+  }
+
+  // Check launch regions
+  const launchMatch = LAUNCH_REGIONS.find(r => 
+    (countryKey && r.country.toLowerCase().includes(countryKey)) ||
+    (cityKey && r.name.toLowerCase().includes(cityKey)) ||
+    (preferredKey && r.name.toLowerCase().includes(preferredKey))
+  );
+  if (launchMatch) return launchMatch.center;
+
+  return { lat: 6.5244, lng: 3.3792 };
+}
 
 /**
  * Calculates straight-line geodesic distance between two points in kilometers (Haversine Formula)
@@ -1234,3 +1410,232 @@ export function getCurrentUserCoordinates(): Promise<{ lat: number; lng: number 
     );
   });
 }
+
+/**
+ * Utility location metadata mapping
+ */
+export interface ResolvedLocationMeta {
+  city?: string;
+  state?: string;
+  country?: string;
+  lat?: number;
+  lng?: number;
+  keywords: string[];
+}
+
+/**
+ * Utility mapping function that maps partial strings, city names (e.g. 'Uyo'),
+ * neighborhoods (e.g. 'Ewet Housing Estate'), or state names (e.g. 'Akwa Ibom')
+ * to their corresponding canonical city, state, country, geocoordinates, and keyword aliases.
+ */
+export function resolveLocationMeta(query: string): ResolvedLocationMeta {
+  if (!query) return { keywords: [] };
+  const trimmed = query.trim().toLowerCase();
+  const cleanQuery = trimmed.replace(/state|territory|county|region|province|district|metropolis/gi, '').trim();
+
+  const keywordsSet = new Set<string>();
+  keywordsSet.add(trimmed);
+  if (cleanQuery) keywordsSet.add(cleanQuery);
+
+  let matchedCity: string | undefined;
+  let matchedState: string | undefined;
+  let matchedCountry: string | undefined;
+  let lat: number | undefined;
+  let lng: number | undefined;
+
+  // 1. Direct check in KNOWN_CITY_COORDINATES
+  for (const [key, coords] of Object.entries(KNOWN_CITY_COORDINATES)) {
+    if (cleanQuery === key || trimmed === key || (cleanQuery.length >= 3 && key.includes(cleanQuery))) {
+      lat = coords.lat;
+      lng = coords.lng;
+      keywordsSet.add(key);
+      break;
+    }
+  }
+
+  // 2. Scan GLOBAL_COUNTRIES stateHierarchy & popularCities
+  for (const countryObj of GLOBAL_COUNTRIES) {
+    const countryNameLower = countryObj.name.toLowerCase();
+    
+    // Country match
+    if (trimmed === countryNameLower || cleanQuery === countryNameLower) {
+      matchedCountry = countryObj.name;
+      keywordsSet.add(countryNameLower);
+    }
+
+    if (countryObj.stateHierarchy) {
+      for (const st of countryObj.stateHierarchy) {
+        const stateNameLower = st.name.toLowerCase();
+        const stateClean = stateNameLower.replace(/state|territory|county|region|province|district|metropolis/gi, '').trim();
+
+        const isStateMatch = 
+          trimmed === stateNameLower || 
+          cleanQuery === stateClean || 
+          (cleanQuery.length >= 3 && (stateClean.includes(cleanQuery) || cleanQuery.includes(stateClean)));
+
+        if (isStateMatch) {
+          matchedState = st.name;
+          matchedCountry = countryObj.name;
+          keywordsSet.add(stateNameLower);
+          keywordsSet.add(stateClean);
+
+          // Add all cities in state
+          st.cities.forEach(c => {
+            keywordsSet.add(c.name.toLowerCase());
+            if (c.areas) c.areas.forEach(a => keywordsSet.add(a.toLowerCase()));
+          });
+        }
+
+        // Check cities in state
+        for (const cityObj of st.cities) {
+          const cityNameLower = cityObj.name.toLowerCase();
+          const isCityMatch = 
+            trimmed === cityNameLower || 
+            cleanQuery === cityNameLower ||
+            (cleanQuery.length >= 3 && (cityNameLower.includes(cleanQuery) || cleanQuery.includes(cityNameLower)));
+
+          // Check neighborhood areas
+          const areaMatch = cityObj.areas?.find(a => 
+            a.toLowerCase() === trimmed || 
+            a.toLowerCase().includes(cleanQuery) || 
+            cleanQuery.includes(a.toLowerCase())
+          );
+
+          if (isCityMatch || areaMatch) {
+            matchedCity = cityObj.name;
+            matchedState = st.name;
+            matchedCountry = countryObj.name;
+
+            keywordsSet.add(cityNameLower);
+            keywordsSet.add(stateNameLower);
+            keywordsSet.add(stateClean);
+            keywordsSet.add(countryNameLower);
+
+            if (cityObj.areas) {
+              cityObj.areas.forEach(a => keywordsSet.add(a.toLowerCase()));
+            }
+          }
+        }
+      }
+    }
+
+    // Check popularCities
+    if (!matchedCity) {
+      const popCityMatch = countryObj.popularCities.find(c => {
+        const cClean = c.split(' (')[0].trim().toLowerCase();
+        return cClean === cleanQuery || cClean === trimmed || (cleanQuery.length >= 3 && cClean.includes(cleanQuery));
+      });
+
+      if (popCityMatch) {
+        const cleanPopCity = popCityMatch.split(' (')[0].trim();
+        matchedCity = cleanPopCity;
+        matchedCountry = countryObj.name;
+        keywordsSet.add(cleanPopCity.toLowerCase());
+        keywordsSet.add(countryNameLower);
+      }
+    }
+  }
+
+  // Fallback to LAUNCH_REGIONS
+  const launchMatch = LAUNCH_REGIONS.find(r => 
+    r.name.toLowerCase() === cleanQuery || 
+    r.id === cleanQuery || 
+    r.popularNeighborhoods.some(n => n.toLowerCase().includes(cleanQuery))
+  );
+  if (launchMatch) {
+    if (!matchedCity) matchedCity = launchMatch.name;
+    if (!matchedCountry) matchedCountry = launchMatch.country;
+    if (!lat) lat = launchMatch.center.lat;
+    if (!lng) lng = launchMatch.center.lng;
+    keywordsSet.add(launchMatch.name.toLowerCase());
+    keywordsSet.add(launchMatch.country.toLowerCase());
+    launchMatch.popularNeighborhoods.forEach(n => keywordsSet.add(n.toLowerCase()));
+  }
+
+  return {
+    city: matchedCity,
+    state: matchedState,
+    country: matchedCountry,
+    lat,
+    lng,
+    keywords: Array.from(keywordsSet)
+  };
+}
+
+/**
+ * Helper search evaluation function that determines if a listing matches a search query
+ * utilizing canonical city/state/country mapping and keyword index expansion.
+ */
+export function matchesLocationSearch(
+  listing: {
+    title?: string;
+    location?: string;
+    description?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  },
+  searchQuery: string
+): boolean {
+  if (!searchQuery || !searchQuery.trim()) return true;
+
+  const q = searchQuery.toLowerCase().trim();
+
+  // 1. Standard text fields match
+  const locStr = (listing.location || '').toLowerCase();
+  const titleStr = (listing.title || '').toLowerCase();
+  const descStr = (listing.description || '').toLowerCase();
+  const cityStr = (listing.city || '').toLowerCase();
+  const stateStr = (listing.state || '').toLowerCase();
+  const countryStr = (listing.country || '').toLowerCase();
+
+  if (
+    locStr.includes(q) ||
+    titleStr.includes(q) ||
+    descStr.includes(q) ||
+    cityStr.includes(q) ||
+    stateStr.includes(q) ||
+    countryStr.includes(q)
+  ) {
+    return true;
+  }
+
+  // 2. Resolve search query to canonical location metadata & keywords
+  const resolvedQueryMeta = resolveLocationMeta(q);
+
+  if (resolvedQueryMeta.keywords.length > 0) {
+    for (const kw of resolvedQueryMeta.keywords) {
+      if (kw.length < 3) continue;
+      if (
+        locStr.includes(kw) ||
+        cityStr.includes(kw) ||
+        stateStr.includes(kw) ||
+        countryStr.includes(kw)
+      ) {
+        return true;
+      }
+    }
+
+    if (resolvedQueryMeta.city && (cityStr.includes(resolvedQueryMeta.city.toLowerCase()) || locStr.includes(resolvedQueryMeta.city.toLowerCase()))) {
+      return true;
+    }
+    if (resolvedQueryMeta.state && (stateStr.includes(resolvedQueryMeta.state.toLowerCase()) || locStr.includes(resolvedQueryMeta.state.toLowerCase()))) {
+      return true;
+    }
+  }
+
+  // 3. Reverse check: resolve listing location string to see if query matches listing's resolved keywords
+  if (listing.location || listing.city) {
+    const listingMeta = resolveLocationMeta(listing.location || listing.city || '');
+    if (listingMeta.keywords.length > 0) {
+      if (listingMeta.keywords.some(kw => kw.length >= 3 && (q.includes(kw) || kw.includes(q)))) {
+        return true;
+      }
+      if (listingMeta.city && q.includes(listingMeta.city.toLowerCase())) return true;
+      if (listingMeta.state && q.includes(listingMeta.state.toLowerCase())) return true;
+    }
+  }
+
+  return false;
+}
+

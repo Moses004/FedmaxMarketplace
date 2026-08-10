@@ -18,7 +18,7 @@ export default function CompareBar({
   if (comparedListings.length === 0) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[92%] max-w-2xl bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 px-4 flex items-center justify-between gap-3 text-white animate-slide-up">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)] md:bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[92%] max-w-2xl bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 px-4 flex items-center justify-between gap-3 text-white animate-slide-up">
       
       {/* Thumbnails & Count */}
       <div className="flex items-center gap-3 min-w-0">
@@ -62,11 +62,11 @@ export default function CompareBar({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <button
           type="button"
           onClick={onClear}
-          className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
           title="Clear selected properties"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -75,10 +75,10 @@ export default function CompareBar({
         <button
           type="button"
           onClick={onOpenModal}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95"
+          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap"
         >
-          <ArrowLeftRight className="w-3.5 h-3.5" />
-          <span>Compare Now ({comparedListings.length})</span>
+          <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+          <span>Compare ({comparedListings.length})</span>
         </button>
       </div>
 

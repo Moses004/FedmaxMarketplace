@@ -3,12 +3,13 @@ import { Listing } from '../types';
 import { 
   Flame, Sparkles, ShieldCheck, Zap, Play, Pause, ChevronLeft, ChevronRight, 
   MapPin, Bed, Bath, Maximize, Eye, Calendar, Heart, ArrowRight, Video, 
-  Share2, Compass, Layers, CheckCircle2, TrendingUp, Clock
+  Share2, Compass, Layers, CheckCircle2, TrendingUp, Clock, Maximize2, Minimize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PropertyStatusBadge from './PropertyStatusBadge';
 import { getListingPrices } from '../utils/currency';
 import PropertyMap from './PropertyMap';
+import FullScreenImageGallery from './FullScreenImageGallery';
 
 interface HotPropertiesShowcaseProps {
   listings: Listing[];
@@ -42,6 +43,10 @@ export default function HotPropertiesShowcase({
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
   const [progress, setProgress] = useState<number>(0);
+  const [imageFitMode, setImageFitMode] = useState<'cover' | 'contain'>('cover');
+  const [showFullScreenGallery, setShowFullScreenGallery] = useState<boolean>(false);
+
+  const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
 
   // Filter listings based on active tab
   const getFilteredListings = (): Listing[] => {
@@ -146,12 +151,12 @@ export default function HotPropertiesShowcase({
     <div className="h-full flex flex-col bg-slate-950 text-white rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative select-none">
       
       {/* HEADER BAR: Showcase Mode Controls & Sub-tabs */}
-      <div className="bg-slate-900/90 backdrop-blur-md px-3 sm:px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
+      <div className="bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-4 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
         
         {/* Left Title & Live Pulse Indicator */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 shadow-md">
-            <Flame className="w-4 h-4 text-white animate-pulse" />
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 shadow-md">
+            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse" />
             <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
@@ -160,7 +165,7 @@ export default function HotPropertiesShowcase({
           <div>
             <h3 className="font-display font-black text-xs sm:text-sm tracking-tight text-white flex items-center gap-1.5">
               <span>Hot & New Properties Reel</span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded-md hidden xs:inline-block">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded-md hidden xs:inline-block">
                 LIVE STREAM
               </span>
             </h3>
@@ -169,32 +174,32 @@ export default function HotPropertiesShowcase({
         </div>
 
         {/* Center / Right Mode Switcher (Showcase Reel vs Map View) */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* View Mode Toggle Button */}
           <div className="flex items-center bg-slate-800/80 p-0.5 rounded-xl border border-slate-700/60 text-xs">
             <button
               type="button"
               onClick={() => setViewMode('showcase')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 viewMode === 'showcase'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Showcase Reel</span>
+              <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[10px] sm:text-[11px]">Reel</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 viewMode === 'map'
                   ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Compass className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Map View</span>
+              <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[10px] sm:text-[11px]">Map</span>
             </button>
           </div>
 
@@ -210,7 +215,7 @@ export default function HotPropertiesShowcase({
               }`}
               title={isPlaying ? "Pause Auto Stream" : "Resume Auto Stream"}
             >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-slate-300" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-slate-300" />}
             </button>
           )}
         </div>
@@ -297,60 +302,119 @@ export default function HotPropertiesShowcase({
           )}
 
           {/* HERO ACTIVE PROPERTY SPOTLIGHT CARD */}
-          <div className="flex-1 flex flex-col justify-between overflow-hidden relative min-h-0 p-3 gap-2.5">
+          <div className="flex-1 flex flex-col overflow-hidden relative min-h-0 p-2 sm:p-3">
             
-            {/* 1. UNOBSTRUCTED HIGH-RES PHOTO VIEWPORT */}
-            <div className="flex-1 w-full relative rounded-2xl overflow-hidden bg-slate-900 border border-white/10 shadow-xl group min-h-0">
+            {/* 1. UNOBSTRUCTED FULL-BLEED HIGH-RES PHOTO VIEWPORT */}
+            <div className="flex-1 w-full relative rounded-2xl overflow-hidden bg-slate-900 border border-white/10 shadow-2xl group min-h-0 flex flex-col justify-between">
               
-              {/* DYNAMIC IMAGE DISPLAY WITH ANIMATED ENTRANCE */}
+              {/* DYNAMIC IMAGE DISPLAY WITH ANIMATED ENTRANCE & DUAL FIT MODES */}
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={`${currentListing.id}-${activeImageIndex}`}
-                  initial={{ opacity: 0, scale: 1.05 }}
+                  key={`${currentListing.id}-${activeImageIndex}-${imageFitMode}`}
+                  initial={{ opacity: 0, scale: 1.03 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="w-full h-full relative"
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden"
                 >
-                  <img
-                    src={images[activeImageIndex] || images[0]}
-                    alt={currentListing.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Subtle Gradient Overlays at edges only */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/30 pointer-events-none" />
+                  {imageFitMode === 'contain' ? (
+                    <>
+                      {/* Ambient Blurred Backdrop so no empty side bars */}
+                      <img
+                        src={images[activeImageIndex] || images[0] || FALLBACK_IMAGE}
+                        alt=""
+                        aria-hidden="true"
+                        onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                        className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
+                      />
+                      {/* Full Uncropped Centered Property Photo */}
+                      <img
+                        src={images[activeImageIndex] || images[0] || FALLBACK_IMAGE}
+                        alt={currentListing.title}
+                        onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                        className="w-full h-full object-contain relative z-10 drop-shadow-2xl"
+                      />
+                    </>
+                  ) : (
+                    <img
+                      src={images[activeImageIndex] || images[0] || FALLBACK_IMAGE}
+                      alt={currentListing.title}
+                      onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                      className="w-full h-full object-cover object-[center_35%]"
+                    />
+                  )}
+                  {/* Subtle Top & Bottom Vignette Gradients */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-transparent to-slate-950/90 pointer-events-none z-10" />
                 </motion.div>
               </AnimatePresence>
 
-              {/* FLOATING TOP BADGES (MINIMAL PILLS) */}
-              <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
+              {/* FLOATING TOP BADGES (MINIMALIST CORNER PILLS) */}
+              <div className="relative z-10 p-2 sm:p-3 flex items-center justify-between gap-1.5 pointer-events-none">
                 
                 {/* Location & Type Pill */}
-                <div className="flex items-center gap-1.5 pointer-events-auto">
-                  <span className="bg-slate-900/85 backdrop-blur-md text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-lg max-w-[200px] sm:max-w-none truncate">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-1 pointer-events-auto min-w-0">
+                  <span className="bg-slate-950/85 backdrop-blur-md text-emerald-300 border border-emerald-500/30 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-lg truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none">
+                    <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
                     <span className="truncate">{currentListing.location}</span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-200 capitalize shrink-0">{currentListing.type}</span>
+                    <span className="text-slate-500 shrink-0">•</span>
+                    <span className="text-slate-200 capitalize shrink-0 hidden xs:inline">{currentListing.type}</span>
                   </span>
                 </div>
 
-                {/* Price Pill & Favorite Action */}
-                <div className="flex items-center gap-2 pointer-events-auto">
-                  <span className="bg-emerald-600/95 backdrop-blur-md text-white border border-emerald-400/40 px-3 py-1 rounded-full text-xs font-black tracking-tight shadow-lg">
-                    {primaryFormatted} <span className="text-[10px] font-normal text-emerald-100">{periodLabel}</span>
+                {/* Price Pill, Fit Mode Toggle, Favorite Action & Photo Counter */}
+                <div className="flex items-center gap-1 sm:gap-2 pointer-events-auto shrink-0">
+                  <span className="bg-emerald-600/90 backdrop-blur-md text-white border border-emerald-400/30 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black tracking-tight shadow-lg whitespace-nowrap">
+                    {primaryFormatted} <span className="text-[8.5px] sm:text-[10px] font-normal text-emerald-100">{periodLabel}</span>
                   </span>
+
+                  {/* Full-Screen Touch Gallery Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowFullScreenGallery(true)}
+                    className="bg-emerald-600/90 hover:bg-emerald-600 backdrop-blur-md text-white border border-emerald-400/40 p-1 sm:p-1.5 rounded-full text-xs font-extrabold shadow-lg transition-all cursor-pointer flex items-center gap-1 px-2 sm:px-2.5 hover:scale-105 active:scale-95"
+                    title="Open Fullscreen Touch Gallery with Pinch-to-Zoom"
+                  >
+                    <Maximize className="w-3 h-3 text-white" />
+                    <span className="text-[10px] hidden sm:inline">Pinch & Zoom</span>
+                  </button>
+
+                  {/* Image Fit Mode Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setImageFitMode(prev => prev === 'cover' ? 'contain' : 'cover')}
+                    className="bg-slate-950/80 backdrop-blur-md text-slate-200 border border-white/20 hover:border-emerald-400/50 hover:text-emerald-300 p-1 sm:p-1.5 rounded-full text-xs font-bold shadow-lg transition-all cursor-pointer flex items-center gap-1 px-2 sm:px-2.5"
+                    title={imageFitMode === 'cover' ? "Switch to Uncropped Full Photo Fit" : "Switch to Fill Frame"}
+                  >
+                    {imageFitMode === 'cover' ? (
+                      <>
+                        <Maximize2 className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[10px] hidden sm:inline">Fit Photo</span>
+                      </>
+                    ) : (
+                      <>
+                        <Minimize2 className="w-3 h-3 text-sky-400" />
+                        <span className="text-[10px] hidden sm:inline">Fill Frame</span>
+                      </>
+                    )}
+                  </button>
+
+                  {images.length > 1 && (
+                    <span className="bg-slate-950/80 backdrop-blur-md text-slate-300 border border-white/10 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold shadow-md hidden xs:inline-block">
+                      {activeImageIndex + 1}/{images.length}
+                    </span>
+                  )}
 
                   <button
                     type="button"
                     onClick={(e) => onToggleFavorite && onToggleFavorite(e, currentListing.id)}
-                    className={`p-1.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${
+                    className={`p-1 sm:p-1.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${
                       isFavorited
                         ? 'bg-rose-500/20 border-rose-500 text-rose-400 shadow-lg scale-105'
-                        : 'bg-slate-900/70 border-white/20 text-white hover:bg-slate-900 hover:text-rose-400'
+                        : 'bg-slate-950/70 border-white/20 text-white hover:bg-slate-900 hover:text-rose-400'
                     }`}
+                    title={isFavorited ? "Remove from Favorites" : "Save to Favorites"}
                   >
-                    <Heart className={`w-4 h-4 ${isFavorited ? 'fill-rose-500' : ''}`} />
+                    <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-rose-500' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -359,80 +423,81 @@ export default function HotPropertiesShowcase({
               <button
                 type="button"
                 onClick={handlePrev}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-xl bg-slate-900/60 hover:bg-slate-900 backdrop-blur-md text-white border border-white/10 shadow-lg opacity-70 hover:opacity-100 transition-all cursor-pointer hover:scale-105"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-xl bg-slate-950/60 hover:bg-slate-900 backdrop-blur-md text-white border border-white/10 shadow-lg opacity-80 hover:opacity-100 transition-all cursor-pointer hover:scale-105"
                 title="Previous Property"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <button
                 type="button"
                 onClick={handleNext}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-xl bg-slate-900/60 hover:bg-slate-900 backdrop-blur-md text-white border border-white/10 shadow-lg opacity-70 hover:opacity-100 transition-all cursor-pointer hover:scale-105"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-xl bg-slate-950/60 hover:bg-slate-900 backdrop-blur-md text-white border border-white/10 shadow-lg opacity-80 hover:opacity-100 transition-all cursor-pointer hover:scale-105"
                 title="Next Property"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              {/* BOTTOM OF IMAGE: PHOTO DOTS PAGINATION */}
-              {images.length > 1 && (
-                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 bg-slate-900/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-md">
-                  {images.map((_, imgIdx) => (
-                    <button
-                      key={imgIdx}
-                      type="button"
-                      onClick={() => setActiveImageIndex(imgIdx)}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                        activeImageIndex === imgIdx
-                          ? 'w-4 bg-emerald-400'
-                          : 'w-1.5 bg-white/40 hover:bg-white/80'
-                      }`}
-                      title={`Photo ${imgIdx + 1}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              {/* SLEEK INTEGRATED GLASS METADATA DOCK (FLOATING AT BOTTOM OF IMAGE) */}
+              <div className="relative z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent pt-8 pb-3 px-3 sm:px-4 flex flex-col gap-2">
+                
+                {/* Title & Specs Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h2 
+                      onClick={() => onSelectListing(currentListing)}
+                      className="text-sm sm:text-base font-display font-black text-white hover:text-emerald-300 transition-colors cursor-pointer line-clamp-1 tracking-tight drop-shadow-md"
+                    >
+                      {currentListing.title}
+                    </h2>
 
-            {/* 2. DEDICATED STREAMLINED METADATA DOCK (OUTSIDE IMAGE FRAME) */}
-            <div className="bg-slate-900/90 backdrop-blur-md p-3 sm:p-3.5 rounded-2xl border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
-              
-              {/* Title & Key Specs */}
-              <div className="min-w-0 flex-1 space-y-1">
-                <h2 
-                  onClick={() => onSelectListing(currentListing)}
-                  className="text-sm sm:text-base font-display font-black text-white hover:text-emerald-300 transition-colors cursor-pointer line-clamp-1 tracking-tight"
-                >
-                  {currentListing.title}
-                </h2>
+                    <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-200 font-semibold flex-wrap">
+                      <span className="flex items-center gap-1 bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/10">
+                        <Bed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{currentListing.bedrooms} Bed</span>
+                      </span>
+                      <span className="flex items-center gap-1 bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/10">
+                        <Bath className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <span>{currentListing.bathrooms} Bath</span>
+                      </span>
+                      <span className="flex items-center gap-1 bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/10">
+                        <Maximize className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <span>{currentListing.size} m²</span>
+                      </span>
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-2.5 text-xs text-slate-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Bed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>{currentListing.bedrooms} Bed</span>
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span className="flex items-center gap-1">
-                    <Bath className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span>{currentListing.bathrooms} Bath</span>
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span className="flex items-center gap-1">
-                    <Maximize className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span>{currentListing.size} m²</span>
-                  </span>
+                  {/* Primary Action Button */}
+                  <button
+                    type="button"
+                    onClick={() => onSelectListing(currentListing)}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs py-2 px-3.5 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-98 self-start sm:self-auto"
+                  >
+                    <span>View Tour</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
+
+                {/* Photo Pagination Dots inside bottom dock */}
+                {images.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    {images.map((_, imgIdx) => (
+                      <button
+                        key={imgIdx}
+                        type="button"
+                        onClick={() => setActiveImageIndex(imgIdx)}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                          activeImageIndex === imgIdx
+                            ? 'w-5 bg-emerald-400 shadow-xs'
+                            : 'w-1.5 bg-white/30 hover:bg-white/70'
+                        }`}
+                        title={`Photo ${imgIdx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+
               </div>
-
-              {/* Primary Action Button */}
-              <button
-                type="button"
-                onClick={() => onSelectListing(currentListing)}
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-md hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-98"
-              >
-                <span>View Details & Tour</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
 
             </div>
 
@@ -466,9 +531,10 @@ export default function HotPropertiesShowcase({
                     }`}
                   >
                     <img 
-                      src={thumbImg} 
+                      src={thumbImg || FALLBACK_IMAGE} 
                       alt={item.title} 
-                      className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-700" 
+                      onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                      className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-700 bg-slate-800" 
                     />
                     <div className="min-w-0 flex-1">
                       <div className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-300'}`}>
@@ -485,6 +551,17 @@ export default function HotPropertiesShowcase({
           </div>
 
         </div>
+      )}
+
+      {/* Full-Screen Touch & Pinch-To-Zoom Gallery Modal */}
+      {currentListing && (
+        <FullScreenImageGallery
+          isOpen={showFullScreenGallery}
+          onClose={() => setShowFullScreenGallery(false)}
+          images={images}
+          initialIndex={activeImageIndex}
+          title={currentListing.title}
+        />
       )}
 
     </div>
