@@ -1,100 +1,61 @@
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "User profile record for renters and landlords.",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string", "description": "Firebase Auth UID" },
-        "email": { "type": "string", "description": "Email address" },
-        "name": { "type": "string", "description": "Display name" },
-        "role": { "type": "string", "enum": ["guest", "landlord", "admin"] },
-        "phone": { "type": "string" },
-        "city": { "type": "string" },
-        "country": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["uid", "email"]
+    "listings": {
+      "title": "Property Listings",
+      "description": "Real estate property listings stored permanently in Firestore",
+      "fields": {
+        "id": { "type": "string", "description": "Unique listing ID" },
+        "title": { "type": "string", "description": "Listing title" },
+        "description": { "type": "string", "description": "Listing description" },
+        "price": { "type": "number", "description": "Monthly or annual price in USD" },
+        "pricePeriod": { "type": "string", "description": "Price period (monthly, annual, night)" },
+        "localPrice": { "type": "number", "description": "Price in local currency" },
+        "currency": { "type": "string", "description": "Local currency code (NGN, EUR, GBP, USD, etc.)" },
+        "type": { "type": "string", "description": "Property type category" },
+        "location": { "type": "string", "description": "Full street address / neighborhood location string" },
+        "country": { "type": "string", "description": "Country name" },
+        "state": { "type": "string", "description": "State / Region name" },
+        "city": { "type": "string", "description": "City name" },
+        "lat": { "type": "number", "description": "Latitude coordinate" },
+        "lng": { "type": "number", "description": "Longitude coordinate" },
+        "bedrooms": { "type": "number", "description": "Number of bedrooms" },
+        "bathrooms": { "type": "number", "description": "Number of bathrooms" },
+        "size": { "type": "number", "description": "Property size in square meters" },
+        "amenities": { "type": "array", "description": "List of property amenities" },
+        "images": { "type": "array", "description": "List of photo image URLs" },
+        "landlordId": { "type": "string", "description": "Owner / Manager ID" },
+        "landlordName": { "type": "string", "description": "Owner / Manager contact name" },
+        "contactPhone": { "type": "string", "description": "Contact phone number" },
+        "createdAt": { "type": "number", "description": "Creation timestamp in MS" }
+      }
     },
-    "Listing": {
-      "title": "Listing",
-      "description": "Property rental listing created by landlords.",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string", "maxLength": 200 },
-        "description": { "type": "string", "maxLength": 2000 },
-        "price": { "type": "number" },
-        "location": { "type": "string" },
-        "address": { "type": "string" },
-        "city": { "type": "string" },
-        "country": { "type": "string" },
-        "type": { "type": "string" },
-        "bedrooms": { "type": "number" },
-        "bathrooms": { "type": "number" },
-        "landlordUid": { "type": "string" },
-        "landlordName": { "type": "string" },
-        "contactEmail": { "type": "string" },
-        "isVerified": { "type": "boolean" },
-        "availableFrom": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["title", "description", "price", "location", "landlordUid"]
+    "bookings": {
+      "title": "Tour Bookings & Applications",
+      "description": "Scheduled property tours and tenant rental applications",
+      "fields": {
+        "id": { "type": "string", "description": "Booking ID" },
+        "listingId": { "type": "string", "description": "Target property listing ID" },
+        "listingTitle": { "type": "string", "description": "Property title" },
+        "userName": { "type": "string", "description": "Applicant / Tour attendee name" },
+        "userEmail": { "type": "string", "description": "Applicant email" },
+        "userPhone": { "type": "string", "description": "Applicant phone number" },
+        "preferredDate": { "type": "string", "description": "Tour date" },
+        "preferredTime": { "type": "string", "description": "Tour time slot" },
+        "status": { "type": "string", "description": "Status (pending, confirmed, cancelled)" },
+        "createdAt": { "type": "number", "description": "Booking creation timestamp" }
+      }
     },
-    "Booking": {
-      "title": "Booking",
-      "description": "Rental reservation booking created by renters.",
-      "type": "object",
-      "properties": {
-        "bookingCode": { "type": "string" },
-        "listingId": { "type": "string" },
-        "listingTitle": { "type": "string" },
-        "guestUid": { "type": "string" },
-        "guestEmail": { "type": "string" },
-        "guestName": { "type": "string" },
-        "moveInDate": { "type": "string" },
-        "moveOutDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "confirmed", "approved", "rejected", "cancelled"] },
-        "totalPrice": { "type": "number" },
-        "landlordUid": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["bookingCode", "listingTitle", "guestUid", "guestEmail", "status"]
-    },
-    "MaintenanceRequest": {
-      "title": "MaintenanceRequest",
-      "description": "Maintenance request submitted by renters.",
-      "type": "object",
-      "properties": {
-        "ticketCode": { "type": "string" },
-        "listingTitle": { "type": "string" },
-        "tenantUid": { "type": "string" },
-        "tenantEmail": { "type": "string" },
-        "tenantName": { "type": "string" },
-        "issueTitle": { "type": "string" },
-        "description": { "type": "string" },
-        "status": { "type": "string", "enum": ["Pending Review", "In Progress", "Scheduled", "Resolved"] },
-        "landlordNote": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["ticketCode", "listingTitle", "tenantUid", "tenantEmail", "issueTitle", "status"]
-    }
-  },
-  "firestore": {
-    "/users/{userId}": {
-      "schema": { "$ref": "#/entities/User" },
-      "description": "User profile collection"
-    },
-    "/listings/{listingId}": {
-      "schema": { "$ref": "#/entities/Listing" },
-      "description": "Rental property listings collection"
-    },
-    "/bookings/{bookingId}": {
-      "schema": { "$ref": "#/entities/Booking" },
-      "description": "Bookings collection"
-    },
-    "/maintenanceRequests/{ticketId}": {
-      "schema": { "$ref": "#/entities/MaintenanceRequest" },
-      "description": "Maintenance requests collection"
+    "inquiries": {
+      "title": "Inquiries & Messages",
+      "description": "Messages sent to landlords regarding properties",
+      "fields": {
+        "id": { "type": "string", "description": "Inquiry ID" },
+        "listingId": { "type": "string", "description": "Target listing ID" },
+        "senderName": { "type": "string", "description": "Sender name" },
+        "senderEmail": { "type": "string", "description": "Sender email" },
+        "message": { "type": "string", "description": "Message content" },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      }
     }
   }
 }

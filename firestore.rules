@@ -1,67 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Users collection
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isOwner(userId);
-      allow delete: if false;
-    }
-
-    // Listings collection
+    // Allow public read and write access for property listings
     match /listings/{listingId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (
-        resource.data.landlordUid == request.auth.uid || 
-        request.resource.data.landlordUid == request.auth.uid
-      );
+      allow read, write: if true;
     }
-
-    // Bookings collection
+    
+    // Allow public read and write access for tour bookings and applications
     match /bookings/{bookingId} {
-      allow read: if isSignedIn() && (
-        resource.data.guestUid == request.auth.uid || 
-        resource.data.landlordUid == request.auth.uid
-      );
-      allow create: if isSignedIn() && request.resource.data.guestUid == request.auth.uid;
-      allow update: if isSignedIn() && (
-        resource.data.guestUid == request.auth.uid || 
-        resource.data.landlordUid == request.auth.uid
-      );
-      allow delete: if false;
+      allow read, write: if true;
     }
 
-    // Maintenance requests collection
-    match /maintenanceRequests/{ticketId} {
-      allow read: if isSignedIn() && (
-        resource.data.tenantUid == request.auth.uid || 
-        resource.data.landlordUid == request.auth.uid
-      );
-      allow create: if isSignedIn() && request.resource.data.tenantUid == request.auth.uid;
-      allow update: if isSignedIn() && (
-        resource.data.tenantUid == request.auth.uid || 
-        resource.data.landlordUid == request.auth.uid
-      );
-      allow delete: if false;
+    // Allow public write access for landlord inquiries
+    match /inquiries/{inquiryId} {
+      allow read, write: if true;
+    }
+
+    // Default rule for user profiles and other documents
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

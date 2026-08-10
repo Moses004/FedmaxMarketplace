@@ -1,4 +1,6 @@
 import { Listing, Booking, User, BookingMessage, PropertyReview, PayoutAccount, PayoutTransaction } from '../types';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 // Seed Listings
 const INITIAL_LISTINGS: Listing[] = [
@@ -892,6 +894,66 @@ function saveDeletedListingId(id: string) {
   storage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(Array.from(ids)));
 }
 
+let firestoreSyncInitialized = false;
+
+export function initFirestoreSync() {
+  if (firestoreSyncInitialized || typeof window === 'undefined') return;
+  firestoreSyncInitialized = true;
+
+  try {
+    const listingsRef = collection(db, 'listings');
+    
+    // Listen for real-time updates from Firestore
+    onSnapshot(listingsRef, async (snapshot) => {
+      if (snapshot.empty) {
+        // Seed initial listings into Firestore if database is empty
+        for (const item of INITIAL_LISTINGS) {
+          try {
+            await setDoc(doc(db, 'listings', item.id), item);
+          } catch (e) {
+            console.warn('Failed to seed listing to Firestore:', e);
+          }
+        }
+      } else {
+        const firestoreListings: Listing[] = [];
+        snapshot.forEach((docSnap) => {
+          firestoreListings.push(docSnap.data() as Listing);
+        });
+
+        const deletedIds = getDeletedListingIds();
+        const validListings = firestoreListings.filter(l => !deletedIds.has(l.id));
+
+        const json = JSON.stringify(validListings);
+        storage.setItem(LISTINGS_KEY, json);
+        cachedListingsRaw = json;
+        cachedListingsParsed = validListings;
+        notifyStoreChange();
+      }
+    }, (error) => {
+      console.warn('Firestore snapshot listener warning:', error);
+    });
+
+    const bookingsRef = collection(db, 'bookings');
+    onSnapshot(bookingsRef, (snapshot) => {
+      if (!snapshot.empty) {
+        const firestoreBookings: Booking[] = [];
+        snapshot.forEach((docSnap) => {
+          firestoreBookings.push(docSnap.data() as Booking);
+        });
+        const json = JSON.stringify(firestoreBookings);
+        storage.setItem(BOOKINGS_KEY, json);
+        cachedBookingsRaw = json;
+        cachedBookingsParsed = firestoreBookings;
+        notifyStoreChange();
+      }
+    }, (error) => {
+      console.warn('Firestore bookings snapshot warning:', error);
+    });
+  } catch (err) {
+    console.warn('Firestore sync initialization error:', err);
+  }
+}
+
 export function initializeStore() {
   if (!storage.getItem(LISTINGS_KEY)) {
     storage.setItem(LISTINGS_KEY, JSON.stringify(INITIAL_LISTINGS));
@@ -902,6 +964,9 @@ export function initializeStore() {
   if (!storage.getItem(USERS_KEY)) {
     storage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
   }
+
+  // Start real-time Firestore synchronization
+  initFirestoreSync();
 }
 
 // Ensure storage is set up
@@ -988,6 +1053,16 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
   };
   listings.unshift(newListing);
   saveListings(listings);
+
+  // Sync to Firestore for permanent cloud storage
+  try {
+    setDoc(doc(db, 'listings', newListing.id), newListing).catch(err => {
+      console.warn('Firestore setDoc failed:', err);
+    });
+  } catch (e) {
+    console.warn('Firestore error in createListing:', e);
+  }
+
   return newListing;
 }
 
@@ -996,6 +1071,15 @@ export function deleteListing(id: string) {
   const listings = getListings();
   const filtered = listings.filter(l => l.id !== id);
   saveListings(filtered);
+
+  // Delete from Firestore
+  try {
+    deleteDoc(doc(db, 'listings', id)).catch(err => {
+      console.warn('Firestore deleteDoc failed:', err);
+    });
+  } catch (e) {
+    console.warn('Firestore error in deleteListing:', e);
+  }
 }
 
 export function updateListing(id: string, updatedFields: Partial<Listing>): Listing | null {
@@ -1004,6 +1088,16 @@ export function updateListing(id: string, updatedFields: Partial<Listing>): List
   if (index !== -1) {
     listings[index] = { ...listings[index], ...updatedFields };
     saveListings(listings);
+
+    // Sync to Firestore
+    try {
+      setDoc(doc(db, 'listings', id), listings[index], { merge: true }).catch(err => {
+        console.warn('Firestore setDoc merge failed:', err);
+      });
+    } catch (e) {
+      console.warn('Firestore error in updateListing:', e);
+    }
+
     return listings[index];
   }
   return null;
@@ -1086,6 +1180,16 @@ export function createBooking(booking: Omit<Booking, 'id' | 'createdAt' | 'statu
   };
   bookings.unshift(newBooking);
   saveBookings(bookings);
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'bookings', newBooking.id), newBooking).catch(err => {
+      console.warn('Firestore booking setDoc failed:', err);
+    });
+  } catch (e) {
+    console.warn('Firestore error in createBooking:', e);
+  }
+
   return newBooking;
 }
 
@@ -1095,6 +1199,16 @@ export function updateBookingStatus(bookingId: string, status: 'approved' | 'rej
   if (index !== -1) {
     bookings[index].status = status;
     saveBookings(bookings);
+
+    // Sync to Firestore
+    try {
+      setDoc(doc(db, 'bookings', bookingId), bookings[index], { merge: true }).catch(err => {
+        console.warn('Firestore booking status update failed:', err);
+      });
+    } catch (e) {
+      console.warn('Firestore error in updateBookingStatus:', e);
+    }
+
     return bookings[index];
   }
   return null;
