@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { X, Wrench, AlertTriangle, CheckCircle2, Clock, Building, Send, ShieldAlert, Sparkles, Upload, FileText, Bot, AlertOctagon, Check, ArrowRight } from 'lucide-react';
 import { Booking, Listing } from '../types';
 import { useToast } from '../context/ToastContext';
+import { createMaintenanceRequest } from '../services/databaseService';
+import { addCustomNotification } from '../services/notificationService';
 
 interface ReportMaintenanceModalProps {
   isOpen: boolean;
@@ -159,7 +161,30 @@ export default function ReportMaintenanceModal({
     setIsSubmitting(true);
     const newTicketCode = `TICK-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      await createMaintenanceRequest({
+        ticketCode: newTicketCode,
+        listingTitle: activeBooking?.listingTitle || 'Rental Property',
+        tenantName: userName || 'Tenant User',
+        tenantEmail: userEmail || 'tenant@rentora.com',
+        issueTitle: issueTitle.trim(),
+        description: description.trim(),
+        status: 'Pending Review',
+        landlordNote: triageData?.recommendedAction || ''
+      });
+
+      addCustomNotification({
+        title: `Maintenance Request #${newTicketCode}`,
+        message: `${issueTitle.trim()} - ${activeBooking?.listingTitle || 'Rental Property'}`,
+        category: 'maintenance',
+        priority: priority === 'emergency' || priority === 'high' ? 'urgent' : 'high',
+        actionTab: 'bookings',
+        metadata: {
+          ticketId: newTicketCode,
+          status: 'Pending Review'
+        }
+      });
+
       setIsSubmitting(false);
       setTicketCode(newTicketCode);
       setIsSubmitted(true);

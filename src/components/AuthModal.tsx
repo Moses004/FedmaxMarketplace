@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, login } from '../services/store';
+import { signUpWithSupabase, loginWithSupabase } from '../services/authService';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { sendWelcomeEmail } from '../services/emailService';
 import { useToast } from '../context/ToastContext';
@@ -177,21 +178,19 @@ export default function AuthModal({
       setIsSubmitting(true);
       const fullPhone = phone ? `${phoneCode} ${phone.trim()}` : '';
 
-      setTimeout(() => {
-        const newUser = registerUser({
-          name: name.trim(),
-          email: formattedEmail,
-          role,
-          phone: fullPhone,
-          country,
-          state: stateRegion.trim(),
-          city: city.trim(),
-          postalCode: postalCode.trim(),
-          streetAddress: streetAddress.trim(),
-          taxId: role === 'landlord' ? taxId.trim() : undefined,
-          preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : undefined,
-        });
-
+      signUpWithSupabase({
+        name: name.trim(),
+        email: formattedEmail,
+        role,
+        phone: fullPhone,
+        country,
+        state: stateRegion.trim(),
+        city: city.trim(),
+        postalCode: postalCode.trim(),
+        streetAddress: streetAddress.trim(),
+        taxId: role === 'landlord' ? taxId.trim() : undefined,
+        preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : undefined,
+      }).then((newUser) => {
         // Trigger onboarding welcome email notification asynchronously
         sendWelcomeEmail({
           userEmail: newUser.email,
@@ -210,16 +209,21 @@ export default function AuthModal({
         setIsSubmitting(false);
         onSuccess(newUser);
         onClose();
-      }, 400);
+      }).catch(err => {
+        console.error("Sign up error:", err);
+        setIsSubmitting(false);
+      });
     } else {
       // Login mode
       setIsSubmitting(true);
-      setTimeout(() => {
-        const user = login(formattedEmail, role, name.trim() || undefined);
+      loginWithSupabase(formattedEmail, undefined, role, name.trim() || undefined).then((user) => {
         setIsSubmitting(false);
         onSuccess(user);
         onClose();
-      }, 300);
+      }).catch(err => {
+        console.error("Login error:", err);
+        setIsSubmitting(false);
+      });
     }
   };
 

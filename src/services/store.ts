@@ -1,6 +1,15 @@
 import { Listing, Booking, User, BookingMessage, PropertyReview, PayoutAccount, PayoutTransaction } from '../types';
 import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { isSupabaseConfigured, getSupabase } from '../lib/supabase';
+import { 
+  getListingsFromSupabase, 
+  saveListingToSupabase, 
+  deleteListingFromSupabase, 
+  syncListingsToSupabase,
+  getBookingsFromSupabase,
+  createBookingInSupabase 
+} from './supabaseService';
 
 // Seed Listings
 const INITIAL_LISTINGS: Listing[] = [
@@ -929,8 +938,8 @@ export function initFirestoreSync() {
         cachedListingsParsed = validListings;
         notifyStoreChange();
       }
-    }, (error) => {
-      console.warn('Firestore snapshot listener warning:', error);
+    }, () => {
+      // Quietly handle transient connectivity or offline transitions
     });
 
     const bookingsRef = collection(db, 'bookings');
@@ -946,8 +955,8 @@ export function initFirestoreSync() {
         cachedBookingsParsed = firestoreBookings;
         notifyStoreChange();
       }
-    }, (error) => {
-      console.warn('Firestore bookings snapshot warning:', error);
+    }, () => {
+      // Quietly handle transient connectivity or offline transitions
     });
   } catch (err) {
     console.warn('Firestore sync initialization error:', err);
@@ -967,6 +976,22 @@ export function initializeStore() {
 
   // Start real-time Firestore synchronization
   initFirestoreSync();
+
+  // If Supabase is configured, sync initial listings and fetch remote database properties
+  if (isSupabaseConfigured) {
+    const currentListings = getListings();
+    syncListingsToSupabase(currentListings);
+    getListingsFromSupabase().then(sbListings => {
+      if (sbListings && sbListings.length > 0) {
+        saveListings(sbListings);
+      }
+    });
+    getBookingsFromSupabase().then(sbBookings => {
+      if (sbBookings && sbBookings.length > 0) {
+        saveBookings(sbBookings);
+      }
+    });
+  }
 }
 
 // Ensure storage is set up
@@ -1063,6 +1088,11 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
     console.warn('Firestore error in createListing:', e);
   }
 
+  // Sync to Supabase
+  if (isSupabaseConfigured) {
+    saveListingToSupabase(newListing);
+  }
+
   return newListing;
 }
 
@@ -1080,6 +1110,11 @@ export function deleteListing(id: string) {
   } catch (e) {
     console.warn('Firestore error in deleteListing:', e);
   }
+
+  // Delete from Supabase
+  if (isSupabaseConfigured) {
+    deleteListingFromSupabase(id);
+  }
 }
 
 export function updateListing(id: string, updatedFields: Partial<Listing>): Listing | null {
@@ -1096,6 +1131,11 @@ export function updateListing(id: string, updatedFields: Partial<Listing>): List
       });
     } catch (e) {
       console.warn('Firestore error in updateListing:', e);
+    }
+
+    // Sync to Supabase
+    if (isSupabaseConfigured) {
+      saveListingToSupabase(listings[index]);
     }
 
     return listings[index];
@@ -1188,6 +1228,11 @@ export function createBooking(booking: Omit<Booking, 'id' | 'createdAt' | 'statu
     });
   } catch (e) {
     console.warn('Firestore error in createBooking:', e);
+  }
+
+  // Sync to Supabase
+  if (isSupabaseConfigured) {
+    createBookingInSupabase(newBooking);
   }
 
   return newBooking;

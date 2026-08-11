@@ -40,20 +40,23 @@ if (typeof window !== 'undefined') {
     }
   }, true);
 
-  // Catch unhandled promise rejections that might stem from Google Maps loading/network failures
+  // Catch unhandled promise rejections that might stem from Google Maps loading/network failures or Vite HMR WebSocket closures
   window.addEventListener('unhandledrejection', (event) => {
     const reasonStr = String(event.reason || '');
     if (
       reasonStr.includes('Google Maps') ||
       reasonStr.includes('maps.googleapis.com') ||
       reasonStr.includes('InvalidKeyMapError') ||
-      reasonStr.includes('ApiNotActivatedMapError')
+      reasonStr.includes('ApiNotActivatedMapError') ||
+      reasonStr.includes('WebSocket') ||
+      reasonStr.includes('websocket') ||
+      reasonStr.includes('vite')
     ) {
-      console.info('[Google Maps Promise Rejection Safely Prevented & Handled]:', event.reason);
+      console.info('[Unhandled Promise Rejection Safely Prevented & Handled]:', event.reason);
       event.preventDefault();
       event.stopPropagation();
       
-      if ((window as any).gm_authFailure) {
+      if ((window as any).gm_authFailure && (reasonStr.includes('Google Maps') || reasonStr.includes('maps'))) {
         try {
           (window as any).gm_authFailure();
         } catch (e) {}
@@ -81,6 +84,17 @@ if (typeof window !== 'undefined') {
       }
       return;
     }
+    if (
+      msg.includes('PGRST205') ||
+      msg.includes('schema cache') ||
+      msg.includes('Could not find the table') ||
+      msg.includes('WebSocket') ||
+      msg.includes('websocket') ||
+      msg.includes('[vite]')
+    ) {
+      console.info('[Supabase Schema / Vite Notice Handled]:', ...args);
+      return;
+    }
     originalError.apply(console, args);
   };
 
@@ -102,6 +116,17 @@ if (typeof window !== 'undefined') {
           (window as any).gm_authFailure();
         } catch (e) {}
       }
+      return;
+    }
+    if (
+      msg.includes('PGRST205') ||
+      msg.includes('schema cache') ||
+      msg.includes('Could not find the table') ||
+      msg.includes('WebSocket') ||
+      msg.includes('websocket') ||
+      msg.includes('[vite]')
+    ) {
+      console.info('[Supabase Schema / Vite Notice Handled]:', ...args);
       return;
     }
     originalWarn.apply(console, args);

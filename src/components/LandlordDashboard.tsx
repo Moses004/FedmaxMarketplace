@@ -11,6 +11,7 @@ import {
   getPayoutTransactions, 
   createPayoutTransaction 
 } from '../services/store';
+import { updateProperty, deleteProperty } from '../services/databaseService';
 import PropertyStatusBadge, { STATUS_CONFIG } from './PropertyStatusBadge';
 import { getListingPrices } from '../utils/currency';
 import { 
@@ -118,8 +119,9 @@ export default function LandlordDashboard({
 
   const handleUpdateStatus = (listingId: string, newStatus: ListingStatus) => {
     setStatusUpdatingId(listingId);
-    updateListing(listingId, { status: newStatus });
-    if (onRefreshData) onRefreshData();
+    updateProperty(listingId, { status: newStatus }).then(() => {
+      if (onRefreshData) onRefreshData();
+    });
     showToast(`Property status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
     setTimeout(() => setStatusUpdatingId(null), 400);
   };
@@ -127,8 +129,8 @@ export default function LandlordDashboard({
   const handleConfirmDelete = () => {
     if (!deletingListing) return;
     setIsDeleting(true);
-    setTimeout(() => {
-      deleteListing(deletingListing.id);
+    setTimeout(async () => {
+      await deleteProperty(deletingListing.id);
       setIsDeleting(false);
       const title = deletingListing.title;
       setDeletingListing(null);

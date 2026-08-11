@@ -168,3 +168,26 @@ export interface PayoutTransaction {
   referenceCode: string;
   note?: string;
 }
+
+export type NotificationCategory = 'maintenance' | 'booking' | 'rent_due' | 'system';
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  timestamp: string;
+  isRead: boolean;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  actionTab?: 'explore' | 'dashboard' | 'bookings';
+  metadata?: {
+    bookingId?: string;
+    listingId?: string;
+    propertyTitle?: string;
+    amount?: number;
+    dueDate?: string;
+    ticketId?: string;
+    status?: string;
+  };
+}
+

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Listing, User, Booking } from '../types';
-import { createBooking, getCurrentUser, getReviewsForListing } from '../services/store';
+import { getCurrentUser, getReviewsForListing } from '../services/store';
+import { createBooking } from '../services/databaseService';
 import { sendLandlordBookingNotification } from '../services/emailService';
 import PropertyStatusBadge from './PropertyStatusBadge';
 import { 
@@ -570,7 +571,7 @@ export default function PropertyDetails({
     setEmailNotice(null);
     
     setTimeout(async () => {
-      const newBooking = createBooking({
+      const newBooking = await createBooking({
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images[0],

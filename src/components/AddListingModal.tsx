@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { createListing, getCurrentUser } from '../services/store';
+import { createProperty } from '../services/databaseService';
 import { sendListingCreatedNotification } from '../services/emailService';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
 import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
@@ -393,8 +394,8 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
       lng = baseCoords.lng + randomOffsetLng;
     }
 
-    setTimeout(() => {
-      const newListing = createListing({
+    setTimeout(async () => {
+      const newListing = await createProperty({
         title: title.trim(),
         description: description.trim(),
         price: priceInUSD,

@@ -4,6 +4,8 @@ import {
   getListings, getCurrentUser, login, logout, getBookings, getFavorites, toggleFavorite,
   getListingViews, incrementListingViews
 } from './services/store';
+import { getProperties, getBookings as getDbBookings, subscribeToSupabaseChanges, subscribeToStorageObjects } from './services/databaseService';
+import { getCurrentSupabaseUser } from './services/authService';
 import PropertyMap from './components/PropertyMap';
 import HotPropertiesShowcase from './components/HotPropertiesShowcase';
 import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
@@ -28,6 +30,7 @@ import EmailLogModal from './components/EmailLogModal';
 import CurrencyConverterModal from './components/CurrencyConverterModal';
 import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
 import SavedSearchAlertModal from './components/SavedSearchAlertModal';
+import NotificationBell from './components/NotificationBell';
 import { SEOMetadataManager } from './components/SEOMetadataManager';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
@@ -329,8 +332,20 @@ export default function App() {
   const [bookings, setBookings] = useState<Booking[]>(() => getBookings());
 
   const refreshData = () => {
-    setListings(getListings());
-    setBookings(getBookings());
+    getProperties().then((props) => {
+      if (props && props.length > 0) setListings(props);
+      else setListings(getListings());
+    }).catch(() => {
+      setListings(getListings());
+    });
+
+    getDbBookings().then((bks) => {
+      if (bks && bks.length > 0) setBookings(bks);
+      else setBookings(getBookings());
+    }).catch(() => {
+      setBookings(getBookings());
+    });
+
     setCurrentUser(getCurrentUser());
     setFavorites(getFavorites());
   };
@@ -395,12 +410,30 @@ export default function App() {
 
   useEffect(() => {
     refreshData();
+
+    // Check for active Supabase session on mount
+    getCurrentSupabaseUser().then((sbUser) => {
+      if (sbUser) {
+        setCurrentUser(sbUser);
+      }
+    }).catch(() => {});
+
+    // Real-time Supabase Table & Storage Subscriptions
+    const unsubProperties = subscribeToSupabaseChanges('properties', refreshData);
+    const unsubBookings = subscribeToSupabaseChanges('bookings', refreshData);
+    const unsubMaint = subscribeToSupabaseChanges('maintenance_requests', refreshData);
+    const unsubStorage = subscribeToStorageObjects('property-images', refreshData);
+
     const handleStoreUpdate = () => {
       refreshData();
     };
     window.addEventListener('fedmax_store_change', handleStoreUpdate);
     window.addEventListener('storage', handleStoreUpdate);
     return () => {
+      if (unsubProperties) unsubProperties();
+      if (unsubBookings) unsubBookings();
+      if (unsubMaint) unsubMaint();
+      if (unsubStorage) unsubStorage();
       window.removeEventListener('fedmax_store_change', handleStoreUpdate);
       window.removeEventListener('storage', handleStoreUpdate);
     };
@@ -883,6 +916,14 @@ export default function App() {
                 <Moon className="w-4 h-4 text-slate-700" />
               )}
             </button>
+
+            {/* In-App Notification Bell */}
+            <NotificationBell
+              currentUser={currentUser}
+              bookings={bookings}
+              listings={listings}
+              onNavigateTab={handleTabChange}
+            />
 
             <button
               onClick={() => setShowEmailLogsModal(true)}
