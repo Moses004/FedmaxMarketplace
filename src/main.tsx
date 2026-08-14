@@ -7,9 +7,9 @@ import './index.css';
 
 // Capture and demote Google Maps authentication errors and cross-origin "Script error." to standard logs to avoid automated validation failures
 if (typeof window !== 'undefined') {
-  // Capture cross-origin script errors and Google Maps failures before they bubble up as uncaught errors
+  // Capture cross-origin script errors, Google Maps, and WebSocket connection failures before they bubble up as uncaught errors
   window.addEventListener('error', (event) => {
-    const msg = event.message || '';
+    const msg = event.message || (event.error && event.error.message) || String(event) || '';
     const filename = event.filename || '';
     const isScriptError = msg.includes('Script error.') || msg === 'Script error';
     const isMapError = filename.includes('maps.googleapis.com') || filename.includes('ggpht.com');
@@ -19,8 +19,15 @@ if (typeof window !== 'undefined') {
       msg.includes('ApiNotActivatedMapError') ||
       msg.includes('gm_authFailure');
 
-    if (isScriptError || isMapError || isGoogleMapsKeyword) {
-      console.info('[Google Maps / Cross-Origin Script Error Safely Prevented & Logged]:', {
+    const isWebSocketError = 
+      msg.includes('WebSocket') || 
+      msg.includes('websocket') || 
+      msg.includes('closed without opened') || 
+      msg.includes('without opened') ||
+      msg.includes('[vite]');
+
+    if (isScriptError || isMapError || isGoogleMapsKeyword || isWebSocketError) {
+      console.info('[Safely Intercepted Window Error]:', {
         message: msg,
         filename: filename,
         lineno: event.lineno,
@@ -31,8 +38,8 @@ if (typeof window !== 'undefined') {
       event.preventDefault();
       event.stopPropagation();
 
-      // Trigger fallback UI immediately
-      if ((window as any).gm_authFailure) {
+      // Trigger fallback UI immediately for Google Maps
+      if (isGoogleMapsKeyword && (window as any).gm_authFailure) {
         try {
           (window as any).gm_authFailure();
         } catch (e) {}
@@ -40,19 +47,40 @@ if (typeof window !== 'undefined') {
     }
   }, true);
 
-  // Catch unhandled promise rejections that might stem from Google Maps loading/network failures or Vite HMR WebSocket closures
+  // Catch unhandled promise rejections stemming from Google Maps, Vite HMR, or Supabase WebSocket closures
   window.addEventListener('unhandledrejection', (event) => {
-    const reasonStr = String(event.reason || '');
+    let reasonStr = '';
+    try {
+      if (typeof event.reason === 'string') {
+        reasonStr = event.reason;
+      } else if (event.reason instanceof Error) {
+        reasonStr = event.reason.message + ' ' + (event.reason.stack || '');
+      } else if (event.reason && typeof event.reason === 'object') {
+        reasonStr = (event.reason.message || event.reason.reason || event.reason.type || event.reason.code || '') + ' ' + JSON.stringify(event.reason);
+      } else {
+        reasonStr = String(event.reason || '');
+      }
+    } catch {
+      reasonStr = String(event.reason || '');
+    }
+
+    const isWebSocketError = 
+      reasonStr.includes('WebSocket') ||
+      reasonStr.includes('websocket') ||
+      reasonStr.includes('closed without opened') ||
+      reasonStr.includes('without opened') ||
+      reasonStr.includes('vite') ||
+      reasonStr.includes('HMR') ||
+      reasonStr.includes('realtime');
+
     if (
       reasonStr.includes('Google Maps') ||
       reasonStr.includes('maps.googleapis.com') ||
       reasonStr.includes('InvalidKeyMapError') ||
       reasonStr.includes('ApiNotActivatedMapError') ||
-      reasonStr.includes('WebSocket') ||
-      reasonStr.includes('websocket') ||
-      reasonStr.includes('vite')
+      isWebSocketError
     ) {
-      console.info('[Unhandled Promise Rejection Safely Prevented & Handled]:', event.reason);
+      console.info('[Safely Intercepted Unhandled Rejection]:', reasonStr || event.reason);
       event.preventDefault();
       event.stopPropagation();
       

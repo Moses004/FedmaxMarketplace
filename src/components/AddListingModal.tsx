@@ -5,7 +5,7 @@ import { createProperty } from '../services/databaseService';
 import { sendListingCreatedNotification } from '../services/emailService';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
 import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
-import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity, getCoordinatesForUserLocation } from '../utils/location';
+import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity, getCoordinatesForUserLocation, resolveLocationMeta } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
 
@@ -378,20 +378,31 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     setFieldErrors({});
     setIsSubmitting(true);
 
-    // Use geocoded custom coordinates if set, or seed realistic coordinates near location
+    // Perform canonical location metadata resolution to guarantee valid country, state, city, lat, and lng
+    const meta = resolveLocationMeta(location);
+    const finalCountry = modalCountry !== 'Nigeria' ? modalCountry : (meta.country || modalCountry || 'Nigeria');
+    const finalState = modalState !== 'all' ? modalState : (meta.state || '');
+    const finalCity = modalCity !== 'all' ? modalCity : (meta.city || '');
+
+    // Use geocoded custom coordinates if set, or resolved location coordinates, or seed realistic coordinates
     let lat = customLat;
     let lng = customLng;
     if (lat === null || lng === null) {
-      const baseCoords = getCoordinatesForUserLocation({
-        country: modalCountry,
-        state: modalState !== 'all' ? modalState : undefined,
-        city: modalCity !== 'all' ? modalCity : undefined,
-        streetAddress: location
-      });
-      const randomOffsetLat = (Math.random() - 0.5) * 0.01;
-      const randomOffsetLng = (Math.random() - 0.5) * 0.01;
-      lat = baseCoords.lat + randomOffsetLat;
-      lng = baseCoords.lng + randomOffsetLng;
+      if (meta.lat && meta.lng) {
+        lat = meta.lat;
+        lng = meta.lng;
+      } else {
+        const baseCoords = getCoordinatesForUserLocation({
+          country: finalCountry,
+          state: finalState,
+          city: finalCity,
+          streetAddress: location
+        });
+        const randomOffsetLat = (Math.random() - 0.5) * 0.01;
+        const randomOffsetLng = (Math.random() - 0.5) * 0.01;
+        lat = baseCoords.lat + randomOffsetLat;
+        lng = baseCoords.lng + randomOffsetLng;
+      }
     }
 
     setTimeout(async () => {
@@ -405,9 +416,9 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
         annualDiscountPercentage,
         type,
         location: location.trim(),
-        country: modalCountry,
-        state: modalState !== 'all' ? modalState : '',
-        city: modalCity !== 'all' ? modalCity : '',
+        country: finalCountry,
+        state: finalState,
+        city: finalCity,
         lat,
         lng,
         bedrooms,
@@ -634,6 +645,10 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                             setLocation(sug.formattedAddress);
                             setCustomLat(sug.lat);
                             setCustomLng(sug.lng);
+                            const meta = resolveLocationMeta(sug.formattedAddress);
+                            if (meta.country) setModalCountry(meta.country);
+                            if (meta.state) setModalState(meta.state);
+                            if (meta.city) setModalCity(meta.city);
                             setShowAddressDropdown(false);
                             clearFieldError('location');
                           }}

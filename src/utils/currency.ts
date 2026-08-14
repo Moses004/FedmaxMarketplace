@@ -23,6 +23,80 @@ export const SUPPORTED_CURRENCIES: Record<string, CurrencyInfo> = {
   JPY: { code: 'JPY', symbol: '¥', name: 'Japanese Yen', rateToUSD: 155.0, flag: '🇯🇵' },
 };
 
+const FOREX_CACHE_KEY = 'rentora_live_exchange_rates_v1';
+const FOREX_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+/**
+ * Loads cached exchange rates from localStorage on startup
+ */
+export function loadCachedExchangeRates(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(FOREX_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.rates && typeof parsed.rates === 'object') {
+        Object.keys(parsed.rates).forEach(code => {
+          if (SUPPORTED_CURRENCIES[code] && typeof parsed.rates[code] === 'number') {
+            SUPPORTED_CURRENCIES[code].rateToUSD = parsed.rates[code];
+          }
+        });
+      }
+    }
+  } catch {
+    // Ignore cache load errors
+  }
+}
+
+/**
+ * Fetches live floating exchange rates from public API (open.er-api.com) and updates SUPPORTED_CURRENCIES
+ */
+export async function fetchLiveExchangeRates(forceRefresh = false): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(FOREX_CACHE_KEY);
+    if (raw && !forceRefresh) {
+      const parsed = JSON.parse(raw);
+      if (parsed.updatedAt && (Date.now() - parsed.updatedAt < FOREX_CACHE_TTL_MS)) {
+        return true;
+      }
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const response = await fetch('https://open.er-api.com/v6/latest/USD', { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.rates) {
+        const ratesToSave: Record<string, number> = {};
+        Object.keys(SUPPORTED_CURRENCIES).forEach(code => {
+          if (data.rates[code] && typeof data.rates[code] === 'number') {
+            SUPPORTED_CURRENCIES[code].rateToUSD = data.rates[code];
+            ratesToSave[code] = data.rates[code];
+          }
+        });
+        localStorage.setItem(FOREX_CACHE_KEY, JSON.stringify({
+          rates: ratesToSave,
+          updatedAt: Date.now()
+        }));
+        return true;
+      }
+    }
+  } catch {
+    // Fallback to static baseline rates on network failure or timeout
+  }
+  return false;
+}
+
+// Auto load cached rates on module initial evaluation and trigger background update
+loadCachedExchangeRates();
+if (typeof window !== 'undefined') {
+  fetchLiveExchangeRates().catch(() => {});
+}
+
 export const COUNTRY_TO_CURRENCY_MAP: Record<string, string> = {
   Nigeria: 'NGN',
   'United Kingdom': 'GBP',

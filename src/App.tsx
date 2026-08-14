@@ -196,6 +196,33 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Online / Offline Network Status Listener
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOffline = () => {
+      toast.warning(
+        'Offline Mode Active',
+        'You are currently offline. Local cache is active and changes will sync automatically when connection returns.'
+      );
+    };
+
+    const handleOnline = () => {
+      toast.success(
+        'Connection Restored',
+        'You are back online! Syncing live exchange rates and properties.'
+      );
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   // Dark Mode Theme State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -418,10 +445,13 @@ export default function App() {
       }
     }).catch(() => {});
 
-    // Real-time Supabase Table & Storage Subscriptions
+    // Real-time Supabase Table & Storage Subscriptions across all application entities
     const unsubProperties = subscribeToSupabaseChanges('properties', refreshData);
     const unsubBookings = subscribeToSupabaseChanges('bookings', refreshData);
     const unsubMaint = subscribeToSupabaseChanges('maintenance_requests', refreshData);
+    const unsubProfiles = subscribeToSupabaseChanges('profiles', refreshData);
+    const unsubReviews = subscribeToSupabaseChanges('reviews', refreshData);
+    const unsubFavorites = subscribeToSupabaseChanges('favorites', refreshData);
     const unsubStorage = subscribeToStorageObjects('property-images', refreshData);
 
     const handleStoreUpdate = () => {
@@ -433,6 +463,9 @@ export default function App() {
       if (unsubProperties) unsubProperties();
       if (unsubBookings) unsubBookings();
       if (unsubMaint) unsubMaint();
+      if (unsubProfiles) unsubProfiles();
+      if (unsubReviews) unsubReviews();
+      if (unsubFavorites) unsubFavorites();
       if (unsubStorage) unsubStorage();
       window.removeEventListener('fedmax_store_change', handleStoreUpdate);
       window.removeEventListener('storage', handleStoreUpdate);
@@ -443,15 +476,17 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.country) {
       setSelectedCountryFilter(currentUser.country);
-      if (currentUser.country.toLowerCase() === 'nigeria') {
-        setMapCenter({ lat: 6.4531, lng: 3.3958 }); // Lagos default
-        setMapZoom(11);
-      } else if (currentUser.country.toLowerCase() === 'spain') {
-        setMapCenter({ lat: 40.4167, lng: -3.7037 }); // Madrid default
-        setMapZoom(11);
-      } else if (currentUser.country.toLowerCase() === 'united kingdom') {
-        setMapCenter({ lat: 51.5074, lng: -0.1278 }); // London default
-        setMapZoom(11);
+      if (currentUser.city && currentUser.city !== 'all') {
+        setSelectedCityFilter(currentUser.city);
+      }
+      if (currentUser.state && currentUser.state !== 'all') {
+        setSelectedStateFilter(currentUser.state);
+      }
+      
+      const coords = getCoordinatesForUserLocation(currentUser);
+      if (coords) {
+        setMapCenter({ lat: coords.lat, lng: coords.lng });
+        setMapZoom(12);
       }
     }
   }, [currentUser]);
@@ -508,6 +543,10 @@ export default function App() {
       setMapCenter({ lat: coords.lat, lng: coords.lng });
       setMapZoom(13);
       setSelectedRegionId('near_me');
+      setSelectedCountryFilter('all');
+      setSelectedStateFilter('all');
+      setSelectedCityFilter('all');
+      setSelectedAreaFilter('all');
       if (!maxDistanceKm) setMaxDistanceKm(30);
       toast.success('Location Found', 'Showing properties near your GPS location.');
     } catch (err) {
@@ -638,8 +677,8 @@ export default function App() {
         }
       }
 
-      // Country / State / City Location Scope filter
-      if (locationScopeMode === 'my_location' || (locationScopeMode === 'custom' && selectedCountryFilter && selectedCountryFilter !== 'all')) {
+      // Country / State / City Location Scope filter (bypass when Near Me is active)
+      if (selectedRegionId !== 'near_me' && (locationScopeMode === 'my_location' || (locationScopeMode === 'custom' && selectedCountryFilter && selectedCountryFilter !== 'all'))) {
         const country = locationScopeMode === 'my_location' ? targetCountry : selectedCountryFilter;
 
         if (scopeLevel === 'strict' || scopeLevel === 'country_only') {

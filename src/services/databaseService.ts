@@ -517,13 +517,20 @@ export function subscribeToSupabaseChanges(tableName: string, callback: () => vo
         { event: '*', schema, table: tableName },
         () => callback()
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err || status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Quietly handle channel closure or WebSocket disconnects without unhandled rejections
+          console.info(`[Supabase Realtime Channel Status: ${status} for ${schema}.${tableName}]`, err?.message || '');
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
     };
   } catch (err) {
-    console.warn(`Failed to subscribe to Supabase ${schema}.${tableName} channel:`, err);
+    console.info(`[Supabase ${schema}.${tableName} Subscription Notice]:`, err);
     return null;
   }
 }
@@ -539,13 +546,20 @@ export function subscribeToStorageObjects(bucketId: string, callback: () => void
         { event: '*', schema: 'storage', table: 'objects', filter: `bucket_id=eq.${bucketId}` },
         () => callback()
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err || status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Quietly handle channel closure or WebSocket disconnects without unhandled rejections
+          console.info(`[Supabase Storage Channel Status: ${status} for ${bucketId}]`, err?.message || '');
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
     };
   } catch (err) {
-    console.warn(`Failed to subscribe to storage bucket ${bucketId} channel:`, err);
+    console.info(`[Supabase Storage Bucket ${bucketId} Subscription Notice]:`, err);
     return null;
   }
 }

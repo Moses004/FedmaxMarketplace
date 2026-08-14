@@ -1,6 +1,4 @@
 import { Listing, Booking, User, BookingMessage, PropertyReview, PayoutAccount, PayoutTransaction } from '../types';
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { isSupabaseConfigured, getSupabase } from '../lib/supabase';
 import { 
   getListingsFromSupabase, 
@@ -903,63 +901,22 @@ function saveDeletedListingId(id: string) {
   storage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(Array.from(ids)));
 }
 
-let firestoreSyncInitialized = false;
-
 export function initFirestoreSync() {
-  if (firestoreSyncInitialized || typeof window === 'undefined') return;
-  firestoreSyncInitialized = true;
-
-  try {
-    const listingsRef = collection(db, 'listings');
-    
-    // Listen for real-time updates from Firestore
-    onSnapshot(listingsRef, async (snapshot) => {
-      if (snapshot.empty) {
-        // Seed initial listings into Firestore if database is empty
-        for (const item of INITIAL_LISTINGS) {
-          try {
-            await setDoc(doc(db, 'listings', item.id), item);
-          } catch (e) {
-            console.warn('Failed to seed listing to Firestore:', e);
-          }
-        }
-      } else {
-        const firestoreListings: Listing[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreListings.push(docSnap.data() as Listing);
-        });
-
+  // Legacy Firestore sync disabled - app is now exclusively connected to Supabase database
+  if (isSupabaseConfigured) {
+    getListingsFromSupabase().then(supabaseListings => {
+      if (supabaseListings && supabaseListings.length > 0) {
         const deletedIds = getDeletedListingIds();
-        const validListings = firestoreListings.filter(l => !deletedIds.has(l.id));
-
-        const json = JSON.stringify(validListings);
-        storage.setItem(LISTINGS_KEY, json);
-        cachedListingsRaw = json;
-        cachedListingsParsed = validListings;
-        notifyStoreChange();
+        const validListings = supabaseListings.filter(l => !deletedIds.has(l.id));
+        saveListings(validListings);
       }
-    }, () => {
-      // Quietly handle transient connectivity or offline transitions
-    });
+    }).catch(() => {});
 
-    const bookingsRef = collection(db, 'bookings');
-    onSnapshot(bookingsRef, (snapshot) => {
-      if (!snapshot.empty) {
-        const firestoreBookings: Booking[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreBookings.push(docSnap.data() as Booking);
-        });
-        const json = JSON.stringify(firestoreBookings);
-        storage.setItem(BOOKINGS_KEY, json);
-        cachedBookingsRaw = json;
-        cachedBookingsParsed = firestoreBookings;
-        notifyStoreChange();
+    getBookingsFromSupabase().then(supabaseBookings => {
+      if (supabaseBookings && supabaseBookings.length > 0) {
+        saveBookings(supabaseBookings);
       }
-    }, () => {
-      // Quietly handle transient connectivity or offline transitions
-    });
-  } catch (err) {
-    console.warn('Firestore sync initialization error:', err);
+    }).catch(() => {});
   }
 }
 
@@ -1079,16 +1036,7 @@ export function createListing(listing: Omit<Listing, 'id' | 'landlordId'>): List
   listings.unshift(newListing);
   saveListings(listings);
 
-  // Sync to Firestore for permanent cloud storage
-  try {
-    setDoc(doc(db, 'listings', newListing.id), newListing).catch(err => {
-      console.warn('Firestore setDoc failed:', err);
-    });
-  } catch (e) {
-    console.warn('Firestore error in createListing:', e);
-  }
-
-  // Sync to Supabase
+  // Sync strictly to Supabase database
   if (isSupabaseConfigured) {
     saveListingToSupabase(newListing);
   }
@@ -1102,16 +1050,7 @@ export function deleteListing(id: string) {
   const filtered = listings.filter(l => l.id !== id);
   saveListings(filtered);
 
-  // Delete from Firestore
-  try {
-    deleteDoc(doc(db, 'listings', id)).catch(err => {
-      console.warn('Firestore deleteDoc failed:', err);
-    });
-  } catch (e) {
-    console.warn('Firestore error in deleteListing:', e);
-  }
-
-  // Delete from Supabase
+  // Delete from Supabase database
   if (isSupabaseConfigured) {
     deleteListingFromSupabase(id);
   }
@@ -1124,16 +1063,7 @@ export function updateListing(id: string, updatedFields: Partial<Listing>): List
     listings[index] = { ...listings[index], ...updatedFields };
     saveListings(listings);
 
-    // Sync to Firestore
-    try {
-      setDoc(doc(db, 'listings', id), listings[index], { merge: true }).catch(err => {
-        console.warn('Firestore setDoc merge failed:', err);
-      });
-    } catch (e) {
-      console.warn('Firestore error in updateListing:', e);
-    }
-
-    // Sync to Supabase
+    // Sync strictly to Supabase database
     if (isSupabaseConfigured) {
       saveListingToSupabase(listings[index]);
     }
@@ -1221,16 +1151,7 @@ export function createBooking(booking: Omit<Booking, 'id' | 'createdAt' | 'statu
   bookings.unshift(newBooking);
   saveBookings(bookings);
 
-  // Sync to Firestore
-  try {
-    setDoc(doc(db, 'bookings', newBooking.id), newBooking).catch(err => {
-      console.warn('Firestore booking setDoc failed:', err);
-    });
-  } catch (e) {
-    console.warn('Firestore error in createBooking:', e);
-  }
-
-  // Sync to Supabase
+  // Sync strictly to Supabase database
   if (isSupabaseConfigured) {
     createBookingInSupabase(newBooking);
   }
@@ -1244,15 +1165,6 @@ export function updateBookingStatus(bookingId: string, status: 'approved' | 'rej
   if (index !== -1) {
     bookings[index].status = status;
     saveBookings(bookings);
-
-    // Sync to Firestore
-    try {
-      setDoc(doc(db, 'bookings', bookingId), bookings[index], { merge: true }).catch(err => {
-        console.warn('Firestore booking status update failed:', err);
-      });
-    } catch (e) {
-      console.warn('Firestore error in updateBookingStatus:', e);
-    }
 
     return bookings[index];
   }
