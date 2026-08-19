@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { createListing, getCurrentUser } from '../services/store';
 import { createProperty } from '../services/databaseService';
 import { sendListingCreatedNotification } from '../services/emailService';
-import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User, Building2, Award, Zap } from 'lucide-react';
+import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS, User } from '../types';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User as UserIcon, Building2, Award, Zap } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity, getCoordinatesForUserLocation, resolveLocationMeta } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
@@ -12,6 +11,7 @@ import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, conv
 interface AddListingModalProps {
   onClose: () => void;
   onListingCreated: () => void;
+  currentUser?: User | null;
 }
 
 const PRESET_IMAGES = [
@@ -66,7 +66,7 @@ const compressImageDataUrl = (dataUrl: string, maxWidth = 1024, quality = 0.72):
   });
 };
 
-export default function AddListingModal({ onClose, onListingCreated }: AddListingModalProps) {
+export default function AddListingModal({ onClose, onListingCreated, currentUser }: AddListingModalProps) {
   const [step, setStep] = useState(1);
   const [modalCountry, setModalCountry] = useState<string>('Nigeria');
   const [modalState, setModalState] = useState<string>('Lagos State');
@@ -115,7 +115,6 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
   const [enhanceSuccess, setEnhanceSuccess] = useState(false);
   
   // Lister & Contact Information State
-  const currentUser = getCurrentUser();
   const [contactRole, setContactRole] = useState<'landlord' | 'property_manager' | 'agent'>('landlord');
   const [landlordName, setLandlordName] = useState<string>(currentUser ? (currentUser.name || '') : '');
   const [agentCompany, setAgentCompany] = useState<string>('');
@@ -332,7 +331,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
     setStep(s => s + 1);
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     const priceInUSD = convertCurrencyToUSD(localPrice, listingCurrency);
@@ -405,7 +404,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
       }
     }
 
-    setTimeout(async () => {
+    try {
       const newListing = await createProperty({
         title: title.trim(),
         description: description.trim(),
@@ -453,7 +452,11 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
 
       setIsSubmitting(false);
       onListingCreated();
-    }, 800);
+    } catch (err: any) {
+      console.error('Failed to create property in database:', err);
+      setIsSubmitting(false);
+      setValidationSummary(err.message || 'Database error: Unable to create property listing. Please ensure you are signed in.');
+    }
   };
 
   return (
@@ -1385,7 +1388,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                   <label className="text-[11px] font-bold text-slate-600 block">Who is listing this property?</label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: 'landlord', label: 'Landlord / Owner', icon: User },
+                      { id: 'landlord', label: 'Landlord / Owner', icon: UserIcon },
                       { id: 'property_manager', label: 'Property Management Co.', icon: Building2 },
                       { id: 'agent', label: 'Real Estate Agent', icon: Award }
                     ].map((roleOpt) => {
@@ -1417,7 +1420,7 @@ export default function AddListingModal({ onClose, onListingCreated }: AddListin
                       {contactRole === 'landlord' ? 'Landlord / Owner Name *' : 'Contact Person / Agent Name *'}
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input
                         type="text"
                         value={landlordName}

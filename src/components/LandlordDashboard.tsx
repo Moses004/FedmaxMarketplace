@@ -2,16 +2,12 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Listing, Booking, User, BookingMessage, PayoutAccount, PayoutTransaction, ListingStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { 
-  getListingViews, 
-  updateListing, 
-  deleteListing,
+  updateProperty, 
+  deleteProperty,
   addBookingMessage, 
-  getPayoutAccount, 
-  savePayoutAccount, 
   getPayoutTransactions, 
   createPayoutTransaction 
-} from '../services/store';
-import { updateProperty, deleteProperty } from '../services/databaseService';
+} from '../services/databaseService';
 import PropertyStatusBadge, { STATUS_CONFIG } from './PropertyStatusBadge';
 import { getListingPrices } from '../utils/currency';
 import { 
@@ -117,47 +113,45 @@ export default function LandlordDashboard({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleUpdateStatus = (listingId: string, newStatus: ListingStatus) => {
+  const handleUpdateStatus = async (listingId: string, newStatus: ListingStatus) => {
     setStatusUpdatingId(listingId);
-    updateProperty(listingId, { status: newStatus }).then(() => {
+    try {
+      await updateProperty(listingId, { status: newStatus });
       if (onRefreshData) onRefreshData();
-    });
-    showToast(`Property status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
-    setTimeout(() => setStatusUpdatingId(null), 400);
+      showToast(`Property status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
+    } catch (err: any) {
+      console.error('Failed to update property status in Supabase:', err);
+      showToast(`Error updating status: ${err.message || 'Network error'}`);
+    } finally {
+      setStatusUpdatingId(null);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingListing) return;
     setIsDeleting(true);
-    setTimeout(async () => {
+    try {
       await deleteProperty(deletingListing.id);
-      setIsDeleting(false);
       const title = deletingListing.title;
       setDeletingListing(null);
       if (onRefreshData) onRefreshData();
       showToast(`Listing "${title}" has been permanently deleted.`);
-    }, 400);
+    } catch (err: any) {
+      console.error('Failed to delete property in Supabase:', err);
+      showToast(`Error deleting listing: ${err.message || 'Network error'}`);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Load Payout Data on mount / landlord change
   useEffect(() => {
     if (currentUser?.id) {
-      const acc = getPayoutAccount(currentUser.id);
-      setPayoutAccount(acc);
-      if (acc) {
-        setEditHolderName(acc.accountHolderName);
-        setEditBankName(acc.bankNameOrService);
-        setEditIban(acc.accountNumberOrIban);
-        setEditBic(acc.swiftBic || '');
-        setEditMethod('paystack_bank');
-        if (acc.bankCode) setSelectedBankCode(acc.bankCode);
-        setEditAutoPayoutEnabled(acc.autoPayoutEnabled ?? false);
-        setEditAutoPayoutFrequency(acc.autoPayoutFrequency || 'weekly');
-        setEditAutoPayoutThreshold(acc.autoPayoutThreshold || 250);
-        setEditVerificationStatus(acc.verificationStatus || (acc.isVerified ? 'verified' : 'unverified'));
-      }
-      const txs = getPayoutTransactions(currentUser.id);
-      setPayoutTransactions(txs);
+      getPayoutTransactions(currentUser.id).then((txs) => {
+        setPayoutTransactions(txs || []);
+      }).catch((err) => {
+        console.error('Failed to load payout transactions from database:', err);
+      });
     }
   }, [currentUser]);
 
@@ -328,7 +322,6 @@ export default function LandlordDashboard({
       autoPayoutFrequency: editAutoPayoutFrequency,
       autoPayoutThreshold: editAutoPayoutThreshold
     };
-    savePayoutAccount(currentUser.id, updatedAcc);
     setPayoutAccount(updatedAcc);
     setAccountResolveSuccess('Payout Settings & Automated Transfer Preferences updated.');
     setShowAccountModal(false);
@@ -405,13 +398,11 @@ export default function LandlordDashboard({
     if (!photoManagingListing) return;
     setIsPhotoSaving(true);
 
-    setTimeout(() => {
-      updateListing(photoManagingListing.id, {
-        images: managedImages.length > 0 ? managedImages : [
-          'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'
-        ]
-      });
-
+    updateProperty(photoManagingListing.id, {
+      images: managedImages.length > 0 ? managedImages : [
+        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'
+      ]
+    }).then(() => {
       setIsPhotoSaving(false);
       setPhotoSaveSuccess(true);
 
@@ -420,7 +411,11 @@ export default function LandlordDashboard({
         setPhotoManagingListing(null);
         if (onRefreshData) onRefreshData();
       }, 1200);
-    }, 600);
+    }).catch((err) => {
+      console.error('Failed to save property photos:', err);
+      setIsPhotoSaving(false);
+      showToast(err.message || 'Failed to update photos');
+    });
   };
 
   // 1. Filter landlord listings
@@ -438,9 +433,13 @@ export default function LandlordDashboard({
     return bookings.filter(b => landlordListingsIds.includes(b.listingId));
   }, [bookings, landlordListingsIds]);
 
-  // 3. Load actual views from store
+  // 3. Load actual views from listings
   const viewsMap = useMemo(() => {
-    return getListingViews();
+    const map: Record<string, number> = {};
+    for (const l of listings) {
+      map[l.id] = l.views || 0;
+    }
+    return map;
   }, [listings]);
 
   // 4. Calculate Key Analytics
@@ -635,19 +634,22 @@ export default function LandlordDashboard({
       finalPrice += selectedUpgrades.length * 25; // add premium per upgrade applied
     }
 
-    updateListing(optimizingListing.id, {
+    updateProperty(optimizingListing.id, {
       title: optimizationResult.optimizedTitle,
       description: optimizationResult.optimizedDescription,
       price: finalPrice
+    }).then(() => {
+      setAppliedSuccess(true);
+      setTimeout(() => {
+        setOptimizingListing(null);
+        setOptimizationResult(null);
+        setAppliedSuccess(false);
+        if (onRefreshData) onRefreshData();
+      }, 1500);
+    }).catch((err) => {
+      console.error('Failed to update listing optimization:', err);
+      showToast('Error updating listing with optimization');
     });
-
-    setAppliedSuccess(true);
-    setTimeout(() => {
-      setOptimizingListing(null);
-      setOptimizationResult(null);
-      setAppliedSuccess(false);
-      if (onRefreshData) onRefreshData();
-    }, 1500);
   };
 
   // Quick Reply Draft Assistant trigger
@@ -684,23 +686,28 @@ export default function LandlordDashboard({
     }
   };
 
-  const handleSendDraftedReply = () => {
+  const handleSendDraftedReply = async () => {
     if (!draftingBooking || !draftedReply) return;
     
-    // Simulate sending message in store
-    addBookingMessage(draftingBooking.id, {
-      senderId: currentUser?.id || 'landlord-1',
-      senderName: currentUser?.name || 'Carlos Silva',
-      text: draftedReply
-    });
+    try {
+      await addBookingMessage(draftingBooking.id, {
+        senderId: currentUser?.id || 'landlord-1',
+        senderName: currentUser?.name || 'Landlord',
+        senderRole: 'landlord',
+        text: draftedReply
+      });
 
-    setSentReplySuccess(true);
-    setTimeout(() => {
-      setDraftingBooking(null);
-      setDraftedReply('');
-      setSentReplySuccess(false);
-      if (onRefreshData) onRefreshData();
-    }, 1500);
+      setSentReplySuccess(true);
+      setTimeout(() => {
+        setDraftingBooking(null);
+        setDraftedReply('');
+        setSentReplySuccess(false);
+        if (onRefreshData) onRefreshData();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to send drafted reply:', err);
+      showToast('Error sending message');
+    }
   };
 
   const handleCopyDraftReply = () => {
@@ -770,7 +777,7 @@ export default function LandlordDashboard({
       }
     }
 
-    const newTx = createPayoutTransaction(currentUser.id, amountNum, payoutAccount);
+    const newTx = await createPayoutTransaction(currentUser.id, amountNum, payoutAccount);
     if (liveRefCode) {
       newTx.referenceCode = liveRefCode;
     }
@@ -1116,14 +1123,20 @@ Disbursement Status:${tx.status.toUpperCase()}
 
                     <button
                       type="button"
-                      onClick={() => {
-                        addBookingMessage(b.id, {
-                          senderId: currentUser?.id || 'landlord-1',
-                          senderName: currentUser?.name || 'Landlord',
-                          text: `🔔 Gentle Rent Reminder: Your upcoming ${b.billingCycle === 'annual' ? 'annual' : 'monthly'} rent payment for "${b.listingTitle}" is due on ${b.nextPaymentDueDate || 'Aug 8, 2026'}. Please settle it via your My Bookings tab.`
-                        });
-                        toast.success('Rent Payment Nudge Dispatched', `Sent polite payment reminder to ${b.guestName}.`);
-                        if (onRefreshData) onRefreshData();
+                      onClick={async () => {
+                        try {
+                          await addBookingMessage(b.id, {
+                            senderId: currentUser?.id || 'landlord-1',
+                            senderName: currentUser?.name || 'Landlord',
+                            senderRole: 'landlord',
+                            text: `🔔 Gentle Rent Reminder: Your upcoming ${b.billingCycle === 'annual' ? 'annual' : 'monthly'} rent payment for "${b.listingTitle}" is due on ${b.nextPaymentDueDate || 'Aug 8, 2026'}. Please settle it via your My Bookings tab.`
+                          });
+                          toast.success('Rent Payment Nudge Dispatched', `Sent polite payment reminder to ${b.guestName}.`);
+                          if (onRefreshData) onRefreshData();
+                        } catch (err) {
+                          console.error('Failed to send nudge message:', err);
+                          toast.error('Nudge Error', 'Failed to send reminder.');
+                        }
                       }}
                       className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
                     >

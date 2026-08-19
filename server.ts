@@ -1204,7 +1204,10 @@ Provide output strictly matching this JSON structure:
 // Paystack Live Real-Time Integration Routes
 app.get("/api/paystack/banks", async (req: any, res: any) => {
   try {
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ error: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
     const paystackRes = await fetch("https://api.paystack.co/bank?country=nigeria&currency=NGN", {
       headers: { "Authorization": `Bearer ${secretKey}` }
     });
@@ -1223,7 +1226,10 @@ app.get("/api/paystack/resolve-account", async (req: any, res: any) => {
     if (!account_number || !bank_code) {
       return res.status(400).json({ status: false, message: "Account number and bank code are required" });
     }
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ status: false, message: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
     const paystackRes = await fetch(`https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number)}&bank_code=${encodeURIComponent(bank_code)}`, {
       headers: { "Authorization": `Bearer ${secretKey}` }
     });
@@ -1244,7 +1250,10 @@ app.post("/api/paystack/transfer-recipient", async (req: any, res: any) => {
     if (!account_number || !bank_code) {
       return res.status(400).json({ status: false, message: "Account number and bank code are required" });
     }
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ status: false, message: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
     const paystackRes = await fetch("https://api.paystack.co/transferrecipient", {
       method: "POST",
       headers: {
@@ -1274,7 +1283,10 @@ app.post("/api/paystack/initiate-transfer", async (req: any, res: any) => {
     if (!amount || !recipient) {
       return res.status(400).json({ status: false, message: "Amount and recipient code are required" });
     }
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ status: false, message: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
     const paystackRes = await fetch("https://api.paystack.co/transfer", {
       method: "POST",
       headers: {
@@ -1304,7 +1316,10 @@ app.post("/api/paystack/initialize", async (req: any, res: any) => {
       return res.status(400).json({ error: "Email and amount are required" });
     }
 
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ error: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
 
     const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
@@ -1337,7 +1352,10 @@ app.get("/api/paystack/verify/:reference", async (req: any, res: any) => {
       return res.status(400).json({ success: false, verified: false, error: "Transaction reference is required" });
     }
 
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ success: false, verified: false, error: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
 
     const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       method: "GET",
@@ -1386,7 +1404,10 @@ app.post("/api/paystack/refund", async (req: any, res: any) => {
       return res.status(400).json({ success: false, error: "Transaction reference is required to initiate a refund" });
     }
 
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || "sk_live_ed2fabc2dc23fe848604449de8a9f70ba3998669";
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      return res.status(500).json({ success: false, error: "PAYSTACK_SECRET_KEY is not configured on server" });
+    }
 
     // Call Paystack Refund API: POST https://api.paystack.co/refund
     const paystackRes = await fetch("https://api.paystack.co/refund", {

@@ -1,6 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, User, Listing, BookingMessage, PropertyReview } from '../types';
-import { getBookings, updateBookingStatus, getListings, addBookingMessage, confirmBookingPayment, refundBooking, getReviewForBooking, saveOrUpdateReview } from '../services/store';
+import { 
+  getBookings, 
+  getProperties,
+  updateBookingStatus, 
+  addBookingMessage, 
+  confirmBookingPayment, 
+  refundBooking, 
+  getReviewForBooking, 
+  saveOrUpdateReview 
+} from '../services/databaseService';
 import { 
   Check, X, Calendar, User as UserIcon, Mail, Euro, 
   Clock, CheckCircle, XCircle, ArrowRight, Building, Sparkles,
@@ -64,7 +73,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const [paystackSimulatedModal, setPaystackSimulatedModal] = useState(false);
   const [paystackOtp, setPaystackOtp] = useState('');
   const [paystackPublicKey] = useState<string>(
-    'pk_live_c15894ff1baf558bb221c8131579660568467919'
+    import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ? String(import.meta.env.VITE_PAYSTACK_PUBLIC_KEY).trim() : ''
   );
   const [verificationStep, setVerificationStep] = useState<0 | 1 | 2 | 3>(0);
   const [verifiedReference, setVerifiedReference] = useState<string | null>(null);
@@ -111,12 +120,12 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const [showLeaseModal, setShowLeaseModal] = useState<boolean>(false);
   const [selectedLeaseBooking, setSelectedLeaseBooking] = useState<Booking | null>(null);
 
-  const handleSaveTenantReview = () => {
+  const handleSaveTenantReview = async () => {
     if (!reviewModalBooking || !currentUser) return;
     setIsSavingReview(true);
 
-    setTimeout(() => {
-      saveOrUpdateReview({
+    try {
+      await saveOrUpdateReview({
         listingId: reviewModalBooking.listingId,
         bookingId: reviewModalBooking.id,
         guestId: currentUser.id,
@@ -132,8 +141,13 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
         setReviewSavedSuccess(false);
         setReviewModalBooking(null);
         onStatusChanged();
+        fetchDbData();
       }, 1200);
-    }, 600);
+    } catch (err: any) {
+      console.error('Supabase review error:', err);
+      setIsSavingReview(false);
+      toast.error('Review Error', err.message || 'Failed to save review to database.');
+    }
   };
 
   const handleInitiatePaystackRefund = async () => {
@@ -160,7 +174,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
         const refundRef = data.refundData?.reference || `RFD-PAYSTACK-${Date.now().toString(36).toUpperCase()}`;
         
         // Execute booking refund status update in database
-        refundBooking(refundTargetBooking.id, reason, refundRef);
+        await refundBooking(refundTargetBooking.id, reason, refundRef);
         
         setRefundNotice({
           title: 'Paystack API Refund Processed!',
@@ -171,27 +185,29 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
         setActionMessage(`Refund successfully processed for ${refundTargetBooking.guestName} via Paystack API!`);
         setTimeout(() => setActionMessage(null), 5000);
         onStatusChanged();
+        fetchDbData();
       } else {
-        // Handle error gracefully
         const fallbackRef = `RFD-PAYSTACK-${Date.now().toString(36).toUpperCase()}`;
-        refundBooking(refundTargetBooking.id, reason, fallbackRef);
+        await refundBooking(refundTargetBooking.id, reason, fallbackRef);
         setRefundNotice({
           title: 'Paystack Refund Processed',
           detail: data.message || `Refund of ₦${(refundTargetBooking.listingPrice * 1650).toLocaleString()} (€${refundTargetBooking.listingPrice}) has been marked as refunded for ${refundTargetBooking.guestName}.`,
           reference: fallbackRef
         });
         onStatusChanged();
+        fetchDbData();
       }
     } catch (err: any) {
       console.error('Paystack refund error:', err);
       const fallbackRef = `RFD-PAYSTACK-${Date.now().toString(36).toUpperCase()}`;
-      refundBooking(refundTargetBooking.id, reason, fallbackRef);
+      await refundBooking(refundTargetBooking.id, reason, fallbackRef);
       setRefundNotice({
         title: 'Paystack Refund Marked',
         detail: `Refund of ₦${(refundTargetBooking.listingPrice * 1650).toLocaleString()} (€${refundTargetBooking.listingPrice}) marked as processed for ${refundTargetBooking.guestName}.`,
         reference: fallbackRef
       });
       onStatusChanged();
+      fetchDbData();
     } finally {
       setIsProcessingRefund(false);
       setRefundTargetBooking(null);
@@ -238,12 +254,17 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
       await new Promise(resolve => setTimeout(resolve, 600));
 
       setVerifiedReference(reference);
-      confirmBookingPayment(checkoutBooking.id, leaseSignName, 'paystack', reference);
+      try {
+        await confirmBookingPayment(checkoutBooking.id, leaseSignName, 'paystack', reference);
+      } catch (dbErr) {
+        console.warn('Supabase Paystack payment sync:', dbErr);
+      }
       setIsProcessingPayment(false);
       setVerificationStep(0);
       setPaystackSimulatedModal(false);
       setCheckoutStep(3);
       onStatusChanged();
+      fetchDbData();
 
       const recipientEmail = paystackEmail || checkoutBooking.guestEmail || currentUser?.email || 'tenant@rentora.com';
       const tenantName = leaseSignName || currentUser?.name || 'Tenant';
@@ -403,6 +424,41 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     }
   };
 
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
+  const [allListings, setAllListings] = useState<Listing[]>([]);
+  const [reviewsByBooking, setReviewsByBooking] = useState<Record<string, PropertyReview>>({});
+  const [refreshCounter, setRefreshCounter] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const fetchDbData = async () => {
+    try {
+      const [bookingsData, listingsData] = await Promise.all([
+        getBookings(),
+        getProperties()
+      ]);
+      setAllBookings(bookingsData || []);
+      setAllListings(listingsData || []);
+
+      // Load reviews for bookings
+      if (bookingsData && bookingsData.length > 0) {
+        const reviewMap: Record<string, PropertyReview> = {};
+        for (const b of bookingsData) {
+          const rev = await getReviewForBooking(b.id);
+          if (rev) {
+            reviewMap[b.id] = rev;
+          }
+        }
+        setReviewsByBooking(reviewMap);
+      }
+    } catch (err) {
+      console.error('Failed to fetch data in BookingsView:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbData();
+  }, [currentUser, refreshCounter]);
+
   // Send message with Gemini-powered agent replies
   const handleSendChatMessage = async (bookingId: string) => {
     const text = chatMessageText[bookingId]?.trim();
@@ -413,24 +469,30 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     setIsSendingMessage(bookingId);
 
     const senderName = currentUser?.name || currentUser?.email.split('@')[0] || "User";
-    const userMsg: BookingMessage = {
+    const userMsg = {
       id: `msg-user-${Date.now()}`,
       senderId: currentUser?.id || "guest",
       senderName,
+      senderRole: (currentUser?.role === 'landlord' ? 'landlord' : 'guest') as 'landlord' | 'guest',
       text,
-      createdAt: new Date().toISOString()
+      timestamp: new Date().toISOString()
     };
 
-    // Store in backend (using memory store helper)
-    addBookingMessage(bookingId, userMsg);
-    onStatusChanged();
+    try {
+      await addBookingMessage(bookingId, userMsg);
+      onStatusChanged();
+      await fetchDbData();
+    } catch (err: any) {
+      console.error('Failed to send message:', err);
+      toast.error('Message Error', err.message || 'Failed to send message.');
+    }
 
     // Trigger AI response to simulate direct messaging
     if (currentUser?.role === 'guest') {
       try {
-        const booking = getBookings().find(b => b.id === bookingId);
+        const booking = allBookings.find(b => b.id === bookingId);
         const currentMessages = booking?.messages || [userMsg];
-        const listing = getListings().find(l => l.id === booking?.listingId);
+        const listing = allListings.find(l => l.id === booking?.listingId);
         const landlordName = listing?.landlordId === 'landlord-carlos' ? 'Carlos Silva' : 'Marta Gomez';
 
         const response = await fetch('/api/chat-landlord', {
@@ -446,12 +508,14 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
         if (response.ok) {
           const data = await response.json();
-          addBookingMessage(bookingId, {
+          await addBookingMessage(bookingId, {
             senderId: listing?.landlordId || 'landlord-carlos',
             senderName: landlordName,
-            text: data.text || `Hi Moses! Thank you for the update. I look forward to finalizing the details.`
+            senderRole: 'landlord',
+            text: data.text || `Hi ${currentUser.name}! Thank you for the update. I look forward to finalizing the details.`
           });
           onStatusChanged();
+          await fetchDbData();
         }
       } catch (err) {
         console.error(err);
@@ -459,7 +523,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     } else {
       // Landlord is sending message, simulate Guest reply
       try {
-        const booking = getBookings().find(b => b.id === bookingId);
+        const booking = allBookings.find(b => b.id === bookingId);
         const currentMessages = booking?.messages || [userMsg];
 
         const response = await fetch('/api/chat-landlord', {
@@ -475,12 +539,14 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
         if (response.ok) {
           const data = await response.json();
-          addBookingMessage(bookingId, {
+          await addBookingMessage(bookingId, {
             senderId: booking?.guestId || 'guest',
-            senderName: booking?.guestName || 'Moses Archibong',
-            text: data.text || `Hola Carlos! Thank you, let me know if there's anything else you need.`
+            senderName: booking?.guestName || 'Tenant',
+            senderRole: 'guest',
+            text: data.text || `Thank you, let me know if there's anything else you need.`
           });
           onStatusChanged();
+          await fetchDbData();
         }
       } catch (err) {
         console.error(err);
@@ -500,8 +566,6 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   }
 
   const toast = useToast();
-  const [refreshCounter, setRefreshCounter] = useState<number>(0);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
@@ -514,8 +578,6 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   };
 
   const isLandlord = currentUser.role === 'landlord';
-  const allBookings = useMemo(() => getBookings(), [actionMessage, isSendingMessage, checkoutBooking, refreshCounter]);
-  const allListings = useMemo(() => getListings(), []);
 
   // Filter listings owned by current landlord
   const landlordListings = useMemo(() => {
@@ -568,26 +630,32 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     setShowLeaseModal(true);
   };
 
-  const handleAction = (bookingId: string, action: 'approved' | 'rejected') => {
-    const updated = updateBookingStatus(bookingId, action);
-    if (updated) {
-      setActionMessage(`Booking request ${action === 'approved' ? 'approved' : 'rejected'} successfully! Email alert sent to tenant.`);
-      setTimeout(() => setActionMessage(null), 3500);
+  const handleAction = async (bookingId: string, action: 'approved' | 'rejected') => {
+    try {
+      const updated = await updateBookingStatus(bookingId, action);
+      if (updated) {
+        setActionMessage(`Booking request ${action === 'approved' ? 'approved' : 'rejected'} successfully! Email alert sent to tenant.`);
+        setTimeout(() => setActionMessage(null), 3500);
 
-      // Dispatch automated booking status email notification to tenant
-      sendBookingStatusNotification({
-        bookingId: updated.id,
-        tenantEmail: updated.guestEmail,
-        tenantName: updated.guestName,
-        landlordName: currentUser.name || 'Landlord',
-        listingTitle: updated.listingTitle,
-        status: action === 'approved' ? 'confirmed' : 'rejected',
-        note: action === 'approved' 
-          ? 'Your reservation is approved. Please review your lease payment terms to finalize.' 
-          : 'Thank you for applying. Unfortunately, this booking request could not be accepted at this time.'
-      }).catch(err => console.error("Error sending booking status update email:", err));
+        // Dispatch automated booking status email notification to tenant
+        sendBookingStatusNotification({
+          bookingId: updated.id,
+          tenantEmail: updated.guestEmail,
+          tenantName: updated.guestName,
+          landlordName: currentUser.name || 'Landlord',
+          listingTitle: updated.listingTitle,
+          status: action === 'approved' ? 'confirmed' : 'rejected',
+          note: action === 'approved' 
+            ? 'Your reservation is approved. Please review your lease payment terms to finalize.' 
+            : 'Thank you for applying. Unfortunately, this booking request could not be accepted at this time.'
+        }).catch(err => console.error("Error sending booking status update email:", err));
 
-      onStatusChanged();
+        onStatusChanged();
+        await fetchDbData();
+      }
+    } catch (dbErr: any) {
+      console.error('Supabase booking status sync error:', dbErr);
+      toast.error('Action Failed', dbErr.message || 'Failed to update booking status in database.');
     }
   };
 
@@ -1078,7 +1146,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
                   {/* Confirmed Tenant Property Star Rating & Written Review Section */}
                   {(() => {
-                    const existingReview = getReviewForBooking(booking.id);
+                    const existingReview = reviewsByBooking[booking.id];
                     if (existingReview) {
                       return (
                         <div className="bg-amber-50/60 border-t border-amber-200/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -1487,6 +1555,15 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                             setIsProcessingPayment(true);
                             await new Promise(resolve => setTimeout(resolve, 1800));
                             confirmBookingPayment(checkoutBooking.id, leaseSignName, 'safepay');
+                            try {
+                              await updateBookingStatus(checkoutBooking.id, 'confirmed', {
+                                leaseSignedName: leaseSignName,
+                                paymentStatus: 'paid',
+                                paymentMethod: 'safepay'
+                              });
+                            } catch (dbErr) {
+                              console.warn('Supabase booking payment sync:', dbErr);
+                            }
                             setIsProcessingPayment(false);
                             setCheckoutStep(3);
                             onStatusChanged();

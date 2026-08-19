@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
-import { registerUser, login } from '../services/store';
 import { signUpWithSupabase, loginWithSupabase } from '../services/authService';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { sendWelcomeEmail } from '../services/emailService';
@@ -45,11 +44,12 @@ export default function AuthModal({
   const [phone, setPhone] = useState('');
   
   // Location fields (Required in sign up)
-  const [selectedCountryObj, setSelectedCountryObj] = useState<CountryData>(GLOBAL_COUNTRIES[0]); // Spain default
-  const [country, setCountry] = useState('Spain');
-  const [stateRegion, setStateRegion] = useState('Community of Madrid');
-  const [city, setCity] = useState('Madrid');
-  const [postalCode, setPostalCode] = useState('');
+  const defaultCountry = GLOBAL_COUNTRIES.find((c) => c.name === 'Nigeria') || GLOBAL_COUNTRIES[0];
+  const [selectedCountryObj, setSelectedCountryObj] = useState<CountryData>(defaultCountry);
+  const [country, setCountry] = useState('Nigeria');
+  const [stateRegion, setStateRegion] = useState('Lagos State');
+  const [city, setCity] = useState('Lagos');
+  const [postalCode, setPostalCode] = useState('100001');
   const [streetAddress, setStreetAddress] = useState('');
 
   // Country Search Dropdown State
@@ -57,8 +57,8 @@ export default function AuthModal({
   const [countrySearchFilter, setCountrySearchFilter] = useState('');
 
   // Target Search Market State
-  const [preferredMoveInRegion, setPreferredMoveInRegion] = useState('Madrid, Spain');
-  const [marketSearchInput, setMarketSearchInput] = useState('Madrid, Spain');
+  const [preferredMoveInRegion, setPreferredMoveInRegion] = useState('Lagos, Nigeria');
+  const [marketSearchInput, setMarketSearchInput] = useState('Lagos, Nigeria');
   const [showMarketDropdown, setShowMarketDropdown] = useState(false);
   const [geocodedMarketResults, setGeocodedMarketResults] = useState<GeocodedAddress[]>([]);
   const [isSearchingMarket, setIsSearchingMarket] = useState(false);
@@ -211,6 +211,8 @@ export default function AuthModal({
         onClose();
       }).catch(err => {
         console.error("Sign up error:", err);
+        setErrorMsg(err.message || 'Failed to complete registration. Please try again.');
+        toast.error('Registration Failed', err.message || 'Unable to register account.');
         setIsSubmitting(false);
       });
     } else {
@@ -222,6 +224,8 @@ export default function AuthModal({
         onClose();
       }).catch(err => {
         console.error("Login error:", err);
+        setErrorMsg(err.message || 'Invalid email or password. Please verify your credentials.');
+        toast.error('Login Failed', err.message || 'Invalid login credentials.');
         setIsSubmitting(false);
       });
     }

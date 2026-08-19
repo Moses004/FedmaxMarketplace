@@ -30,6 +30,7 @@ export interface Listing {
   type: PropertyType;
   location: string;
   country?: string; // e.g. "Nigeria", "Spain", "United Kingdom"
+  region?: string;  // e.g. "South West", "South East", "Community of Madrid"
   state?: string;   // e.g. "Lagos State", "FCT Abuja", "Community of Madrid"
   city?: string;    // e.g. "Lagos", "Abuja", "Madrid"
   lat: number;
@@ -58,6 +59,7 @@ export interface Listing {
   solarPowered?: boolean;
   hvacType?: string;
   insulationQuality?: 'High' | 'Standard' | 'Basic';
+  views?: number;
 }
 
 export const PROPERTY_CATEGORY_OPTIONS: { id: PropertyType; label: string; description: string }[] = [
@@ -132,6 +134,7 @@ export interface User {
   role: 'guest' | 'landlord';
   phone?: string;
   country?: string;
+  region?: string;
   state?: string;
   city?: string;
   postalCode?: string;

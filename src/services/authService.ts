@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { User } from '../types';
-import { registerUser, login, logout } from './store';
+import { getProfile, updateProfile } from './profileService';
+import { deriveRegionFromLocation } from '../utils/location';
 
 export interface SignUpParams {
   name: string;
@@ -18,74 +19,61 @@ export interface SignUpParams {
 }
 
 /**
- * Sign up user with Supabase Auth & create/sync profile
+ * Sign up user with Supabase Auth, write public.profiles record, and return database user.
  */
 export async function signUpWithSupabase(params: SignUpParams): Promise<User> {
-  const defaultPassword = params.password || 'RentoraPass2026!';
+  const password = params.password || 'RentoraPass2026!';
+  const country = params.country || 'Nigeria';
+  const state = params.state || '';
+  const city = params.city || '';
+  const region = deriveRegionFromLocation({ country, state, city });
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: params.email,
-        password: defaultPassword,
-        options: {
-          data: {
-            full_name: params.name,
-            role: params.role,
-            phone: params.phone,
-            country: params.country,
-            city: params.city,
-            state: params.state,
-          },
-        },
-      });
+  const { data, error } = await supabase.auth.signUp({
+    email: params.email,
+    password: password,
+    options: {
+      data: {
+        full_name: params.name,
+        role: params.role,
+        phone: params.phone,
+        country: country,
+        region: region,
+        city: city,
+        state: state,
+      },
+    },
+  });
 
-      if (error) {
-        console.warn('Supabase auth signUp warning:', error.message);
-      } else if (data.user) {
-        // Upsert metadata profile in public.profiles table
-        try {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            email: params.email,
-            full_name: params.name,
-            phone: params.phone || null,
-            role: params.role,
-            country: params.country || 'Nigeria',
-            state: params.state || null,
-            city: params.city || null,
-            street_address: params.streetAddress || null,
-            preferred_move_in_region: params.preferredMoveInRegion || null,
-          }, { onConflict: 'id' });
-        } catch (profileErr) {
-          console.warn('Profile sync warning:', profileErr);
-        }
-      }
-    } catch (err) {
-      console.warn('Supabase signUp error, falling back to local store register:', err);
-    }
+  if (error) {
+    console.error('Supabase auth signUp error:', error.message);
+    throw new Error(error.message || 'Registration failed.');
   }
 
-  // Register in local store for immediate UI reactivity
-  const localUser = registerUser({
+  if (!data.user) {
+    throw new Error('Registration failed: No user returned by authentication provider.');
+  }
+
+  // Create/Update profile in public.profiles table
+  const user = await updateProfile(data.user.id, {
     name: params.name,
     email: params.email,
     role: params.role,
     phone: params.phone,
-    country: params.country,
-    state: params.state,
-    city: params.city,
+    country: country,
+    region: region,
+    state: state,
+    city: city,
     postalCode: params.postalCode,
     streetAddress: params.streetAddress,
     taxId: params.taxId,
     preferredMoveInRegion: params.preferredMoveInRegion,
   });
 
-  return localUser;
+  return user;
 }
 
 /**
- * Log in user with Supabase Auth
+ * Log in user with Supabase Auth, load public.profiles record, and return authenticated user.
  */
 export async function loginWithSupabase(
   email: string,
@@ -93,87 +81,76 @@ export async function loginWithSupabase(
   role: 'guest' | 'landlord' = 'guest',
   name?: string
 ): Promise<User> {
-  const defaultPassword = password || 'RentoraPass2026!';
+  const loginPassword = password || 'RentoraPass2026!';
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: defaultPassword,
-      });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password: loginPassword,
+  });
 
-      if (error) {
-        console.warn('Supabase signInWithPassword warning:', error.message);
-      } else if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile) {
-          return login(profile.email, (profile.role as any) || role, profile.full_name || name);
-        }
-      }
-    } catch (err) {
-      console.warn('Supabase login error, falling back to local login:', err);
-    }
+  if (error) {
+    console.error('Supabase signInWithPassword error:', error.message);
+    throw new Error(error.message || 'Invalid login credentials.');
   }
 
-  // Fallback / sync local login
-  return login(email, role, name);
+  if (!data.user) {
+    throw new Error('Login failed: Unable to establish user session.');
+  }
+
+  // Load database profile
+  let profile = await getProfile(data.user.id);
+
+  // If profile doesn't exist yet, bootstrap it from user metadata
+  if (!profile) {
+    profile = await updateProfile(data.user.id, {
+      name: name || data.user.user_metadata?.full_name || data.user.user_metadata?.name || 'Rentora User',
+      email: data.user.email || email,
+      role: (data.user.user_metadata?.role as any) || role,
+      phone: data.user.user_metadata?.phone,
+      country: data.user.user_metadata?.country || 'Nigeria',
+      state: data.user.user_metadata?.state,
+      city: data.user.user_metadata?.city,
+    });
+  }
+
+  return profile;
 }
 
 /**
- * Log out user from Supabase Auth & clear local session
+ * Log out user from Supabase Auth & terminate session.
  */
 export async function logoutWithSupabase(): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('Supabase signOut error:', err);
-    }
-  }
-
-  if (typeof logout === 'function') {
-    logout();
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Supabase signOut error:', error);
+    throw new Error(error.message || 'Logout failed.');
   }
 }
 
 /**
- * Get current active user session from Supabase
+ * Get current active user session and verified database profile from Supabase.
  */
 export async function getCurrentSupabaseUser(): Promise<User | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return null;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (profile) {
-      return {
-        id: profile.id,
-        name: profile.full_name || 'User',
-        email: profile.email,
-        role: profile.role || 'guest',
-        phone: profile.phone,
-        country: profile.country,
-        state: profile.state,
-        city: profile.city,
-        streetAddress: profile.street_address,
-        preferredMoveInRegion: profile.preferred_move_in_region,
-      };
+    let profile = await getProfile(user.id);
+    if (!profile) {
+      profile = await updateProfile(user.id, {
+        name: user.user_metadata?.full_name || user.user_metadata?.name || 'Rentora User',
+        email: user.email || '',
+        role: (user.user_metadata?.role as any) || 'guest',
+        phone: user.user_metadata?.phone,
+        country: user.user_metadata?.country || 'Nigeria',
+        state: user.user_metadata?.state,
+        city: user.user_metadata?.city,
+      });
     }
-  } catch (err) {
-    console.warn('getCurrentSupabaseUser error:', err);
-  }
 
-  return null;
+    return profile;
+  } catch (err) {
+    console.error('getCurrentSupabaseUser error:', err);
+    return null;
+  }
 }

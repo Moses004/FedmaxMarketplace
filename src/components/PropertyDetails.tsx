@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Listing, User, Booking } from '../types';
-import { getCurrentUser, getReviewsForListing } from '../services/store';
-import { createBooking } from '../services/databaseService';
+import { Listing, User, Booking, PropertyReview } from '../types';
+import { getReviewsForListing, createBooking } from '../services/databaseService';
 import { sendLandlordBookingNotification } from '../services/emailService';
 import PropertyStatusBadge from './PropertyStatusBadge';
 import { 
@@ -76,6 +75,22 @@ export default function PropertyDetails({
   const [activeTab, setActiveTab] = useState<'photos' | 'description'>('photos');
   const [selectedPhoto, setSelectedPhoto] = useState<number>(0);
   const [direction, setDirection] = useState<number>(0);
+  const [reviews, setReviews] = useState<PropertyReview[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getReviewsForListing(listing.id)
+      .then((data) => {
+        if (isMounted) setReviews(data || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load reviews from database:', err);
+        if (isMounted) setReviews([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [listing.id]);
 
   // Similar & Related Properties scoring logic
   const relatedListings = useMemo(() => {
@@ -563,14 +578,17 @@ export default function PropertyDetails({
     });
   }, [listing.id, listing.price, listing.location]);
 
-  const handleBookingRequest = (e: React.FormEvent) => {
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  const handleBookingRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
 
     setBookingStatus('submitting');
+    setBookingError(null);
     setEmailNotice(null);
     
-    setTimeout(async () => {
+    try {
       const newBooking = await createBooking({
         listingId: listing.id,
         listingTitle: listing.title,
@@ -588,35 +606,43 @@ export default function PropertyDetails({
       });
 
       // Dispatch automated landlord email alert
-      const emailRes = await sendLandlordBookingNotification({
-        bookingId: newBooking.id,
-        listingId: listing.id,
-        listingTitle: listing.title,
-        listingImage: listing.images[0],
-        listingPrice: listing.price,
-        guestName: currentUser.name,
-        guestEmail: currentUser.email,
-        guestPhone: currentUser.phone || '',
-        landlordEmail: listing.landlordEmail || 'landlord@rentora.com',
-        landlordName: listing.landlordName || 'Carlos Silva',
-        startDate,
-        endDate,
-        billingCycle,
-        totalAmount,
-        messageNote: personalMessage || undefined,
-      });
+      try {
+        const emailRes = await sendLandlordBookingNotification({
+          bookingId: newBooking.id,
+          listingId: listing.id,
+          listingTitle: listing.title,
+          listingImage: listing.images[0],
+          listingPrice: listing.price,
+          guestName: currentUser.name,
+          guestEmail: currentUser.email,
+          guestPhone: currentUser.phone || '',
+          landlordEmail: listing.landlordEmail || 'landlord@rentora.com',
+          landlordName: listing.landlordName || 'Carlos Silva',
+          startDate,
+          endDate,
+          billingCycle,
+          totalAmount,
+          messageNote: personalMessage || undefined,
+        });
 
-      if (emailRes.success) {
-        setEmailNotice(`Email notification dispatched to landlord (${emailRes.recipient || listing.landlordEmail || 'Carlos Silva'})`);
-      } else {
-        setEmailNotice(`Booking saved. Note: ${emailRes.message}`);
+        if (emailRes.success) {
+          setEmailNotice(`Email notification dispatched to landlord (${emailRes.recipient || listing.landlordEmail || 'Carlos Silva'})`);
+        } else {
+          setEmailNotice(`Booking saved. Note: ${emailRes.message}`);
+        }
+      } catch (emailErr) {
+        console.warn('Email dispatch warning:', emailErr);
       }
 
       setBookingStatus('success');
       setTimeout(() => {
         onBookingCreated();
-      }, 3000);
-    }, 1000);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Failed to create booking in Supabase:', err);
+      setBookingStatus('idle');
+      setBookingError(err.message || 'Unable to submit booking request. Please check your connection and try again.');
+    }
   };
 
   // Map amenities to beautiful icons
@@ -1162,7 +1188,6 @@ export default function PropertyDetails({
 
           {/* Verified Tenant Reviews & Ratings */}
           {(() => {
-            const reviews = getReviewsForListing(listing.id);
             const avgRating = reviews.length > 0 
               ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
               : null;
@@ -1917,6 +1942,14 @@ export default function PropertyDetails({
                     <span className="text-emerald-600">€{totalAmount}</span>
                   </div>
                 </div>
+
+                {/* Booking Error Banner */}
+                {bookingError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-xs text-red-700">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <span>{bookingError}</span>
+                  </div>
+                )}
 
                 {/* Booking CTA Button */}
                 {currentUser ? (

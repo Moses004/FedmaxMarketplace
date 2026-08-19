@@ -1687,3 +1687,96 @@ export function matchesLocationSearch(
   return false;
 }
 
+/**
+ * Derives the canonical region / geopolitical zone for a location.
+ * For Nigerian states, maps accurately to the 6 geopolitical zones (South East, South South, South West, North Central, North West, North East).
+ * For international locations, returns the state/province or regional grouping.
+ */
+export function deriveRegionFromLocation(params: {
+  country?: string;
+  state?: string;
+  city?: string;
+}): string {
+  const country = (params.country || '').trim().toLowerCase();
+  const state = (params.state || '').trim().toLowerCase();
+  const city = (params.city || '').trim().toLowerCase();
+
+  // If country is Nigeria or unspecified with Nigerian states
+  if (country === 'nigeria' || !country || country === 'ng') {
+    // South East: Abia, Anambra, Ebonyi, Enugu, Imo
+    if (
+      state.includes('anambra') || state.includes('enugu') || state.includes('ebonyi') ||
+      state.includes('imo') || state.includes('abia') ||
+      city.includes('awka') || city.includes('onitsha') || city.includes('enugu') ||
+      city.includes('abakaliki') || city.includes('owerri') || city.includes('umuahia') || city.includes('aba')
+    ) {
+      return 'South East';
+    }
+
+    // South South: Akwa Ibom, Bayelsa, Cross River, Delta, Edo, Rivers
+    if (
+      state.includes('akwa ibom') || state.includes('cross river') || state.includes('rivers') ||
+      state.includes('bayelsa') || state.includes('delta') || state.includes('edo') ||
+      city.includes('uyo') || city.includes('eket') || city.includes('calabar') ||
+      city.includes('port harcourt') || city.includes('yenagoa') || city.includes('asaba') ||
+      city.includes('warri') || city.includes('benin city') || city.includes('benin')
+    ) {
+      return 'South South';
+    }
+
+    // South West: Ekiti, Lagos, Ogun, Ondo, Osun, Oyo
+    if (
+      state.includes('lagos') || state.includes('ogun') || state.includes('oyo') ||
+      state.includes('osun') || state.includes('ondo') || state.includes('ekiti') ||
+      city.includes('lagos') || city.includes('ikeja') || city.includes('lekki') ||
+      city.includes('abeokuta') || city.includes('ibadan') || city.includes('osogbo') ||
+      city.includes('akure') || city.includes('ado-ekiti') || city.includes('ado ekiti')
+    ) {
+      return 'South West';
+    }
+
+    // North Central: Benue, Kogi, Kwara, Nasarawa, Niger, Plateau, FCT / Abuja
+    if (
+      state.includes('benue') || state.includes('kogi') || state.includes('kwara') ||
+      state.includes('nasarawa') || state.includes('niger') || state.includes('plateau') ||
+      state.includes('abuja') || state.includes('federal capital territory') || state.includes('fct') ||
+      city.includes('abuja') || city.includes('makurdi') || city.includes('lokoja') ||
+      city.includes('ilorin') || city.includes('lafia') || city.includes('minna') ||
+      city.includes('jos')
+    ) {
+      return 'North Central';
+    }
+
+    // North West: Jigawa, Kaduna, Kano, Katsina, Kebbi, Sokoto, Zamfara
+    if (
+      state.includes('kaduna') || state.includes('kano') || state.includes('katsina') ||
+      state.includes('kebbi') || state.includes('sokoto') || state.includes('zamfara') ||
+      state.includes('jigawa') ||
+      city.includes('kaduna') || city.includes('kano') || city.includes('katsina') ||
+      city.includes('birnin kebbi') || city.includes('sokoto') || city.includes('gusau') ||
+      city.includes('dutse')
+    ) {
+      return 'North West';
+    }
+
+    // North East: Adamawa, Bauchi, Borno, Gombe, Taraba, Yobe
+    if (
+      state.includes('adamawa') || state.includes('bauchi') || state.includes('borno') ||
+      state.includes('gombe') || state.includes('taraba') || state.includes('yobe') ||
+      city.includes('yola') || city.includes('bauchi') || city.includes('maiduguri') ||
+      city.includes('gombe') || city.includes('jalingo') || city.includes('damaturu')
+    ) {
+      return 'North East';
+    }
+  }
+
+  // Fallback for international states/regions
+  if (params.state && params.state.trim()) {
+    return params.state.trim();
+  }
+  if (params.city && params.city.trim()) {
+    return params.city.trim();
+  }
+  return params.country ? params.country.trim() : 'Global';
+}
+

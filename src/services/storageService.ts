@@ -19,12 +19,9 @@ export async function uploadFileToStorage(
 ): Promise<UploadResult> {
   const client = getSupabase();
   if (!isSupabaseConfigured || !client) {
-    // Local fallback mockup for preview environments without active Supabase credentials
-    const fakePath = `${folderPath ? folderPath + '/' : ''}${Date.now()}_${file.name}`;
-    const objectUrl = URL.createObjectURL(file);
     return {
-      path: fakePath,
-      publicUrl: objectUrl
+      path: '',
+      error: 'Supabase storage client is not configured.'
     };
   }
 

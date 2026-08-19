@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { Listing, User, Booking, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
 import { 
-  getListings, getCurrentUser, login, logout, getBookings, getFavorites, toggleFavorite,
-  getListingViews, incrementListingViews
-} from './services/store';
-import { getProperties, getBookings as getDbBookings, subscribeToSupabaseChanges, subscribeToStorageObjects } from './services/databaseService';
-import { getCurrentSupabaseUser } from './services/authService';
+  getProperties, 
+  getBookings, 
+  getFavorites, 
+  toggleFavorite,
+  incrementListingViews,
+  getListingViews,
+  subscribeToSupabaseChanges, 
+  subscribeToStorageObjects 
+} from './services/databaseService';
+import { getCurrentSupabaseUser, loginWithSupabase, logoutWithSupabase } from './services/authService';
 import PropertyMap from './components/PropertyMap';
 import HotPropertiesShowcase from './components/HotPropertiesShowcase';
 import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
@@ -30,13 +35,16 @@ import EmailLogModal from './components/EmailLogModal';
 import CurrencyConverterModal from './components/CurrencyConverterModal';
 import RentAffordabilityCalculatorModal from './components/RentAffordabilityCalculatorModal';
 import SavedSearchAlertModal from './components/SavedSearchAlertModal';
+import LocationOnboardingModal from './components/LocationOnboardingModal';
+import PullToRefresh from './components/PullToRefresh';
+import VirtualizedPropertyList from './components/VirtualizedPropertyList';
 import NotificationBell from './components/NotificationBell';
 import { SEOMetadataManager } from './components/SEOMetadataManager';
 import { 
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, ChevronLeft, LogOut, Check,
   BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell,
-  Flame, Layers
+  Flame, Layers, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getCoordinatesForUserLocation, getStatesForCountry, getCitiesForState, getAreasForCity, resolveLocationMeta, matchesLocationSearch } from './utils/location';
@@ -174,26 +182,34 @@ export default function App() {
   // Proactive Payment Due Toast Alert for Tenants
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'guest') return;
-    const allBookings = getBookings();
-    const dueBooking = allBookings.find(
-      (b) => b.guestId === currentUser.id && (b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
-    );
-    if (dueBooking) {
-      const alertKey = `payment_due_alert_toast_${dueBooking.id}_${dueBooking.nextPaymentDueDate || '3days'}`;
-      if (!sessionStorage.getItem(alertKey)) {
-        const timer = setTimeout(() => {
-          const daysLeft = dueBooking.paymentDueDaysLeft || 3;
-          const isAnnual = dueBooking.billingCycle === 'annual';
-          const dueDateStr = dueBooking.nextPaymentDueDate || 'Aug 8, 2026';
-          toast.warning(
-            `Payment Due Alert: Rent Due in ${daysLeft} Days`,
-            `Your ${isAnnual ? 'annual' : 'monthly'} rent payment for "${dueBooking.listingTitle}" is due on ${dueDateStr}. Tap 'My Bookings' to complete payment.`
-          );
-          sessionStorage.setItem(alertKey, 'true');
-        }, 1500);
-        return () => clearTimeout(timer);
+    let isCancelled = false;
+
+    getBookings({ guestId: currentUser.id }).then((allBookings) => {
+      if (isCancelled || !allBookings || allBookings.length === 0) return;
+      const dueBooking = allBookings.find(
+        (b) => (b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+      );
+      if (dueBooking) {
+        const alertKey = `payment_due_alert_toast_${dueBooking.id}_${dueBooking.nextPaymentDueDate || '3days'}`;
+        if (!sessionStorage.getItem(alertKey)) {
+          const timer = setTimeout(() => {
+            const daysLeft = dueBooking.paymentDueDaysLeft || 3;
+            const isAnnual = dueBooking.billingCycle === 'annual';
+            const dueDateStr = dueBooking.nextPaymentDueDate || 'Aug 8, 2026';
+            toast.warning(
+              `Payment Due Alert: Rent Due in ${daysLeft} Days`,
+              `Your ${isAnnual ? 'annual' : 'monthly'} rent payment for "${dueBooking.listingTitle}" is due on ${dueDateStr}. Tap 'My Bookings' to complete payment.`
+            );
+            sessionStorage.setItem(alertKey, 'true');
+          }, 1500);
+          return () => clearTimeout(timer);
+        }
       }
-    }
+    }).catch((err) => console.warn('Payment due alert check error:', err));
+
+    return () => {
+      isCancelled = true;
+    };
   }, [currentUser]);
 
   // Online / Offline Network Status Listener
@@ -202,8 +218,8 @@ export default function App() {
 
     const handleOffline = () => {
       toast.warning(
-        'Offline Mode Active',
-        'You are currently offline. Local cache is active and changes will sync automatically when connection returns.'
+        'Offline Notice',
+        'You appear to be offline. Your changes have not been saved.'
       );
     };
 
@@ -264,6 +280,7 @@ export default function App() {
   const [maxPrice, setMaxPrice] = useState<number>(5000);
   const [minBedrooms, setMinBedrooms] = useState<string>('all');
   const [isLoadingListings, setIsLoadingListings] = useState<boolean>(true);
+  const [isVirtualizedScroll, setIsVirtualizedScroll] = useState<boolean>(false);
 
   // Initial load skeleton effect
   useEffect(() => {
@@ -325,12 +342,24 @@ export default function App() {
 
   // Full Sign Up / Auth Modal States
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showLocationOnboarding, setShowLocationOnboarding] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showEmailLogsModal, setShowEmailLogsModal] = useState(false);
   const [showAffordabilityCalculatorModal, setShowAffordabilityCalculatorModal] = useState(false);
   const [showSavedSearchAlertModal, setShowSavedSearchAlertModal] = useState(false);
   const [authModalRole, setAuthModalRole] = useState<'guest' | 'landlord'>('guest');
   const [authModalMode, setAuthModalMode] = useState<'signup' | 'login'>('signup');
+
+  // Check if logged-in user needs location onboarding
+  useEffect(() => {
+    if (currentUser) {
+      const hasFullLocation = Boolean(currentUser.country && currentUser.state && currentUser.city);
+      const dismissed = sessionStorage.getItem(`rentora_dismissed_loc_onboard_${currentUser.id}`);
+      if (!hasFullLocation && !dismissed) {
+        setShowLocationOnboarding(true);
+      }
+    }
+  }, [currentUser]);
 
   // Map Coordinates & Display Mode State
   const [mapCenter, setMapCenter] = useState({ lat: 40.4167, lng: -3.7037 }); // Madrid default
@@ -356,25 +385,43 @@ export default function App() {
   };
 
   // Refresh lists and auth states
-  const [bookings, setBookings] = useState<Booking[]>(() => getBookings());
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isSyncingDatabase, setIsSyncingDatabase] = useState(false);
 
-  const refreshData = () => {
-    getProperties().then((props) => {
-      if (props && props.length > 0) setListings(props);
-      else setListings(getListings());
-    }).catch(() => {
-      setListings(getListings());
-    });
+  const refreshData = async (overrideFilter?: { country?: string; region?: string; state?: string; city?: string }) => {
+    setIsSyncingDatabase(true);
+    try {
+      const locFilter = overrideFilter || {
+        country: selectedCountryFilter !== 'all' ? selectedCountryFilter : (currentUser?.country || 'Nigeria'),
+        state: selectedStateFilter !== 'all' ? selectedStateFilter : (currentUser?.state || undefined),
+        city: selectedCityFilter !== 'all' ? selectedCityFilter : (currentUser?.city || undefined),
+      };
 
-    getDbBookings().then((bks) => {
-      if (bks && bks.length > 0) setBookings(bks);
-      else setBookings(getBookings());
-    }).catch(() => {
-      setBookings(getBookings());
-    });
+      const [props, bks] = await Promise.all([
+        getProperties(locFilter).catch((err) => {
+          console.error('Failed to fetch properties from Supabase:', err);
+          return [];
+        }),
+        getBookings().catch((err) => {
+          console.error('Failed to fetch bookings from Supabase:', err);
+          return [];
+        })
+      ]);
 
-    setCurrentUser(getCurrentUser());
-    setFavorites(getFavorites());
+      setListings(props || []);
+      setBookings(bks || []);
+
+      const sbUser = await getCurrentSupabaseUser();
+      if (sbUser) {
+        setCurrentUser(sbUser);
+        const favs = await getFavorites(sbUser.id);
+        setFavorites(favs || []);
+      }
+    } catch (err) {
+      console.error('refreshData exception:', err);
+    } finally {
+      setIsSyncingDatabase(false);
+    }
   };
 
   // Location-Based Display Currency State
@@ -567,34 +614,66 @@ export default function App() {
   };
 
   // Quick Login Utility
-  const handleQuickLogin = (email: string, role: 'guest' | 'landlord', name: string) => {
-    const user = login(email, role, name);
-    setCurrentUser(user);
-    setCurrentTab('explore');
-    setShowAuthDropdown(false);
-    refreshData();
+  const handleQuickLogin = async (email: string, role: 'guest' | 'landlord', name: string) => {
+    try {
+      const user = await loginWithSupabase(email, undefined, role, name);
+      setCurrentUser(user);
+      setCurrentTab('explore');
+      setShowAuthDropdown(false);
+      refreshData();
+    } catch (err: any) {
+      console.error('Login error:', err);
+      toast.error('Login Failed', err.message || 'Could not authenticate with Supabase.');
+    }
   };
 
-  const handleCustomLogin = (e: React.FormEvent) => {
+  const handleCustomLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authEmail) return;
-    const user = login(authEmail, authRole, authName);
-    setCurrentUser(user);
-    setCurrentTab('explore');
-    setAuthEmail('');
-    setAuthName('');
-    setShowAuthDropdown(false);
-    refreshData();
+    try {
+      const user = await loginWithSupabase(authEmail, undefined, authRole, authName || undefined);
+      setCurrentUser(user);
+      setCurrentTab('explore');
+      setAuthEmail('');
+      setAuthName('');
+      setShowAuthDropdown(false);
+      refreshData();
+    } catch (err: any) {
+      console.error('Custom login error:', err);
+      toast.error('Login Failed', err.message || 'Could not authenticate with Supabase.');
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logoutWithSupabase();
+    } catch (err) {
+      console.warn('Supabase logout:', err);
+    }
     setCurrentUser(null);
     setCurrentTab('explore');
     setAuthModalMode('login');
     setShowAuthModal(true);
     toast.info('Signed Out', 'Please sign in or sign up to access your account.');
     refreshData();
+  };
+
+  const handleToggleFavorite = async (listingId: string) => {
+    if (!currentUser) {
+      setAuthModalRole('guest');
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+      toast.info('Sign In Required', 'Please sign in to save your favorite properties.');
+      return;
+    }
+
+    try {
+      const isFav = await toggleFavorite(listingId, currentUser.id);
+      setFavorites((prev) => isFav ? [...prev, listingId] : prev.filter((id) => id !== listingId));
+    } catch (err: any) {
+      console.error('Favorite error:', err);
+      toast.error('Favorite Error', err.message || 'Failed to update favorite in database.');
+    }
   };
 
   // Filter & Distance calculations
@@ -1876,7 +1955,11 @@ export default function App() {
                   : 'lg:col-span-7'
               }`}>
 
-                <div className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin">
+                <PullToRefresh
+                  onRefresh={refreshData}
+                  isRefreshing={isSyncingDatabase}
+                  className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin"
+                >
                   {isLoadingListings ? (
                     <div className={`grid gap-4 ${
                       mapViewMode === 'grid'
@@ -1923,72 +2006,113 @@ export default function App() {
                     </div>
                   ) : (
                     <>
-                      <motion.div
-                        key={`feed-${currentPage}-${itemsPerPage}-${selectedType}-${selectedRegionId}-${searchQuery}-${selectedStateFilter}-${selectedCityFilter}-${selectedAreaFilter}-${minBedrooms}-${maxPrice}-${maxDistanceKm}-${mapViewMode}`}
-                        variants={staggerContainerVariants}
-                        initial="hidden"
-                        animate="show"
-                        className={`grid gap-4 ${
-                          mapViewMode === 'grid'
-                            ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-                            : mapViewMode === 'map'
-                            ? 'grid-cols-1'
-                            : 'grid-cols-1 sm:grid-cols-2'
-                        }`}
-                      >
-                        {paginatedItems.map(({ listing, distanceKm }) => (
-                          <motion.div key={listing.id} variants={staggerItemVariants}>
-                            <PropertyCard
-                              listing={listing}
-                              distanceKm={distanceKm}
-                              displayCurrency={displayCurrency}
-                              isSelected={selectedListing?.id === listing.id}
-                              onClick={() => handleSelectListing(listing)}
-                              isFavorited={favorites.includes(listing.id)}
-                              onToggleFavorite={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(listing.id);
-                                setFavorites(getFavorites());
-                              }}
-                              isCompared={comparedListings.some((l) => l.id === listing.id)}
-                              onToggleCompare={(e) => {
-                                e.stopPropagation();
-                                toggleCompareListing(listing);
-                              }}
-                            />
-                          </motion.div>
-                        ))}
-                      </motion.div>
+                      {isVirtualizedScroll ? (
+                        <div className="h-[calc(100vh-320px)] min-h-[500px]">
+                          <VirtualizedPropertyList
+                            items={filteredItems}
+                            displayCurrency={displayCurrency}
+                            selectedListingId={selectedListing?.id}
+                            onSelectListing={handleSelectListing}
+                            favorites={favorites}
+                            onToggleFavorite={(id) => {
+                              handleToggleFavorite(id);
+                            }}
+                            comparedListingIds={comparedListings.map((l) => l.id)}
+                            onToggleCompare={(listing) => {
+                              toggleCompareListing(listing);
+                            }}
+                            mapViewMode={mapViewMode}
+                          />
+                        </div>
+                      ) : (
+                        <motion.div
+                          key={`feed-${currentPage}-${itemsPerPage}-${selectedType}-${selectedRegionId}-${searchQuery}-${selectedStateFilter}-${selectedCityFilter}-${selectedAreaFilter}-${minBedrooms}-${maxPrice}-${maxDistanceKm}-${mapViewMode}`}
+                          variants={staggerContainerVariants}
+                          initial="hidden"
+                          animate="show"
+                          className={`grid gap-4 ${
+                            mapViewMode === 'grid'
+                              ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                              : mapViewMode === 'map'
+                              ? 'grid-cols-1'
+                              : 'grid-cols-1 sm:grid-cols-2'
+                          }`}
+                        >
+                          {paginatedItems.map(({ listing, distanceKm }) => (
+                            <motion.div key={listing.id} variants={staggerItemVariants}>
+                              <PropertyCard
+                                listing={listing}
+                                distanceKm={distanceKm}
+                                displayCurrency={displayCurrency}
+                                isSelected={selectedListing?.id === listing.id}
+                                onClick={() => handleSelectListing(listing)}
+                                isFavorited={favorites.includes(listing.id)}
+                                onToggleFavorite={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleFavorite(listing.id);
+                                }}
+                                isCompared={comparedListings.some((l) => l.id === listing.id)}
+                                onToggleCompare={(e) => {
+                                  e.stopPropagation();
+                                  toggleCompareListing(listing);
+                                }}
+                              />
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      )}
 
-                      {/* PAGINATION CONTROLS */}
+                      {/* PAGINATION & VIRTUALIZATION CONTROLS */}
                       {filteredItems.length > 0 && (
                         <div className="mt-6 pt-4 pb-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                           {/* Status text & items per page selector */}
-                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium flex-wrap">
                             <span>
-                              Showing <strong className="font-bold text-slate-800 dark:text-slate-200">{(currentPage - 1) * itemsPerPage + 1}</strong>–<strong className="font-bold text-slate-800 dark:text-slate-200">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</strong> of <strong className="font-bold text-slate-800 dark:text-slate-200">{filteredItems.length}</strong> rentals
+                              {isVirtualizedScroll ? (
+                                <>Displaying <strong className="font-bold text-slate-800 dark:text-slate-200">{filteredItems.length}</strong> rentals (Virtual Stream)</>
+                              ) : (
+                                <>Showing <strong className="font-bold text-slate-800 dark:text-slate-200">{(currentPage - 1) * itemsPerPage + 1}</strong>–<strong className="font-bold text-slate-800 dark:text-slate-200">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</strong> of <strong className="font-bold text-slate-800 dark:text-slate-200">{filteredItems.length}</strong> rentals</>
+                              )}
                             </span>
                             <span className="text-slate-300 dark:text-slate-700">|</span>
-                            <div className="flex items-center gap-1.5">
-                              <span>Per page:</span>
-                              <select
-                                value={itemsPerPage}
-                                onChange={(e) => {
-                                  setItemsPerPage(Number(e.target.value));
-                                  setCurrentPage(1);
-                                }}
-                                className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                              >
-                                <option value={6}>6</option>
-                                <option value={12}>12</option>
-                                <option value={24}>24</option>
-                                <option value={48}>48</option>
-                              </select>
-                            </div>
+                            
+                            {/* Virtualized Stream Toggle Button */}
+                            <button
+                              type="button"
+                              onClick={() => setIsVirtualizedScroll(!isVirtualizedScroll)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                                isVirtualizedScroll
+                                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              }`}
+                              title="Toggle ultra-fast virtualized 60 FPS scrolling for large feeds"
+                            >
+                              <Zap className={`w-3.5 h-3.5 ${isVirtualizedScroll ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-slate-400'}`} />
+                              <span>{isVirtualizedScroll ? 'Virtual Stream Active' : 'Virtual Scroll'}</span>
+                            </button>
+
+                            {!isVirtualizedScroll && (
+                              <div className="flex items-center gap-1.5">
+                                <span>Per page:</span>
+                                <select
+                                  value={itemsPerPage}
+                                  onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                  }}
+                                  className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                                >
+                                  <option value={6}>6</option>
+                                  <option value={12}>12</option>
+                                  <option value={24}>24</option>
+                                  <option value={48}>48</option>
+                                </select>
+                              </div>
+                            )}
                           </div>
 
                           {/* Page Navigation Buttons */}
-                          {totalPages > 1 && (
+                          {!isVirtualizedScroll && totalPages > 1 && (
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
@@ -2061,7 +2185,7 @@ export default function App() {
                       )}
                     </>
                   )}
-                </div>
+                </PullToRefresh>
               </div>
 
               {/* Right Column: Hot Properties & New Listings Showcase Reel */}
@@ -2078,8 +2202,7 @@ export default function App() {
                     favorites={favorites}
                     onToggleFavorite={(e, listingId) => {
                       e.stopPropagation();
-                      toggleFavorite(listingId);
-                      setFavorites(getFavorites());
+                      handleToggleFavorite(listingId);
                     }}
                     onBookTour={handleSelectListing}
                     displayCurrency={displayCurrency}
@@ -2192,8 +2315,7 @@ export default function App() {
                           isFavorited={true}
                           onToggleFavorite={(e) => {
                             e.stopPropagation();
-                            toggleFavorite(listing.id);
-                            setFavorites(getFavorites());
+                            handleToggleFavorite(listing.id);
                           }}
                           isCompared={comparedListings.some((l) => l.id === listing.id)}
                           onToggleCompare={(e) => {
@@ -2270,8 +2392,7 @@ export default function App() {
               displayCurrency={displayCurrency}
               favorites={favorites}
               onToggleFavorite={(listingId) => {
-                toggleFavorite(listingId);
-                setFavorites(getFavorites());
+                handleToggleFavorite(listingId);
               }}
               onClose={() => setSelectedListing(null)}
               onBookingCreated={() => {
@@ -2316,6 +2437,7 @@ export default function App() {
         {/* POPUP: ADD LISTING STEPPER MODAL */}
         {showAddModal && (
           <AddListingModal
+            currentUser={currentUser}
             onClose={() => setShowAddModal(false)}
             onListingCreated={() => {
               setShowAddModal(false);
@@ -2396,8 +2518,28 @@ export default function App() {
           setShowAuthModal(false);
           toast.success('Authentication Successful', `Welcome, ${user.name || user.email}!`);
           refreshData();
+          if (!user.country || !user.state || !user.city) {
+            setShowLocationOnboarding(true);
+          }
         }}
       />
+
+      {/* POPUP: LOCATION REGION ONBOARDING MODAL */}
+      {showLocationOnboarding && currentUser && (
+        <LocationOnboardingModal
+          currentUser={currentUser}
+          canDismiss={Boolean(currentUser.country && currentUser.state && currentUser.city)}
+          onClose={() => {
+            setShowLocationOnboarding(false);
+            sessionStorage.setItem(`rentora_dismissed_loc_onboard_${currentUser.id}`, 'true');
+          }}
+          onLocationSaved={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            setShowLocationOnboarding(false);
+            refreshData();
+          }}
+        />
+      )}
 
     </div>
   );

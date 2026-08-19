@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
-import { updateUserProfile } from '../services/store';
+import { updateProfile } from '../services/profileService';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { 
   GLOBAL_COUNTRIES, CountryData, searchCountries, 
@@ -165,31 +165,36 @@ export default function EditProfileModal({
     setIsSubmitting(true);
     const fullPhone = phone.trim() ? `${phoneCode} ${phone.trim()}` : '';
 
-    setTimeout(() => {
-      const updated = updateUserProfile({
-        id: currentUser.id,
-        name: name.trim(),
-        email: formattedEmail,
-        role,
-        phone: fullPhone,
-        country: country.trim(),
-        state: stateRegion.trim(),
-        city: city.trim(),
-        postalCode: postalCode.trim(),
-        streetAddress: streetAddress.trim(),
-        taxId: role === 'landlord' ? taxId.trim() : currentUser.taxId,
-        preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : currentUser.preferredMoveInRegion,
+    const profileData = {
+      name: name.trim(),
+      email: formattedEmail,
+      role,
+      phone: fullPhone,
+      country: country.trim(),
+      state: stateRegion.trim(),
+      city: city.trim(),
+      postalCode: postalCode.trim(),
+      streetAddress: streetAddress.trim(),
+      taxId: role === 'landlord' ? taxId.trim() : currentUser.taxId,
+      preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : currentUser.preferredMoveInRegion,
+    };
+
+    updateProfile(currentUser.id, profileData)
+      .then((updated) => {
+        setIsSubmitting(false);
+        setSuccessMsg('Profile updated successfully in database!');
+        onSaveSuccess(updated);
+
+        setTimeout(() => {
+          setSuccessMsg('');
+          onClose();
+        }, 600);
+      })
+      .catch((err) => {
+        console.error('Failed to update profile in database:', err);
+        setIsSubmitting(false);
+        setErrorMsg(err.message || 'Database error: Failed to update profile in Supabase.');
       });
-
-      setIsSubmitting(false);
-      setSuccessMsg('Profile updated successfully!');
-      onSaveSuccess(updated);
-
-      setTimeout(() => {
-        setSuccessMsg('');
-        onClose();
-      }, 800);
-    }, 400);
   };
 
   return (
