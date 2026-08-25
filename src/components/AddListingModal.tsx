@@ -1585,73 +1585,23 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                       </div>
                     </div>
                   )}
-
-                  {/* Preset Catalog Alternative option */}
-                  <div className="pt-2 space-y-2 border-t border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                      Or select from sample photos:
-                    </span>
-                    <div className="grid grid-cols-3 gap-2">
-                      {PRESET_IMAGES.map((img, idx) => (
-                        <div 
-                          key={idx}
-                          onClick={() => {
-                            clearFieldError('images');
-                            const presetItem = {
-                              id: `preset-${idx}`,
-                              url: img.url,
-                              fileName: img.label + '.jpg',
-                              sizeKb: 350,
-                              source: 'preset' as const
-                            };
-                            setUploadedPhotos(prev => {
-                              if (prev.some(p => p.url === img.url)) return prev;
-                              return [presetItem, ...prev];
-                            });
-                          }}
-                          className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-100 hover:border-emerald-300 cursor-pointer transition-all group"
-                        >
-                          <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-1.5">
-                            <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between min-w-0">
-                              <span className="truncate">{img.label}</span>
-                              <Plus className="w-3 h-3 text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Custom URL Option */}
-                  <div className="pt-1">
-                    <span className="text-[10px] text-slate-400 block mb-1 font-medium">Or paste an external photo URL:</span>
-                    <input
-                      type="url"
-                      value={customImage}
-                      onChange={(e) => {
-                        setCustomImage(e.target.value);
-                        clearFieldError('images');
-                      }}
-                      placeholder="https://images.unsplash.com/your-custom-image-link"
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                    />
-                  </div>
                 </div>
 
-                {/* PROPERTY VIDEO (OPTIONAL) */}
+                {/* ============================================================ */}
+                {/* 4. PROPERTY VIDEO (OPTIONAL) - DIRECTLY AFTER PHOTOS         */}
+                {/* ============================================================ */}
                 <div className="space-y-3 pt-5 border-t border-slate-200">
                   <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-1">
                     <div>
                       <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                        <Film className="w-3.5 h-3.5 text-rose-500" />
-                        <span>Property Video (Optional)</span>
+                        <Film className="w-4 h-4 text-rose-600" />
+                        <span>PROPERTY VIDEO (OPTIONAL)</span>
                       </label>
                       <p className="text-[11px] text-slate-500">
                         Add a video tour of your property
                       </p>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md self-start sm:self-auto border border-slate-200/60">
+                    <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/80">
                       MP4, WebM or MOV • Maximum 100 MB
                     </span>
                   </div>
@@ -1675,7 +1625,7 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
 
                   {/* If a video has been selected / uploaded or existing from listing */}
                   {videoFile && videoPreviewUrl ? (
-                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 p-3 space-y-3 shadow-md">
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-700 p-3 space-y-3 shadow-md">
                       <div className="relative rounded-xl overflow-hidden aspect-video bg-black flex items-center justify-center">
                         <video
                           src={videoPreviewUrl}
@@ -1692,7 +1642,7 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                         </video>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="flex items-center justify-between gap-2 px-1 flex-wrap sm:flex-nowrap">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
                             <FileVideo className="w-3.5 h-3.5 text-rose-400 shrink-0" />
@@ -1734,13 +1684,13 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                             className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
+                            <span>Remove Video</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   ) : videoUrl ? (
-                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 p-3 space-y-3 shadow-md">
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-700 p-3 space-y-3 shadow-md">
                       <div className="relative rounded-xl overflow-hidden aspect-video bg-black flex items-center justify-center">
                         <video
                           src={videoUrl}
@@ -1753,7 +1703,7 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                         </video>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="flex items-center justify-between gap-2 px-1 flex-wrap sm:flex-nowrap">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
                             <FileVideo className="w-3.5 h-3.5 text-rose-400 shrink-0" />
@@ -1787,21 +1737,21 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                             className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
+                            <span>Remove Video</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    /* If no video has been selected: Show "No property video selected" state box with "+ Upload Property Video" button */
+                    /* If no video has been selected: Prominent clear border around the video upload area with prominent play/video icon */
                     <div
                       onDragOver={handleVideoDragOver}
                       onDragLeave={handleVideoDragLeave}
                       onDrop={handleVideoDrop}
-                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                      className={`border-2 border-dashed rounded-2xl p-5 sm:p-6 text-center transition-all bg-white shadow-xs ${
                         isVideoDragging
                           ? 'border-rose-500 bg-rose-50/60 scale-[1.01]'
-                          : 'border-slate-200 hover:border-rose-300 bg-slate-50/50'
+                          : 'border-slate-300 hover:border-rose-400 hover:bg-rose-50/20'
                       }`}
                     >
                       <div className="flex flex-col items-center justify-center space-y-3">
@@ -1812,7 +1762,7 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                           <p className="text-xs font-extrabold text-slate-800">
                             No property video selected
                           </p>
-                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          <p className="text-[11px] text-slate-500 font-medium mt-0.5 max-w-sm mx-auto">
                             Drag & drop a video walkthrough or tap below to choose from device
                           </p>
                         </div>
@@ -1820,7 +1770,7 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                           type="button"
                           id="upload-property-video-btn"
                           onClick={() => videoInputRef.current?.click()}
-                          className="mt-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                          className="mt-1 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-extrabold rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                         >
                           <Upload className="w-4 h-4" />
                           <span>+ Upload Property Video</span>
@@ -1840,6 +1790,58 @@ export default function AddListingModal({ onClose, onListingCreated, onListingUp
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                     />
                   </div>
+                </div>
+
+                {/* 5. SAMPLE PHOTOS (PRESET CATALOG) */}
+                <div className="pt-4 space-y-2 border-t border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
+                    Or select from sample photos:
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PRESET_IMAGES.map((img, idx) => (
+                      <div 
+                        key={idx}
+                        onClick={() => {
+                          clearFieldError('images');
+                          const presetItem = {
+                            id: `preset-${idx}`,
+                            url: img.url,
+                            fileName: img.label + '.jpg',
+                            sizeKb: 350,
+                            source: 'preset' as const
+                          };
+                          setUploadedPhotos(prev => {
+                            if (prev.some(p => p.url === img.url)) return prev;
+                            return [presetItem, ...prev];
+                          });
+                        }}
+                        className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-100 hover:border-emerald-300 cursor-pointer transition-all group"
+                      >
+                        <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-1.5">
+                          <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between min-w-0">
+                            <span className="truncate">{img.label}</span>
+                            <Plus className="w-3 h-3 text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 6. EXTERNAL PHOTO URL */}
+                <div className="pt-1">
+                  <span className="text-[10px] text-slate-400 block mb-1 font-medium">Or paste an external photo URL:</span>
+                  <input
+                    type="url"
+                    value={customImage}
+                    onChange={(e) => {
+                      setCustomImage(e.target.value);
+                      clearFieldError('images');
+                    }}
+                    placeholder="https://images.unsplash.com/your-custom-image-link"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
                 </div>
               </div>
             </div>
