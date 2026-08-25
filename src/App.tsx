@@ -11,6 +11,7 @@ import {
   subscribeToStorageObjects 
 } from './services/databaseService';
 import { getCurrentSupabaseUser, loginWithSupabase, logoutWithSupabase } from './services/authService';
+import { supabase } from './services/supabaseClient';
 import PropertyMap from './components/PropertyMap';
 import HotPropertiesShowcase from './components/HotPropertiesShowcase';
 import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
@@ -187,7 +188,7 @@ export default function App() {
     getBookings({ guestId: currentUser.id }).then((allBookings) => {
       if (isCancelled || !allBookings || allBookings.length === 0) return;
       const dueBooking = allBookings.find(
-        (b) => (b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+        (b) => (b.paymentStatus === 'due_soon' || ((b.status === 'completed' || (b.status as string) === 'confirmed') && b.nextPaymentDueDate))
       );
       if (dueBooking) {
         const alertKey = `payment_due_alert_toast_${dueBooking.id}_${dueBooking.nextPaymentDueDate || '3days'}`;
@@ -492,6 +493,17 @@ export default function App() {
       }
     }).catch(() => {});
 
+    // Listen to Supabase Auth state changes (sign in, sign out, token refresh, email verification)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        const user = await getCurrentSupabaseUser();
+        setCurrentUser(user);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setFavorites([]);
+      }
+    });
+
     // Real-time Supabase Table & Storage Subscriptions across all application entities
     const unsubProperties = subscribeToSupabaseChanges('properties', refreshData);
     const unsubBookings = subscribeToSupabaseChanges('bookings', refreshData);
@@ -514,6 +526,7 @@ export default function App() {
       if (unsubReviews) unsubReviews();
       if (unsubFavorites) unsubFavorites();
       if (unsubStorage) unsubStorage();
+      if (authListener?.subscription) authListener.subscription.unsubscribe();
       window.removeEventListener('fedmax_store_change', handleStoreUpdate);
       window.removeEventListener('storage', handleStoreUpdate);
     };

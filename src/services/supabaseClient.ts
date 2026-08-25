@@ -40,12 +40,13 @@ export function isPgrstSchemaCacheError(error: any): boolean {
   if (!error) return false;
   const code = error.code || '';
   const message = typeof error.message === 'string' ? error.message : '';
+  const details = typeof error.details === 'string' ? error.details : '';
   return (
     code === 'PGRST205' ||
     code === '42P01' ||
     message.includes('schema cache') ||
     message.includes('Could not find the table') ||
-    (message.includes('relation') && message.includes('does not exist'))
+    (message.includes('relation') && message.includes('does not exist')) ||
+    details.includes('schema cache')
   );
 }
-

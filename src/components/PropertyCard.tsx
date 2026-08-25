@@ -197,11 +197,13 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         </div>
 
         {/* Video Walkthrough Badge Indicator */}
-        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm max-w-[32%] sm:max-w-[40%] truncate">
-          <Play className="w-2.5 h-2.5 text-rose-400 fill-rose-400 shrink-0" />
-          <span className="truncate hidden sm:inline">HD Video Tour</span>
-          <span className="truncate sm:hidden">Video</span>
-        </div>
+        {Boolean(listing.videoUrl) && (
+          <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md text-white px-2 sm:px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10px] font-extrabold border border-white/10 shadow-sm max-w-[35%] sm:max-w-[42%] truncate">
+            <Play className="w-2.5 h-2.5 text-rose-400 fill-rose-400 shrink-0" />
+            <span className="truncate hidden sm:inline">Video Tour</span>
+            <span className="truncate sm:hidden">Video</span>
+          </div>
+        )}
 
         {/* Floating Price */}
         <div className="absolute bottom-3 right-3 bg-slate-900/95 backdrop-blur-md text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl font-bold shadow-lg flex flex-col items-end justify-center z-10 border border-white/10 max-w-[55%] min-w-0">

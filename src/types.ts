@@ -16,7 +16,15 @@ export type PropertyType =
   | 'studio'
   | 'others';
 
-export type ListingStatus = 'available' | 'new' | 'rented' | 'unavailable' | 'pending_review';
+export const CANONICAL_PROPERTY_STATUSES = ['active', 'pending', 'rented', 'inactive'] as const;
+export type ListingStatus = typeof CANONICAL_PROPERTY_STATUSES[number];
+
+export interface VideoMetadata {
+  name: string;
+  mime_type: string;
+  size: number;
+  duration?: number;
+}
 
 export interface Listing {
   id: string;
@@ -41,6 +49,7 @@ export interface Listing {
   amenities: string[];
   images: string[];
   videoUrl?: string;
+  videoMetadata?: VideoMetadata | Record<string, any>;
   landlordId: string;
   landlordEmail?: string;
   landlordName?: string;
@@ -82,24 +91,35 @@ export interface BookingMessage {
   id: string;
   senderId: string;
   senderName: string;
+  senderRole?: 'guest' | 'landlord';
   text: string;
   createdAt: string;
+  timestamp?: string;
+  isSystemNotice?: boolean;
 }
 
 export interface Booking {
   id: string;
+  propertyId: string;
   listingId: string;
   listingTitle: string;
   listingImage: string;
   listingPrice: number;
+  userId: string;
   guestId: string;
+  userName: string;
   guestName: string;
+  userEmail: string;
   guestEmail: string;
+  userPhone?: string;
   startDate: string;
   endDate: string;
-  status: 'pending' | 'approved' | 'rejected' | 'confirmed' | 'refunded';
+  preferredDate: string;
+  preferredTime: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
   totalAmount: number;
   createdAt: string;
+  updatedAt?: string;
   billingCycle?: 'monthly' | 'annual';
   effectiveMonthlyPrice?: number;
   annualDiscountPercentage?: number;
@@ -110,10 +130,16 @@ export interface Booking {
   paymentReference?: string;
   nextPaymentDueDate?: string;
   paymentDueDaysLeft?: number;
-  paymentStatus?: 'paid' | 'due_soon' | 'overdue';
+  paymentStatus?: 'paid' | 'pending' | 'failed' | 'cancelled' | 'due_soon' | 'overdue' | 'unpaid';
+  payment_status?: string | null;
+  paymentVerified?: boolean;
+  payment_verified?: boolean | null;
+  paymentVerificationStatus?: 'unverified' | 'pending_verification' | 'verified' | 'failed' | 'refunded';
+  payment_verification_status?: string | null;
   refundReason?: string;
   refundReference?: string;
   refundedAt?: string;
+  landlordId?: string;
 }
 
 export interface PropertyReview {
@@ -130,6 +156,7 @@ export interface PropertyReview {
 export interface User {
   id: string;
   name: string;
+  fullName?: string;
   email: string;
   role: 'guest' | 'landlord';
   phone?: string;
@@ -192,5 +219,213 @@ export interface AppNotification {
     ticketId?: string;
     status?: string;
   };
+}
+
+// ==========================================
+// SUPABASE ROW INTERFACES (DATABASE SCHEMA)
+// ==========================================
+
+export interface ProfileRow {
+  id: string;
+  email: string | null;
+  name: string | null;
+  full_name: string | null;
+  role: 'tenant' | 'landlord' | 'admin' | string;
+  avatar_url?: string | null;
+  phone: string | null;
+  country: string | null;
+  region: string | null;
+  state: string | null;
+  city: string | null;
+  street_address: string | null;
+  postal_code: string | null;
+  preferred_move_in_region: string | null;
+  tax_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PropertyRow {
+  id: string | number;
+  landlord_id: string | null;
+  landlord_name: string | null;
+  landlord_email: string | null;
+  contact_role?: string | null;
+  agent_company?: string | null;
+  agent_license?: string | null;
+  contact_phone?: string | null;
+  contact_whatsapp?: string | null;
+  contact_email?: string | null;
+  title: string;
+  description: string | null;
+  price: number | null;
+  price_period?: string | null;
+  local_price?: number | null;
+  currency?: string | null;
+  annual_discount_percentage?: number | null;
+  type?: string | null;
+  property_type?: string | null;
+  location: string | null;
+  country: string | null;
+  region: string | null;
+  state: string | null;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  size: number | null;
+  area_sqft?: number | null;
+  amenities: string[] | null;
+  images: string[] | null;
+  image?: string | null;
+  video_url?: string | null;
+  video_metadata?: VideoMetadata | Record<string, any> | null;
+  virtual_tour_url?: string | null;
+  status: string | null;
+  is_verified?: boolean | null;
+  available_from?: string | null;
+  energy_rating?: string | null;
+  estimated_monthly_utilities_usd?: number | null;
+  solar_powered?: boolean | null;
+  hvac_type?: string | null;
+  views?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BookingRow {
+  id: string | number;
+  property_id?: string | number | null;
+  listing_id?: string | number | null;
+  user_id?: string | null;
+  guest_id?: string | null;
+  user_name?: string | null;
+  guest_name?: string | null;
+  user_email?: string | null;
+  guest_email?: string | null;
+  user_phone?: string | null;
+  property_title?: string | null;
+  listing_title?: string | null;
+  listing_image?: string | null;
+  listing_price?: number | null;
+  landlord_id?: string | null;
+  landlord_name?: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  preferred_date: string;
+  preferred_time: string;
+  duration_months?: number | null;
+  monthly_rent?: number | null;
+  deposit_amount?: number | null;
+  total_amount: number | null;
+  currency?: string | null;
+  status: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  payment_reference?: string | null;
+  payment_verified?: boolean | null;
+  payment_verification_status?: string | null;
+  billing_cycle?: string | null;
+  lease_status?: string | null;
+  lease_start_date?: string | null;
+  lease_end_date?: string | null;
+  lease_signed_name?: string | null;
+  lease_signed_date?: string | null;
+  messages?: any[] | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FavoriteRow {
+  id?: string | number;
+  user_id: string;
+  property_id?: string | number;
+  listing_id?: string | number;
+  created_at?: string;
+}
+
+export interface ReviewRow {
+  id: string | number;
+  listing_id?: string | number | null;
+  property_id?: string | number | null;
+  booking_id?: string | number | null;
+  guest_id?: string | null;
+  user_id?: string | null;
+  guest_name?: string | null;
+  user_name?: string | null;
+  rating: number;
+  comment: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MaintenanceRequestRow {
+  id: string | number;
+  ticket_code?: string | null;
+  property_id?: string | number | null;
+  tenant_id?: string | null;
+  landlord_id?: string | null;
+  issue?: string | null;
+  issue_title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  landlord_note?: string | null;
+  listing_title?: string | null;
+  tenant_name?: string | null;
+  tenant_email?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PayoutTransactionRow {
+  id: string | number;
+  landlord_id: string;
+  amount: number;
+  gross_amount?: number | null;
+  commission_rate?: number | null;
+  commission_amount?: number | null;
+  transfer_amount?: number | null;
+  currency?: string | null;
+  bank_name?: string | null;
+  account_number?: string | null;
+  account_holder_name?: string | null;
+  status?: string | null;
+  transaction_reference?: string | null;
+  reference?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LandlordEarningRow {
+  id: string | number;
+  landlord_id: string;
+  booking_id?: string | number | null;
+  payment_transaction_id?: string | number | null;
+  gross_amount: number;
+  commission_rate: number;
+  commission_amount: number;
+  net_amount: number;
+  status?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PaymentTransactionRow {
+  id: string | number;
+  booking_id?: string | number | null;
+  user_id?: string | null;
+  landlord_id?: string | null;
+  amount: number;
+  currency?: string | null;
+  payment_method?: string | null;
+  reference: string;
+  status: string;
+  payment_status?: string | null;
+  verification_status?: string | null;
+  paystack_status?: string | null;
+  paid_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 

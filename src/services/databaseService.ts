@@ -6,14 +6,20 @@ import {
   createProperty as createPropertyInDb,
   updateProperty as updatePropertyInDb,
   deleteProperty as deletePropertyInDb,
+  removePropertyVideo as removePropertyVideoInDb,
+  replacePropertyVideo as replacePropertyVideoInDb,
   incrementPropertyViews as incrementPropertyViewsInDb,
   getPropertyViews as getPropertyViewsInDb,
   PropertyLocationFilter
 } from './propertyService';
 import {
   getBookings as fetchBookingsFromDb,
+  getBookingById as fetchBookingByIdFromDb,
   createBooking as createBookingInDb,
   updateBooking as updateBookingInDb,
+  approveBooking as approveBookingInDb,
+  rejectBooking as rejectBookingInDb,
+  cancelBooking as cancelBookingInDb,
   deleteBooking as deleteBookingInDb,
   addBookingMessage as addBookingMessageInDb,
   confirmBookingPayment as confirmBookingPaymentInDb,
@@ -60,6 +66,14 @@ export async function deleteProperty(id: string): Promise<void> {
   return deletePropertyInDb(id);
 }
 
+export async function removePropertyVideo(propertyId: string, currentVideoUrl?: string | null): Promise<Listing> {
+  return removePropertyVideoInDb(propertyId, currentVideoUrl);
+}
+
+export async function replacePropertyVideo(propertyId: string, newVideoFile: File, oldVideoUrl?: string | null): Promise<Listing> {
+  return replacePropertyVideoInDb(propertyId, newVideoFile, oldVideoUrl);
+}
+
 export async function incrementListingViews(id: string): Promise<number> {
   return incrementPropertyViewsInDb(id);
 }
@@ -72,14 +86,30 @@ export async function getListingViews(id: string): Promise<number> {
 // BOOKINGS CRUD
 // ==========================================
 
-export async function getBookings(filter?: { guestId?: string; listingId?: string }): Promise<Booking[]> {
+export async function getBookings(filter?: { guestId?: string; userId?: string; propertyId?: string; listingId?: string }): Promise<Booking[]> {
   return fetchBookingsFromDb(filter);
 }
 
+export async function getBookingById(bookingId: string): Promise<Booking | null> {
+  return fetchBookingByIdFromDb(bookingId);
+}
+
 export async function createBooking(
-  bookingInput: Omit<Booking, 'id' | 'createdAt' | 'status'> & { status?: Booking['status'] }
+  bookingInput: any
 ): Promise<Booking> {
   return createBookingInDb(bookingInput);
+}
+
+export async function approveBooking(bookingId: string): Promise<Booking> {
+  return approveBookingInDb(bookingId);
+}
+
+export async function rejectBooking(bookingId: string, reason?: string): Promise<Booking> {
+  return rejectBookingInDb(bookingId, reason);
+}
+
+export async function cancelBooking(bookingId: string, reason?: string): Promise<Booking> {
+  return cancelBookingInDb(bookingId, reason);
 }
 
 export async function updateBookingStatus(
@@ -87,6 +117,12 @@ export async function updateBookingStatus(
   status: Booking['status'],
   extraFields?: Partial<Booking>
 ): Promise<Booking> {
+  if (status === 'approved' && (!extraFields || Object.keys(extraFields).length === 0)) {
+    return approveBookingInDb(id);
+  }
+  if (status === 'rejected' && (!extraFields || Object.keys(extraFields).length === 0)) {
+    return rejectBookingInDb(id);
+  }
   return updateBookingInDb(id, { status, ...extraFields });
 }
 
@@ -245,7 +281,7 @@ export async function createMaintenanceRequest(input: Omit<MaintenanceRequestRec
 }
 
 // ==========================================
-// PAYOUT TRANSACTIONS & ACCOUNTS CRUD
+// PAYOUT TRANSACTIONS (READ-ONLY VIA RLS)
 // ==========================================
 
 export async function getPayoutTransactions(landlordId?: string): Promise<any[]> {
@@ -271,35 +307,6 @@ export async function getPayoutTransactions(landlordId?: string): Promise<any[]>
   }
 }
 
-export async function createPayoutTransaction(
-  landlordId: string,
-  amount: number,
-  account: any
-): Promise<any> {
-  const payload = {
-    landlord_id: landlordId,
-    amount: amount,
-    currency: account?.currency || 'USD',
-    bank_name: account?.bankName || 'Direct Deposit',
-    account_number: account?.accountNumber || '****',
-    account_holder_name: account?.accountHolderName || 'Landlord',
-    status: 'completed',
-    reference: `PO-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-  };
-
-  const { data, error } = await supabase
-    .from('payout_transactions')
-    .insert([payload])
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error('Supabase createPayoutTransaction error:', error);
-    throw new Error(error.message || 'Failed to record payout transaction in Supabase.');
-  }
-
-  return data;
-}
 
 // ==========================================
 // REAL-TIME LISTENER FOR SUPABASE
@@ -356,3 +363,13 @@ export function subscribeToStorageObjects(bucketId: string, callback: () => void
     return null;
   }
 }
+
+// ==========================================
+// PAYSTACK EDGE FUNCTIONS INTEGRATION
+// ==========================================
+export {
+  initializePaystackPayment,
+  verifyPaystackPayment,
+  redirectToPaystackCheckout
+} from './paystackService';
+

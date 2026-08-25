@@ -1,16 +1,24 @@
 import { supabase } from './supabaseClient';
+import { FavoriteRow } from '../types';
+
+export function mapRowToFavorite(row: Partial<FavoriteRow> & Record<string, any>): string {
+  return String(row.property_id || row.listing_id || '');
+}
+
+export const mapFavoriteRowToFavorite = mapRowToFavorite;
 
 /**
  * Fetch favorite property IDs for a specific user from Supabase.
  */
 export async function getFavorites(userId?: string): Promise<string[]> {
+  if (!supabase) return [];
   const { data: authData } = await supabase.auth.getUser();
   const effectiveUserId = authData?.user?.id || userId;
   if (!effectiveUserId) return [];
   try {
     const { data, error } = await supabase
       .from('favorites')
-      .select('property_id')
+      .select('*')
       .eq('user_id', effectiveUserId);
 
     if (error) {
@@ -18,7 +26,7 @@ export async function getFavorites(userId?: string): Promise<string[]> {
       return [];
     }
 
-    return (data || []).map((row: any) => String(row.property_id));
+    return (data || []).map(mapRowToFavorite).filter(Boolean);
   } catch (err) {
     console.error('getFavorites error:', err);
     return [];
@@ -29,6 +37,7 @@ export async function getFavorites(userId?: string): Promise<string[]> {
  * Add a property to user favorites in Supabase.
  */
 export async function addFavorite(userId: string, propertyId: string): Promise<void> {
+  if (!supabase) return;
   const { data: authData } = await supabase.auth.getUser();
   const effectiveUserId = authData?.user?.id || userId;
   if (!effectiveUserId || !propertyId) return;
@@ -36,7 +45,8 @@ export async function addFavorite(userId: string, propertyId: string): Promise<v
     .from('favorites')
     .upsert({
       user_id: effectiveUserId,
-      property_id: propertyId
+      property_id: propertyId,
+      listing_id: propertyId
     }, { onConflict: 'user_id,property_id' });
 
   if (error) {
@@ -49,6 +59,7 @@ export async function addFavorite(userId: string, propertyId: string): Promise<v
  * Remove a property from user favorites in Supabase.
  */
 export async function removeFavorite(userId: string, propertyId: string): Promise<void> {
+  if (!supabase) return;
   const { data: authData } = await supabase.auth.getUser();
   const effectiveUserId = authData?.user?.id || userId;
   if (!effectiveUserId || !propertyId) return;
@@ -56,7 +67,7 @@ export async function removeFavorite(userId: string, propertyId: string): Promis
     .from('favorites')
     .delete()
     .eq('user_id', effectiveUserId)
-    .eq('property_id', propertyId);
+    .or(`property_id.eq.${propertyId},listing_id.eq.${propertyId}`);
 
   if (error) {
     console.error('Supabase removeFavorite error:', error);
@@ -69,6 +80,7 @@ export async function removeFavorite(userId: string, propertyId: string): Promis
  * Returns true if added, false if removed.
  */
 export async function toggleFavorite(userId: string, propertyId: string): Promise<boolean> {
+  if (!supabase) return false;
   const { data: authData } = await supabase.auth.getUser();
   const effectiveUserId = authData?.user?.id || userId;
   if (!effectiveUserId || !propertyId) return false;
@@ -77,7 +89,7 @@ export async function toggleFavorite(userId: string, propertyId: string): Promis
     .from('favorites')
     .select('id')
     .eq('user_id', effectiveUserId)
-    .eq('property_id', propertyId)
+    .or(`property_id.eq.${propertyId},listing_id.eq.${propertyId}`)
     .maybeSingle();
 
   if (existing.data) {

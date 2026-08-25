@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { User } from '../types';
 import { getProfile, updateProfile } from './profileService';
 import { deriveRegionFromLocation } from '../utils/location';
@@ -19,7 +19,11 @@ export interface SignUpParams {
 }
 
 /**
- * Sign up user with Supabase Auth, write public.profiles record, and return database user.
+ * Sign up user with Supabase Auth.
+ * The database trigger (on_auth_user_created -> handle_new_user) automatically creates
+ * public.profiles from auth.users and user metadata.
+ * If email confirmation is enabled, session is null and we must NOT call updateProfile()
+ * from an unauthenticated client.
  */
 export async function signUpWithSupabase(params: SignUpParams): Promise<User> {
   const password = params.password || 'RentoraPass2026!';
@@ -27,19 +31,25 @@ export async function signUpWithSupabase(params: SignUpParams): Promise<User> {
   const state = params.state || '';
   const city = params.city || '';
   const region = deriveRegionFromLocation({ country, state, city });
+  const dbRole = params.role === 'guest' ? 'tenant' : 'landlord';
 
   const { data, error } = await supabase.auth.signUp({
-    email: params.email,
+    email: params.email.trim(),
     password: password,
     options: {
       data: {
-        full_name: params.name,
-        role: params.role,
+        full_name: params.name.trim(),
+        name: params.name.trim(),
+        role: dbRole,
         phone: params.phone,
         country: country,
         region: region,
         city: city,
         state: state,
+        postal_code: params.postalCode,
+        street_address: params.streetAddress,
+        tax_id: params.taxId,
+        preferred_move_in_region: params.preferredMoveInRegion,
       },
     },
   });
@@ -53,23 +63,74 @@ export async function signUpWithSupabase(params: SignUpParams): Promise<User> {
     throw new Error('Registration failed: No user returned by authentication provider.');
   }
 
-  // Create/Update profile in public.profiles table
-  const user = await updateProfile(data.user.id, {
-    name: params.name,
-    email: params.email,
-    role: params.role,
-    phone: params.phone,
-    country: country,
-    region: region,
-    state: state,
-    city: city,
-    postalCode: params.postalCode,
-    streetAddress: params.streetAddress,
-    taxId: params.taxId,
-    preferredMoveInRegion: params.preferredMoveInRegion,
-  });
+  // If email confirmation is enabled and session is null (auth.uid() is NULL in DB),
+  // DO NOT write to public.profiles from unauthenticated client.
+  // The database trigger handles initial profile insertion in SECURITY DEFINER context.
+  if (!data.session) {
+    return {
+      id: data.user.id,
+      name: params.name.trim(),
+      email: params.email.trim(),
+      role: params.role,
+      phone: params.phone,
+      country,
+      region,
+      state,
+      city,
+      postalCode: params.postalCode,
+      streetAddress: params.streetAddress,
+      taxId: params.taxId,
+      preferredMoveInRegion: params.preferredMoveInRegion,
+    };
+  }
 
-  return user;
+  // If session is immediately established (email confirmation disabled or auto-confirmed):
+  // Fetch the profile created by database trigger.
+  let profile = await getProfile(data.user.id);
+  if (!profile) {
+    // Brief delay to allow trigger to finish
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    profile = await getProfile(data.user.id);
+  }
+
+  if (profile) {
+    return profile;
+  }
+
+  // Fallback: If trigger did not create profile and user is authenticated, updateProfile will succeed under RLS
+  try {
+    return await updateProfile(data.user.id, {
+      name: params.name.trim(),
+      email: params.email.trim(),
+      role: params.role,
+      phone: params.phone,
+      country: country,
+      region: region,
+      state: state,
+      city: city,
+      postalCode: params.postalCode,
+      streetAddress: params.streetAddress,
+      taxId: params.taxId,
+      preferredMoveInRegion: params.preferredMoveInRegion,
+    });
+  } catch (profileErr) {
+    console.warn('Could not write profile directly; returning user state:', profileErr);
+    return {
+      id: data.user.id,
+      name: params.name.trim(),
+      email: params.email.trim(),
+      role: params.role,
+      phone: params.phone,
+      country,
+      region,
+      state,
+      city,
+      postalCode: params.postalCode,
+      streetAddress: params.streetAddress,
+      taxId: params.taxId,
+      preferredMoveInRegion: params.preferredMoveInRegion,
+    };
+  }
 }
 
 /**
@@ -100,17 +161,40 @@ export async function loginWithSupabase(
   // Load database profile
   let profile = await getProfile(data.user.id);
 
-  // If profile doesn't exist yet, bootstrap it from user metadata
+  // If profile doesn't exist yet, bootstrap it from user metadata under authenticated session
   if (!profile) {
-    profile = await updateProfile(data.user.id, {
-      name: name || data.user.user_metadata?.full_name || data.user.user_metadata?.name || 'Rentora User',
-      email: data.user.email || email,
-      role: (data.user.user_metadata?.role as any) || role,
-      phone: data.user.user_metadata?.phone,
-      country: data.user.user_metadata?.country || 'Nigeria',
-      state: data.user.user_metadata?.state,
-      city: data.user.user_metadata?.city,
-    });
+    const rawRole = (data.user.user_metadata?.role || role).toLowerCase();
+    const userRole: 'guest' | 'landlord' = rawRole === 'landlord' ? 'landlord' : 'guest';
+    const country = data.user.user_metadata?.country || 'Nigeria';
+    const state = data.user.user_metadata?.state || '';
+    const city = data.user.user_metadata?.city || '';
+    const region = data.user.user_metadata?.region || deriveRegionFromLocation({ country, state, city });
+
+    try {
+      profile = await updateProfile(data.user.id, {
+        name: name || data.user.user_metadata?.full_name || data.user.user_metadata?.name || 'Rentora User',
+        email: data.user.email || email,
+        role: userRole,
+        phone: data.user.user_metadata?.phone,
+        country,
+        region,
+        state,
+        city,
+      });
+    } catch (profileErr) {
+      console.warn('Could not bootstrap profile in loginWithSupabase:', profileErr);
+      profile = {
+        id: data.user.id,
+        name: name || data.user.user_metadata?.full_name || data.user.user_metadata?.name || 'Rentora User',
+        email: data.user.email || email,
+        role: userRole,
+        phone: data.user.user_metadata?.phone,
+        country,
+        region,
+        state,
+        city,
+      };
+    }
   }
 
   return profile;
@@ -137,15 +221,38 @@ export async function getCurrentSupabaseUser(): Promise<User | null> {
 
     let profile = await getProfile(user.id);
     if (!profile) {
-      profile = await updateProfile(user.id, {
-        name: user.user_metadata?.full_name || user.user_metadata?.name || 'Rentora User',
-        email: user.email || '',
-        role: (user.user_metadata?.role as any) || 'guest',
-        phone: user.user_metadata?.phone,
-        country: user.user_metadata?.country || 'Nigeria',
-        state: user.user_metadata?.state,
-        city: user.user_metadata?.city,
-      });
+      const rawRole = (user.user_metadata?.role || 'tenant').toLowerCase();
+      const userRole: 'guest' | 'landlord' = rawRole === 'landlord' ? 'landlord' : 'guest';
+      const country = user.user_metadata?.country || 'Nigeria';
+      const state = user.user_metadata?.state || '';
+      const city = user.user_metadata?.city || '';
+      const region = user.user_metadata?.region || deriveRegionFromLocation({ country, state, city });
+
+      try {
+        profile = await updateProfile(user.id, {
+          name: user.user_metadata?.full_name || user.user_metadata?.name || 'Rentora User',
+          email: user.email || '',
+          role: userRole,
+          phone: user.user_metadata?.phone,
+          country,
+          region,
+          state,
+          city,
+        });
+      } catch (profileErr) {
+        console.warn('Could not bootstrap profile in getCurrentSupabaseUser:', profileErr);
+        profile = {
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || 'Rentora User',
+          email: user.email || '',
+          role: userRole,
+          phone: user.user_metadata?.phone,
+          country,
+          region,
+          state,
+          city,
+        };
+      }
     }
 
     return profile;

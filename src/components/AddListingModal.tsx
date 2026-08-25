@@ -1,16 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { createProperty } from '../services/databaseService';
+import { createProperty, updateProperty } from '../services/databaseService';
+import { uploadPropertyVideo, uploadPropertyImage, validateVideoFile, getVideoDuration } from '../services/propertyMediaService';
+import { supabase } from '../services/supabaseClient';
 import { sendListingCreatedNotification } from '../services/emailService';
 import { Listing, PropertyType, PROPERTY_CATEGORY_OPTIONS, User } from '../types';
-import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User as UserIcon, Building2, Award, Zap } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Plus, Image as ImageIcon, Eye, HelpCircle, Upload, Trash2, FolderPlus, Sparkles, AlertCircle, RefreshCw, Wand2, MapPin, Search, ShieldAlert, DollarSign, Video, Phone, Mail, MessageCircle, Briefcase, User as UserIcon, Building2, Award, Zap, Film, FileVideo, Clock, Play, CheckCircle2 } from 'lucide-react';
 import { searchAddressSuggestions, GeocodedAddress, GLOBAL_COUNTRIES, getStatesForCountry, getCitiesForState, getAreasForCity, getCoordinatesForUserLocation, resolveLocationMeta } from '../utils/location';
 import { validateStep1, validateStep2, validateListingFull } from '../schemas/listingSchema';
 import { SUPPORTED_CURRENCIES, getCurrencyForCountry, convertCurrencyToUSD, convertUSDToCurrency, formatCurrencyAmount } from '../utils/currency';
 
 interface AddListingModalProps {
   onClose: () => void;
-  onListingCreated: () => void;
+  onListingCreated?: () => void;
+  onListingUpdated?: (listing: Listing) => void;
+  listingToEdit?: Listing | null;
   currentUser?: User | null;
 }
 
@@ -66,36 +70,75 @@ const compressImageDataUrl = (dataUrl: string, maxWidth = 1024, quality = 0.72):
   });
 };
 
-export default function AddListingModal({ onClose, onListingCreated, currentUser }: AddListingModalProps) {
+export default function AddListingModal({ onClose, onListingCreated, onListingUpdated, listingToEdit, currentUser }: AddListingModalProps) {
   const [step, setStep] = useState(1);
-  const [modalCountry, setModalCountry] = useState<string>('Nigeria');
-  const [modalState, setModalState] = useState<string>('Lagos State');
-  const [modalCity, setModalCity] = useState<string>('Lagos');
+  const [modalCountry, setModalCountry] = useState<string>(listingToEdit?.country || 'Nigeria');
+  const [modalState, setModalState] = useState<string>(listingToEdit?.state || 'Lagos State');
+  const [modalCity, setModalCity] = useState<string>(listingToEdit?.city || 'Lagos');
   const [modalArea, setModalArea] = useState<string>('all');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(listingToEdit?.title || '');
+  const [description, setDescription] = useState(listingToEdit?.description || '');
   
   // Listing Currency & Pricing Period State
-  const [listingCurrency, setListingCurrency] = useState<string>(() => getCurrencyForCountry('Nigeria').code);
-  const [pricePeriod, setPricePeriod] = useState<'annual' | 'monthly' | 'quarterly'>('annual');
-  const [localPrice, setLocalPrice] = useState<number>(2400000); // Default 2,400,000 NGN/year or equivalent
-  const [type, setType] = useState<PropertyType>('single-room');
-  const [location, setLocation] = useState('Lagos, Nigeria');
-  const [bedrooms, setBedrooms] = useState(1);
-  const [bathrooms, setBathrooms] = useState(1);
-  const [size, setSize] = useState(25);
-  const [selectedImage, setSelectedImage] = useState(PRESET_IMAGES[0].url);
+  const [listingCurrency, setListingCurrency] = useState<string>(
+    listingToEdit?.currency || (() => getCurrencyForCountry('Nigeria').code)
+  );
+  const [pricePeriod, setPricePeriod] = useState<'annual' | 'monthly' | 'quarterly'>(
+    listingToEdit?.pricePeriod || 'annual'
+  );
+  const [localPrice, setLocalPrice] = useState<number>(
+    listingToEdit?.localPrice || listingToEdit?.price || 2400000
+  );
+  const [type, setType] = useState<PropertyType>(listingToEdit?.type || 'single-room');
+  const [location, setLocation] = useState(listingToEdit?.location || 'Lagos, Nigeria');
+  const [bedrooms, setBedrooms] = useState(listingToEdit?.bedrooms ?? 1);
+  const [bathrooms, setBathrooms] = useState(listingToEdit?.bathrooms ?? 1);
+  const [size, setSize] = useState(listingToEdit?.size ?? 25);
+  const [selectedImage, setSelectedImage] = useState(
+    listingToEdit?.images?.[0] || PRESET_IMAGES[0].url
+  );
   const [customImage, setCustomImage] = useState('');
-  const [videoUrl, setVideoUrl] = useState<string>('https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-with-large-windows-and-stylish-decor-41582-large.mp4');
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ id: string; url: string; fileName: string; sizeKb: number; source: 'device' | 'preset' }[]>([
-    { id: 'preset-1', url: PRESET_IMAGES[0].url, fileName: 'Preset_Bedroom.jpg', sizeKb: 340, source: 'preset' }
-  ]);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(['High-Speed Wi-Fi', 'Double Bed']);
-  const [annualDiscountPercentage, setAnnualDiscountPercentage] = useState(10);
-  const [energyRating, setEnergyRating] = useState<'A+++' | 'A++' | 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'>('A+');
-  const [solarPowered, setSolarPowered] = useState<boolean>(true);
-  const [customLat, setCustomLat] = useState<number | null>(null);
-  const [customLng, setCustomLng] = useState<number | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>(listingToEdit?.videoUrl || '');
+  
+  // Video upload file state
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(
+    listingToEdit?.videoMetadata?.duration || null
+  );
+  const [videoFileError, setVideoFileError] = useState<string | null>(null);
+  const [isVideoDragging, setIsVideoDragging] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ id: string; url: string; fileName: string; sizeKb: number; source: 'device' | 'preset' | 'custom'; rawFile?: File }[]>(() => {
+    if (listingToEdit?.images && listingToEdit.images.length > 0) {
+      return listingToEdit.images.map((imgUrl, i) => ({
+        id: `edit-photo-${i}`,
+        url: imgUrl,
+        fileName: `Photo ${i + 1}`,
+        sizeKb: 280,
+        source: 'custom' as const
+      }));
+    }
+    return [
+      { id: 'preset-1', url: PRESET_IMAGES[0].url, fileName: 'Preset_Bedroom.jpg', sizeKb: 340, source: 'preset' }
+    ];
+  });
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+    listingToEdit?.amenities || ['High-Speed Wi-Fi', 'Double Bed']
+  );
+  const [annualDiscountPercentage, setAnnualDiscountPercentage] = useState(
+    listingToEdit?.annualDiscountPercentage ?? 10
+  );
+  const [energyRating, setEnergyRating] = useState<'A+++' | 'A++' | 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'>(
+    listingToEdit?.energyRating || 'A+'
+  );
+  const [solarPowered, setSolarPowered] = useState<boolean>(
+    listingToEdit?.solarPowered ?? true
+  );
+  const [customLat, setCustomLat] = useState<number | null>(listingToEdit?.lat ?? null);
+  const [customLng, setCustomLng] = useState<number | null>(listingToEdit?.lng ?? null);
   const [addressSuggestions, setAddressSuggestions] = useState<GeocodedAddress[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -111,17 +154,33 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  // Clean up object URL when component unmounts or video preview changes
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
+
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceSuccess, setEnhanceSuccess] = useState(false);
   
   // Lister & Contact Information State
-  const [contactRole, setContactRole] = useState<'landlord' | 'property_manager' | 'agent'>('landlord');
-  const [landlordName, setLandlordName] = useState<string>(currentUser ? (currentUser.name || '') : '');
-  const [agentCompany, setAgentCompany] = useState<string>('');
-  const [contactPhone, setContactPhone] = useState<string>('');
-  const [contactWhatsApp, setContactWhatsApp] = useState<string>('');
-  const [contactEmail, setContactEmail] = useState<string>(currentUser ? (currentUser.email || '') : '');
-  const [agentLicense, setAgentLicense] = useState<string>('');
+  const [contactRole, setContactRole] = useState<'landlord' | 'property_manager' | 'agent'>(
+    listingToEdit?.contactRole || 'landlord'
+  );
+  const [landlordName, setLandlordName] = useState<string>(
+    listingToEdit?.landlordName || (currentUser ? (currentUser.name || '') : '')
+  );
+  const [agentCompany, setAgentCompany] = useState<string>(listingToEdit?.agentCompany || '');
+  const [contactPhone, setContactPhone] = useState<string>(listingToEdit?.contactPhone || '');
+  const [contactWhatsApp, setContactWhatsApp] = useState<string>(listingToEdit?.contactWhatsApp || '');
+  const [contactEmail, setContactEmail] = useState<string>(
+    listingToEdit?.contactEmail || (currentUser ? (currentUser.email || '') : '')
+  );
+  const [agentLicense, setAgentLicense] = useState<string>(listingToEdit?.agentLicense || '');
   
   // Schema validation states
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -176,7 +235,8 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
             url: compressedUrl,
             fileName: file.name,
             sizeKb: Math.round(compressedUrl.length / 1024),
-            source: 'device' as const
+            source: 'device' as const,
+            rawFile: file
           };
           setUploadedPhotos(prev => [newPhoto, ...prev]);
         }
@@ -222,6 +282,75 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
       const target = copy.splice(index, 1)[0];
       return [target, ...copy];
     });
+  };
+
+  // Video Upload Handlers
+  const handleProcessVideoFile = async (file: File) => {
+    setVideoFileError(null);
+    if (!file) return;
+
+    try {
+      validateVideoFile(file);
+    } catch (err: any) {
+      setVideoFileError(err.message || 'Unsupported video format. Please upload MP4, WebM or MOV (max 100 MB).');
+      return;
+    }
+
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+
+    const objUrl = URL.createObjectURL(file);
+    setVideoFile(file);
+    setVideoPreviewUrl(objUrl);
+    setVideoDuration(null);
+
+    try {
+      const dur = await getVideoDuration(file);
+      if (dur) setVideoDuration(dur);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleVideoInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleProcessVideoFile(e.target.files[0]);
+    }
+  };
+
+  const handleVideoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsVideoDragging(true);
+  };
+
+  const handleVideoDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsVideoDragging(false);
+  };
+
+  const handleVideoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsVideoDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleProcessVideoFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleRemoveSelectedVideo = () => {
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
+    setVideoDuration(null);
+    setVideoFileError(null);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
+    }
   };
 
   // Toggle amenities selection
@@ -405,6 +534,115 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentAuthId = user?.id || currentUser?.id;
+
+      if (listingToEdit) {
+        setUploadStatusText('Updating property listing in database...');
+        const propertyId = listingToEdit.id;
+
+        // STEP 1: Upload new device photos if any
+        let uploadedImageUrls: string[] = [];
+        const rawDevicePhotos = uploadedPhotos.filter(p => p.rawFile);
+        if (rawDevicePhotos.length > 0 && currentAuthId) {
+          setUploadStatusText(`Uploading new property photos to storage (${rawDevicePhotos.length})...`);
+          for (const photo of rawDevicePhotos) {
+            if (photo.rawFile) {
+              try {
+                const imgResult = await uploadPropertyImage(photo.rawFile, currentAuthId, propertyId);
+                uploadedImageUrls.push(imgResult.url);
+              } catch (err: any) {
+                console.warn('Failed to upload image file to storage, using fallback:', err);
+                if (!photo.url.startsWith('data:') && !photo.url.startsWith('blob:')) {
+                  uploadedImageUrls.push(photo.url);
+                }
+              }
+            }
+          }
+        }
+
+        // Add remaining non-blob/non-data URLs
+        uploadedPhotos.forEach(p => {
+          if (!p.rawFile && !p.url.startsWith('data:') && !p.url.startsWith('blob:') && !uploadedImageUrls.includes(p.url)) {
+            uploadedImageUrls.push(p.url);
+          }
+        });
+        if (customImage && !customImage.startsWith('data:') && !customImage.startsWith('blob:') && !uploadedImageUrls.includes(customImage)) {
+          uploadedImageUrls.unshift(customImage);
+        }
+        if (uploadedImageUrls.length === 0) {
+          uploadedImageUrls = listingToEdit.images?.length ? listingToEdit.images : [PRESET_IMAGES[0].url];
+        }
+
+        // STEP 2: Upload new video if selected
+        let finalVideoUrl: string | undefined = videoUrl.trim() || undefined;
+        let finalVideoMetadata: any = listingToEdit.videoMetadata || undefined;
+
+        if (videoFile && currentAuthId) {
+          setUploadStatusText('Uploading property video walkthrough (up to 100 MB)...');
+          try {
+            const videoResult = await uploadPropertyVideo(videoFile, currentAuthId, propertyId);
+            finalVideoUrl = videoResult.url;
+            finalVideoMetadata = videoResult.metadata;
+          } catch (videoErr: any) {
+            console.error('Failed to upload video to storage:', videoErr);
+            throw new Error(videoErr.message || 'Video upload failed. Please verify the video file format and network connection.');
+          }
+        } else if (!videoFile && !videoUrl.trim()) {
+          finalVideoUrl = undefined;
+          finalVideoMetadata = undefined;
+        }
+
+        // STEP 3: Update property record
+        setUploadStatusText('Saving updated property details...');
+        const updated = await updateProperty(propertyId, {
+          title: title.trim(),
+          description: description.trim(),
+          price: priceInUSD,
+          pricePeriod,
+          localPrice,
+          currency: listingCurrency,
+          annualDiscountPercentage,
+          type,
+          location: location.trim(),
+          country: finalCountry,
+          state: finalState,
+          city: finalCity,
+          lat,
+          lng,
+          bedrooms,
+          bathrooms,
+          size,
+          energyRating,
+          solarPowered,
+          amenities: selectedAmenities,
+          images: uploadedImageUrls,
+          videoUrl: finalVideoUrl,
+          videoMetadata: finalVideoMetadata,
+          contactRole,
+          landlordName: landlordName.trim() || undefined,
+          agentCompany: agentCompany.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
+          contactWhatsApp: contactWhatsApp.trim() || undefined,
+          contactEmail: contactEmail.trim() || undefined,
+          agentLicense: agentLicense.trim() || undefined,
+        });
+
+        setUploadStatusText('Listing updated successfully!');
+        setIsSubmitting(false);
+        setUploadStatusText(null);
+        if (onListingUpdated) onListingUpdated(updated);
+        if (onListingCreated) onListingCreated();
+        onClose();
+        return;
+      }
+
+      setUploadStatusText('Creating property listing in database...');
+
+      // STEP 1: Create property base record in Supabase
+      const initialImages = finalImagesList.filter(url => !url.startsWith('data:') && !url.startsWith('blob:'));
+      const fallbackInitialImage = initialImages.length > 0 ? initialImages : [PRESET_IMAGES[0].url];
+
       const newListing = await createProperty({
         title: title.trim(),
         description: description.trim(),
@@ -426,8 +664,8 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
         energyRating,
         solarPowered,
         amenities: selectedAmenities,
-        images: finalImagesList,
-        videoUrl: videoUrl.trim() || undefined,
+        images: fallbackInitialImage,
+        videoUrl: !videoFile && videoUrl.trim() ? videoUrl.trim() : undefined,
         contactRole,
         landlordName: landlordName.trim() || undefined,
         agentCompany: agentCompany.trim() || undefined,
@@ -435,8 +673,75 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
         contactWhatsApp: contactWhatsApp.trim() || undefined,
         contactEmail: contactEmail.trim() || undefined,
         agentLicense: agentLicense.trim() || undefined,
-        availableFrom: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 15 days in future
+        status: 'active',
+        availableFrom: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       });
+
+      // STEP 2: Real Property ID
+      const propertyId = newListing.id;
+
+      // STEP 3 & 4: Upload media files if present
+      let uploadedImageUrls: string[] = [];
+
+      // Upload raw image files if any
+      const rawDevicePhotos = uploadedPhotos.filter(p => p.rawFile);
+      if (rawDevicePhotos.length > 0 && currentAuthId) {
+        setUploadStatusText(`Uploading property photos to storage (${rawDevicePhotos.length})...`);
+        for (const photo of rawDevicePhotos) {
+          if (photo.rawFile) {
+            try {
+              const imgResult = await uploadPropertyImage(photo.rawFile, currentAuthId, propertyId);
+              uploadedImageUrls.push(imgResult.url);
+            } catch (err: any) {
+              console.warn('Failed to upload image file to storage, using fallback:', err);
+              if (!photo.url.startsWith('data:') && !photo.url.startsWith('blob:')) {
+                uploadedImageUrls.push(photo.url);
+              }
+            }
+          }
+        }
+      }
+
+      // Add other non-blob/non-data URLs
+      uploadedPhotos.forEach(p => {
+        if (!p.rawFile && !p.url.startsWith('data:') && !p.url.startsWith('blob:') && !uploadedImageUrls.includes(p.url)) {
+          uploadedImageUrls.push(p.url);
+        }
+      });
+      if (customImage && !customImage.startsWith('data:') && !customImage.startsWith('blob:') && !uploadedImageUrls.includes(customImage)) {
+        uploadedImageUrls.unshift(customImage);
+      }
+
+      // Ensure at least 1 image URL
+      if (uploadedImageUrls.length === 0) {
+        uploadedImageUrls = fallbackInitialImage;
+      }
+
+      // STEP 4: Upload optional video to ${user.id}/${property.id}/video/
+      let finalVideoUrl: string | undefined = !videoFile && videoUrl.trim() ? videoUrl.trim() : undefined;
+      let finalVideoMetadata: any = undefined;
+
+      if (videoFile && currentAuthId) {
+        setUploadStatusText('Uploading property video walkthrough (up to 100 MB)...');
+        try {
+          const videoResult = await uploadPropertyVideo(videoFile, currentAuthId, propertyId);
+          finalVideoUrl = videoResult.url;
+          finalVideoMetadata = videoResult.metadata;
+        } catch (videoErr: any) {
+          console.error('Failed to upload video to storage:', videoErr);
+          throw new Error(videoErr.message || 'Video upload failed. Please verify the video file format and network connection.');
+        }
+      }
+
+      // STEP 6: Update the property record with final media
+      setUploadStatusText('Saving property media and finalizing listing...');
+      await updateProperty(propertyId, {
+        images: uploadedImageUrls,
+        videoUrl: finalVideoUrl,
+        videoMetadata: finalVideoMetadata
+      });
+
+      setUploadStatusText('Upload complete!');
 
       // Send email alert to landlord
       if (contactEmail.trim() || currentUser?.email) {
@@ -451,11 +756,14 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
       }
 
       setIsSubmitting(false);
-      onListingCreated();
+      setUploadStatusText(null);
+      if (onListingCreated) onListingCreated();
+      onClose();
     } catch (err: any) {
-      console.error('Failed to create property in database:', err);
+      console.error('Failed to save property in database:', err);
       setIsSubmitting(false);
-      setValidationSummary(err.message || 'Database error: Unable to create property listing. Please ensure you are signed in.');
+      setUploadStatusText(null);
+      setValidationSummary(err.message || 'Database error: Unable to save property listing. Please ensure you are signed in.');
     }
   };
 
@@ -475,24 +783,78 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
       >
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 id="add-listing-modal-title" className="font-bold text-slate-800 text-lg">List Your Property</h3>
-            <p className="text-xs text-slate-400">Step {step} of 3 • Add details about your rental home</p>
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 id="add-listing-modal-title" className="font-bold text-slate-800 text-lg">
+                {listingToEdit ? 'Edit Property Listing' : 'List Your Property'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {listingToEdit 
+                  ? `Step ${step} of 3 • Update specifications, media, and pricing`
+                  : `Step ${step} of 3 • Add details, photos, and video tour`}
+              </p>
+            </div>
+            <button 
+              type="button"
+              onClick={onClose}
+              className="p-1.5 hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 rounded-full transition-colors border border-slate-200/50 cursor-pointer"
+              aria-label="Close listing modal"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+              <span className="sr-only">Close</span>
+            </button>
           </div>
-          <button 
-            type="button"
-            onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors border border-slate-200/50 cursor-pointer"
-            aria-label="Close listing creation modal"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
-            <span className="sr-only">Close</span>
-          </button>
+
+          {/* Step Navigation Tabs */}
+          <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                step === 1 
+                  ? 'bg-emerald-600 text-white shadow-xs' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+              }`}
+            >
+              1. Basic Info
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                step === 2 
+                  ? 'bg-emerald-600 text-white shadow-xs' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+              }`}
+            >
+              2. Media & Rooms
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                step === 3 
+                  ? 'bg-emerald-600 text-white shadow-xs' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+              }`}
+            >
+              3. Amenities & Lister
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+          {uploadStatusText && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-800 animate-fade-in shadow-xs">
+              <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin shrink-0" />
+              <div className="flex-1 font-semibold">
+                <span>{uploadStatusText}</span>
+              </div>
+            </div>
+          )}
+
           {validationSummary && (
             <div className="p-3 bg-rose-50 border border-rose-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800 animate-fade-in shadow-xs">
               <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -1075,192 +1437,409 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
                 </div>
               </div>
 
-              {/* Device / Computer Photo File Upload Section */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Upload Property Photos From Device *</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400 font-semibold">
-                    {uploadedPhotos.length} {uploadedPhotos.length === 1 ? 'photo' : 'photos'} added
-                  </span>
+              {/* ============================================================ */}
+              {/* PROPERTY MEDIA SECTION (PHOTOS & VIDEO)                       */}
+              {/* ============================================================ */}
+              <div className="pt-2 border-t border-slate-200 space-y-6">
+                <div className="pb-1 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <Upload className="w-4 h-4 text-emerald-600" />
+                      <span>Property Media</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Upload property photos and an optional video walkthrough
+                    </p>
+                  </div>
                 </div>
 
-                {fieldErrors.images && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium animate-fade-in">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{fieldErrors.images}</span>
-                  </div>
-                )}
-
-                {/* Drag and Drop File Upload Area */}
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
-                    fieldErrors.images
-                      ? 'border-rose-400 bg-rose-50/30'
-                      : isDragging
-                      ? 'border-emerald-500 bg-emerald-50/60 scale-[1.01]'
-                      : 'border-slate-200 hover:border-emerald-400 hover:bg-slate-50/80 bg-slate-50/40'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/png, image/jpeg, image/jpg, image/webp"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-inner">
-                      <FolderPlus className="w-5 h-5" />
-                    </div>
+                {/* PROPERTY PHOTOS */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-xs font-extrabold text-slate-800">
-                        Drag & drop photo files here or <span className="text-emerald-600 underline">browse computer</span>
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                        Supports high-res JPG, PNG, WEBP (up to 15MB each)
-                      </p>
+                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Property Photos *</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500">Upload multiple photos from your device</p>
+                    </div>
+                    <button
+                      type="button"
+                      id="add-photos-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-extrabold text-xs rounded-xl border border-emerald-200/80 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Photos</span>
+                    </button>
+                  </div>
+
+                  {fieldErrors.images && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium animate-fade-in">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{fieldErrors.images}</span>
+                    </div>
+                  )}
+
+                  {/* Drag and Drop File Upload Area */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
+                      fieldErrors.images
+                        ? 'border-rose-400 bg-rose-50/30'
+                        : isDragging
+                        ? 'border-emerald-500 bg-emerald-50/60 scale-[1.01]'
+                        : 'border-slate-200 hover:border-emerald-400 hover:bg-slate-50/80 bg-slate-50/40'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      id="property-photos-file-input"
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      multiple
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-inner">
+                        <FolderPlus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-slate-800">
+                          Drag & drop photo files here or <span className="text-emerald-600 underline">browse device</span>
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          Supports high-res JPG, PNG, WEBP (up to 15MB each)
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {uploadError && (
-                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-[11px] text-rose-700 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span>{uploadError}</span>
-                  </div>
-                )}
+                  {uploadError && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-[11px] text-rose-700 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>{uploadError}</span>
+                    </div>
+                  )}
 
-                {/* Uploaded Photos Gallery Preview Grid */}
-                {uploadedPhotos.length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
-                      Uploaded Photos Gallery
-                    </span>
-                    <div className="grid grid-cols-3 gap-2.5">
-                      {uploadedPhotos.map((photo, index) => (
-                        <div
-                          key={photo.id}
-                          className="relative group aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm transition-all hover:shadow-md"
-                        >
-                          <img
-                            src={photo.url}
-                            alt={photo.fileName}
-                            className="w-full h-full object-cover"
-                          />
-                          
-                          {/* Cover photo badge */}
-                          {index === 0 ? (
-                            <div className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[8.5px] font-black px-2 py-0.5 rounded-md shadow uppercase tracking-wider flex items-center gap-1">
-                              <Check className="w-2.5 h-2.5 stroke-[3]" />
-                              <span>Cover Photo</span>
+                  {/* Uploaded Photos Gallery Preview Grid */}
+                  {uploadedPhotos.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                          Uploaded Photos ({uploadedPhotos.length})
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          First photo is the primary cover
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {uploadedPhotos.map((photo, index) => (
+                          <div
+                            key={photo.id}
+                            className="relative group aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm transition-all hover:shadow-md"
+                          >
+                            <img
+                              src={photo.url}
+                              alt={photo.fileName}
+                              className="w-full h-full object-cover"
+                            />
+                            
+                            {/* Cover photo badge */}
+                            {index === 0 ? (
+                              <div className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[8.5px] font-black px-2 py-0.5 rounded-md shadow uppercase tracking-wider flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                <span>Cover Photo</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetCoverPhoto(index)}
+                                className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 bg-slate-900/80 hover:bg-emerald-600 text-white text-[8.5px] font-bold px-2 py-0.5 rounded-md transition-all shadow cursor-pointer"
+                              >
+                                Make Cover
+                              </button>
+                            )}
+
+                            {/* File info badge */}
+                            <div className="absolute bottom-1 left-1 right-1 bg-slate-900/70 backdrop-blur-xs text-white p-1 rounded-md flex justify-between items-center text-[8px] font-mono">
+                              <span className="truncate max-w-[80px] font-medium">{photo.fileName}</span>
+                              <span className="text-slate-300 font-semibold">{photo.sizeKb}KB</span>
                             </div>
-                          ) : (
+
+                            {/* Delete Photo Action */}
                             <button
                               type="button"
-                              onClick={() => handleSetCoverPhoto(index)}
-                              className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 bg-slate-900/80 hover:bg-emerald-600 text-white text-[8.5px] font-bold px-2 py-0.5 rounded-md transition-all shadow cursor-pointer"
+                              onClick={() => handleRemovePhoto(photo.id)}
+                              className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 bg-rose-600 text-white p-1 rounded-md hover:bg-rose-700 transition-all shadow cursor-pointer"
+                              title="Remove photo"
                             >
-                              Make Cover
+                              <Trash2 className="w-3 h-3" />
                             </button>
-                          )}
-
-                          {/* File info badge */}
-                          <div className="absolute bottom-1 left-1 right-1 bg-slate-900/70 backdrop-blur-xs text-white p-1 rounded-md flex justify-between items-center text-[8px] font-mono">
-                            <span className="truncate max-w-[80px] font-medium">{photo.fileName}</span>
-                            <span className="text-slate-300 font-semibold">{photo.sizeKb}KB</span>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                          {/* Delete Photo Action */}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePhoto(photo.id)}
-                            className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 bg-rose-600 text-white p-1 rounded-md hover:bg-rose-700 transition-all shadow cursor-pointer"
-                            title="Remove photo"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                  {/* Preset Catalog Alternative option */}
+                  <div className="pt-2 space-y-2 border-t border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                      Or select from sample photos:
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PRESET_IMAGES.map((img, idx) => (
+                        <div 
+                          key={idx}
+                          onClick={() => {
+                            clearFieldError('images');
+                            const presetItem = {
+                              id: `preset-${idx}`,
+                              url: img.url,
+                              fileName: img.label + '.jpg',
+                              sizeKb: 350,
+                              source: 'preset' as const
+                            };
+                            setUploadedPhotos(prev => {
+                              if (prev.some(p => p.url === img.url)) return prev;
+                              return [presetItem, ...prev];
+                            });
+                          }}
+                          className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-100 hover:border-emerald-300 cursor-pointer transition-all group"
+                        >
+                          <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-1.5">
+                            <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between min-w-0">
+                              <span className="truncate">{img.label}</span>
+                              <Plus className="w-3 h-3 text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Preset Catalog Alternative option */}
-                <div className="pt-2 space-y-2 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                    Or select from preset sample photos:
-                  </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {PRESET_IMAGES.map((img, idx) => (
-                      <div 
-                        key={idx}
-                        onClick={() => {
-                          clearFieldError('images');
-                          const presetItem = {
-                            id: `preset-${idx}`,
-                            url: img.url,
-                            fileName: img.label + '.jpg',
-                            sizeKb: 350,
-                            source: 'preset' as const
-                          };
-                          setUploadedPhotos(prev => {
-                            if (prev.some(p => p.url === img.url)) return prev;
-                            return [presetItem, ...prev];
-                          });
-                        }}
-                        className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-100 hover:border-emerald-300 cursor-pointer transition-all group"
-                      >
-                        <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-1.5">
-                          <span className="text-[9px] text-white font-semibold truncate w-full flex items-center justify-between min-w-0">
-                            <span className="truncate">{img.label}</span>
-                            <Plus className="w-3 h-3 text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Custom URL Option */}
+                  <div className="pt-1">
+                    <span className="text-[10px] text-slate-400 block mb-1 font-medium">Or paste an external photo URL:</span>
+                    <input
+                      type="url"
+                      value={customImage}
+                      onChange={(e) => {
+                        setCustomImage(e.target.value);
+                        clearFieldError('images');
+                      }}
+                      placeholder="https://images.unsplash.com/your-custom-image-link"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
                   </div>
                 </div>
 
-                {/* Custom URL Option */}
-                <div className="pt-1">
-                  <span className="text-[10px] text-slate-400 block mb-1 font-medium">Or paste an external photo URL:</span>
-                  <input
-                    type="url"
-                    value={customImage}
-                    onChange={(e) => {
-                      setCustomImage(e.target.value);
-                      clearFieldError('images');
-                    }}
-                    placeholder="https://images.unsplash.com/your-custom-image-link"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  />
-                </div>
+                {/* PROPERTY VIDEO (OPTIONAL) */}
+                <div className="space-y-3 pt-5 border-t border-slate-200">
+                  <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-1">
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                        <Film className="w-3.5 h-3.5 text-rose-500" />
+                        <span>Property Video (Optional)</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500">
+                        Add a video tour of your property
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md self-start sm:self-auto border border-slate-200/60">
+                      MP4, WebM or MOV • Maximum 100 MB
+                    </span>
+                  </div>
 
-                {/* Video Walkthrough URL Field */}
-                <div className="pt-3 border-t border-slate-100 space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <Video className="w-3.5 h-3.5 text-rose-500" />
-                    <span>HD Property Video Walk-through URL (Optional)</span>
-                  </label>
-                  <p className="text-[10px] text-slate-400">
-                    Paste an MP4 video link or YouTube/Vimeo URL for 360° virtual tours.
-                  </p>
+                  {videoFileError && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-[11px] text-rose-700 font-medium animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>{videoFileError}</span>
+                    </div>
+                  )}
+
+                  {/* Hidden Real HTML Video File Input */}
                   <input
-                    type="url"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    placeholder="https://assets.mixkit.co/.../video.mp4 or YouTube link"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    type="file"
+                    ref={videoInputRef}
+                    id="property-video-file-input"
+                    accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                    onChange={handleVideoInputChange}
+                    className="hidden"
                   />
+
+                  {/* If a video has been selected / uploaded or existing from listing */}
+                  {videoFile && videoPreviewUrl ? (
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 p-3 space-y-3 shadow-md">
+                      <div className="relative rounded-xl overflow-hidden aspect-video bg-black flex items-center justify-center">
+                        <video
+                          src={videoPreviewUrl}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          onLoadedMetadata={(e) => {
+                            const dur = Math.round((e.target as HTMLVideoElement).duration);
+                            if (dur > 0) setVideoDuration(dur);
+                          }}
+                          className="w-full h-full object-contain"
+                        >
+                          Your browser does not support property video playback.
+                        </video>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <FileVideo className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span className="truncate">{videoFile.name}</span>
+                          </p>
+                          <div className="text-[10px] text-slate-400 flex flex-wrap items-center gap-2 mt-0.5 font-medium">
+                            <span>{(videoFile.size / (1024 * 1024)).toFixed(1)} MB</span>
+                            {videoDuration && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  {Math.floor(videoDuration / 60)}:{(videoDuration % 60).toString().padStart(2, '0')}
+                                </span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              Ready to upload
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            id="replace-property-video-btn"
+                            onClick={() => videoInputRef.current?.click()}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Replace Video</span>
+                          </button>
+                          <button
+                            type="button"
+                            id="remove-property-video-btn"
+                            onClick={handleRemoveSelectedVideo}
+                            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : videoUrl ? (
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 p-3 space-y-3 shadow-md">
+                      <div className="relative rounded-xl overflow-hidden aspect-video bg-black flex items-center justify-center">
+                        <video
+                          src={videoUrl}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-contain"
+                        >
+                          Your browser does not support property video playback.
+                        </video>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <FileVideo className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span className="truncate">Saved Property Video</span>
+                          </p>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5 font-medium">
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              Active on listing
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            id="replace-saved-video-btn"
+                            onClick={() => videoInputRef.current?.click()}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Replace Video</span>
+                          </button>
+                          <button
+                            type="button"
+                            id="remove-saved-video-btn"
+                            onClick={() => {
+                              setVideoUrl('');
+                              handleRemoveSelectedVideo();
+                            }}
+                            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* If no video has been selected: Show "No property video selected" state box with "+ Upload Property Video" button */
+                    <div
+                      onDragOver={handleVideoDragOver}
+                      onDragLeave={handleVideoDragLeave}
+                      onDrop={handleVideoDrop}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                        isVideoDragging
+                          ? 'border-rose-500 bg-rose-50/60 scale-[1.01]'
+                          : 'border-slate-200 hover:border-rose-300 bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-xs">
+                          <Film className="w-6 h-6 stroke-[2]" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-extrabold text-slate-800">
+                            No property video selected
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            Drag & drop a video walkthrough or tap below to choose from device
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          id="upload-property-video-btn"
+                          onClick={() => videoInputRef.current?.click()}
+                          className="mt-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span>+ Upload Property Video</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom External Video Link Alternative */}
+                  <div className="pt-1">
+                    <span className="text-[10px] text-slate-400 block mb-1 font-medium">Or paste an external HD video link:</span>
+                    <input
+                      type="url"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="https://assets.mixkit.co/.../video.mp4 or YouTube / Vimeo link"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1570,16 +2149,17 @@ export default function AddListingModal({ onClose, onListingCreated, currentUser
           ) : (
             <button
               type="button"
+              id="submit-listing-btn"
               onClick={handleSubmit}
               disabled={isSubmitting}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-bold rounded-xl shadow transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
             >
               {isSubmitting ? (
-                <span>Publishing...</span>
+                <span>{listingToEdit ? 'Saving Changes...' : 'Publishing...'}</span>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" />
-                  <span>Publish Listing</span>
+                  {listingToEdit ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{listingToEdit ? 'Save Changes' : 'Publish Listing'}</span>
                 </>
               )}
             </button>

@@ -57,14 +57,14 @@ export default function HotPropertiesShowcase({
         // High demand, penthouses, apartments, or featured
         return [...listings].sort((a, b) => b.price - a.price);
       case 'new':
-        // Listings with status 'new' or top array items
-        return listings.filter(l => l.status === 'new' || l.status === 'available');
+        // Active listings sorted or filtered
+        return listings.filter(l => l.status === 'active');
       case 'luxury':
         return listings.filter(l => 
           l.type === 'penthouse' || l.type === 'villa' || l.type === 'duplex' || l.price > 1200
         );
       case 'instant':
-        return listings.filter(l => l.status === 'available' || l.status === 'new');
+        return listings.filter(l => l.status === 'active');
       default:
         return listings;
     }

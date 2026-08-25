@@ -165,7 +165,7 @@ export function getNotifications(
     let message = '';
     let priority: AppNotification['priority'] = 'medium';
 
-    if (b.status === 'confirmed' || b.status === 'approved') {
+    if (b.status === 'completed' || (b.status as string) === 'confirmed' || b.status === 'approved') {
       title = isLandlord ? `Booking Confirmed: ${b.listingTitle}` : `Booking Approved! ${b.listingTitle}`;
       message = isLandlord
         ? `Tenant ${b.guestName} completed payment confirmation for $${b.totalAmount || b.listingPrice}.`

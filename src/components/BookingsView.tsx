@@ -3,42 +3,30 @@ import { Booking, User, Listing, BookingMessage, PropertyReview } from '../types
 import { 
   getBookings, 
   getProperties,
-  updateBookingStatus, 
+  updateBookingStatus,
+  approveBooking,
+  rejectBooking,
+  cancelBooking,
   addBookingMessage, 
   confirmBookingPayment, 
   refundBooking, 
   getReviewForBooking, 
-  saveOrUpdateReview 
+  saveOrUpdateReview,
+  initializePaystackPayment,
+  verifyPaystackPayment,
+  redirectToPaystackCheckout
 } from '../services/databaseService';
 import { 
   Check, X, Calendar, User as UserIcon, Mail, Euro, 
   Clock, CheckCircle, XCircle, ArrowRight, Building, Sparkles,
-  MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, Key, AlertCircle, Info, PartyPopper, RotateCcw, Star,
+  MessageSquare, Send, CreditCard, Shield, FileText, Check as CheckIcon, RefreshCw, Download, AlertCircle, Info, PartyPopper, RotateCcw, Star,
   Wrench, Zap, ArrowUpRight, ShieldCheck
 } from 'lucide-react';
-import { validatePaystackKey } from '../utils/paystack';
 import { sendBookingStatusNotification } from '../services/emailService';
 import PaymentDueAlertBanner from './PaymentDueAlertBanner';
 import ReportMaintenanceModal from './ReportMaintenanceModal';
 import LeaseTermsModal from './LeaseTermsModal';
 import { useToast } from '../context/ToastContext';
-
-declare global {
-  interface Window {
-    PaystackPop?: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency?: string;
-        ref?: string;
-        channels?: string[];
-        onClose?: () => void;
-        callback?: (response: { reference: string; status: string; message?: string }) => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
 
 interface BookingsViewProps {
   currentUser: User | null;
@@ -46,6 +34,7 @@ interface BookingsViewProps {
 }
 
 export default function BookingsView({ currentUser, onStatusChanged }: BookingsViewProps) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -68,16 +57,9 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const [cardCvv, setCardCvv] = useState('');
 
   // Paystack Gateway state
-  const [paystackEmail, setPaystackEmail] = useState('');
-  const [paystackChannel, setPaystackChannel] = useState<'card' | 'transfer' | 'ussd'>('card');
-  const [paystackSimulatedModal, setPaystackSimulatedModal] = useState(false);
-  const [paystackOtp, setPaystackOtp] = useState('');
-  const [paystackPublicKey] = useState<string>(
-    import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ? String(import.meta.env.VITE_PAYSTACK_PUBLIC_KEY).trim() : ''
-  );
-  const [verificationStep, setVerificationStep] = useState<0 | 1 | 2 | 3>(0);
   const [verifiedReference, setVerifiedReference] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [paystackKeyNotice, setPaystackKeyNotice] = useState<{ title: string; detail: string; suggestion: string } | null>(null);
 
   // Success Celebration Modal state
@@ -214,213 +196,58 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     }
   };
 
-  // Validate current key
-  const keyValidation = validatePaystackKey(paystackPublicKey);
-
-  // Real-time Paystack Transaction Verification using live backend server endpoint
-  const handleVerifyPaystackPayment = async (reference: string) => {
-    if (!checkoutBooking) return;
-    setIsProcessingPayment(true);
-    
-    // Step 1: Handshake with Paystack API
-    setVerificationStep(1);
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    // Step 2: Real-time query to Paystack transaction reference endpoint via backend API
-    setVerificationStep(2);
-    let isVerified = false;
-    let verifyErrorMessage = '';
-
-    try {
-      const res = await fetch(`/api/paystack/verify/${encodeURIComponent(reference)}`);
-      const data = await res.json();
-      console.log("Paystack Live Verification Response:", data);
-
-      if (res.ok && data.verified === true) {
-        isVerified = true;
-      } else {
-        verifyErrorMessage = data.message || data.error || 'Paystack API could not verify this transaction reference.';
-      }
-    } catch (err: any) {
-      console.warn("Real-time API check error:", err);
-      verifyErrorMessage = err.message || 'Network error connecting to Paystack verification server.';
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    if (isVerified) {
-      // Step 3: Confirmed & Received - booking is marked paid only after server verification succeeds!
-      setVerificationStep(3);
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      setVerifiedReference(reference);
-      try {
-        await confirmBookingPayment(checkoutBooking.id, leaseSignName, 'paystack', reference);
-      } catch (dbErr) {
-        console.warn('Supabase Paystack payment sync:', dbErr);
-      }
-      setIsProcessingPayment(false);
-      setVerificationStep(0);
-      setPaystackSimulatedModal(false);
-      setCheckoutStep(3);
-      onStatusChanged();
-      fetchDbData();
-
-      const recipientEmail = paystackEmail || checkoutBooking.guestEmail || currentUser?.email || 'tenant@rentora.com';
-      const tenantName = leaseSignName || currentUser?.name || 'Tenant';
-      const amountNgn = Math.round(checkoutBooking.listingPrice * 1650);
-      const amountEur = checkoutBooking.listingPrice;
-      const paidAtString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date().toLocaleDateString();
-
-      // Dispatch automated digital receipt email via backend API
-      try {
-        const emailRes = await fetch('/api/email/receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tenantEmail: recipientEmail,
-            tenantName: tenantName,
-            listingTitle: checkoutBooking.listingTitle,
-            reference: reference,
-            amountNgn: amountNgn,
-            amountEur: amountEur,
-            paidAt: paidAtString,
-            bookingId: checkoutBooking.id
-          })
-        });
-        const emailData = await emailRes.json();
-        setEmailDispatchInfo({
-          sent: emailData.success || true,
-          recipient: recipientEmail,
-          sentAt: emailData.sentAt || new Date().toISOString(),
-          htmlPreview: emailData.htmlPreview
-        });
-      } catch (emailErr) {
-        console.warn('Email receipt dispatch warning:', emailErr);
-        setEmailDispatchInfo({
-          sent: true,
-          recipient: recipientEmail,
-          sentAt: new Date().toISOString()
-        });
-      }
-
-      // Trigger Success Celebration Modal
-      setCelebrationDetails({
-        reference,
-        amountNgn,
-        amountEur,
-        listingTitle: checkoutBooking.listingTitle,
-        tenantName,
-        bookingId: checkoutBooking.id,
-        paidAt: paidAtString
-      });
-      setShowSuccessCelebration(true);
-    } else {
-      // Verification failed - DO NOT mark booking as paid
-      setIsProcessingPayment(false);
-      setVerificationStep(0);
-      setPaystackKeyNotice({
-        title: 'Paystack Payment Verification Failed',
-        detail: verifyErrorMessage,
-        suggestion: 'The transaction reference could not be validated with Paystack API. Booking status remains unpaid until a successful transaction is confirmed.'
-      });
-    }
-  };
-
-  // Initialize Paystack Hosted Checkout Page via Server API
-  const triggerPaystackHostedCheckout = async () => {
-    if (!checkoutBooking || !paystackEmail) return;
-    setIsProcessingPayment(true);
-
-    const ref = `PSK-LIVE-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const amountInKobo = Math.round(checkoutBooking.listingPrice * 1650 * 100);
-
-    try {
-      const res = await fetch('/api/paystack/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: paystackEmail,
-          amount: amountInKobo,
-          currency: 'NGN',
-          reference: ref,
-          metadata: {
-            bookingId: checkoutBooking.id,
-            listingTitle: checkoutBooking.listingTitle,
-            tenantName: leaseSignName
-          }
-        })
-      });
-
-      const data = await res.json();
-      setIsProcessingPayment(false);
-
-      if (data.status && data.data?.authorization_url) {
-        window.open(data.data.authorization_url, '_blank');
-        setPaystackSimulatedModal(true);
-      } else {
-        setPaystackKeyNotice({
-          title: 'Paystack Hosted Checkout Response',
-          detail: data.message || 'Could not generate official hosted checkout link.',
-          suggestion: 'Ensure your live secret key is active in Paystack Dashboard or use the Inline SDK.'
-        });
-      }
-    } catch (err: any) {
-      setIsProcessingPayment(false);
-      setPaystackKeyNotice({
-        title: 'Server API Connection Error',
-        detail: err.message || 'Failed to connect to /api/paystack/initialize.',
-        suggestion: 'The server may be starting up or compiling. Please try again in a moment.'
-      });
-    }
-  };
-
-  // Launch official Paystack Inline SDK or interactive portal with explicit key validation
-  const triggerLivePaystackInline = () => {
-    if (!checkoutBooking || !paystackEmail) return;
-
-    const generateRef = `PSK-LIVE-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const amountInKobo = Math.round(checkoutBooking.listingPrice * 1650 * 100);
-
-    // Run key validation helper
-    const validation = validatePaystackKey(paystackPublicKey);
-
-    if (!validation.isValid) {
-      // Key is invalid or missing - show descriptive notice dialog instead of obscure SDK error
-      setPaystackKeyNotice({
-        title: `Paystack Setup Warning: ${validation.statusLabel}`,
-        detail: validation.errorMessage || 'Invalid or missing Paystack public key.',
-        suggestion: validation.suggestion || 'Please provide a valid Paystack key or use the Paystack Checkout Portal.'
-      });
+  // Initialize Paystack Payment via Supabase Edge Function `paystack-initialize`
+  const handlePayWithPaystack = async (bookingToPay?: Booking | null) => {
+    // 1. Verify user is logged in
+    if (!currentUser) {
+      toast.error('Authentication Required', 'Please sign in to proceed with secure payment.');
       return;
     }
 
-    if (window.PaystackPop) {
-      try {
-        const handler = window.PaystackPop.setup({
-          key: paystackPublicKey,
-          email: paystackEmail,
-          amount: amountInKobo,
-          currency: 'NGN',
-          ref: generateRef,
-          onClose: () => {
-            setIsProcessingPayment(false);
-            setVerificationStep(0);
-          },
-          callback: (response: { reference: string; status: string }) => {
-            handleVerifyPaystackPayment(response.reference || generateRef);
-          }
-        });
-        handler.openIframe();
-      } catch (err: any) {
-        setPaystackKeyNotice({
-          title: 'Paystack SDK Initialization Error',
-          detail: err?.message || 'Could not initialize Paystack popup with current key.',
-          suggestion: 'Switch to the built-in Paystack Checkout Portal to process verified live transactions.'
-        });
+    // 2. Verify booking exists
+    const targetBooking = bookingToPay || checkoutBooking;
+    if (!targetBooking) {
+      toast.error('Payment Error', 'No booking was selected for payment.');
+      return;
+    }
+
+    // 3. Verify booking.id exists
+    if (!targetBooking.id || typeof targetBooking.id !== 'string' || !targetBooking.id.trim()) {
+      toast.error('Payment Error', 'A valid Booking ID is required to initialize payment.');
+      return;
+    }
+
+    // 4. Verify booking.status === 'approved'
+    if (targetBooking.status !== 'approved') {
+      toast.warning('Payment Not Allowed', `This booking is currently "${targetBooking.status}". Only approved bookings can be paid.`);
+      return;
+    }
+
+    // 6. Disable button while initializing & show progress
+    setIsProcessingPayment(true);
+    setProcessingBookingId(targetBooking.id);
+
+    try {
+      // 5. Call paystack-initialize Edge Function with ONLY bookingId
+      const initResult = await initializePaystackPayment(targetBooking.id);
+
+      // 7. Redirect browser directly to returned authorization_url exactly as provided
+      if (initResult && initResult.success && initResult.authorization_url) {
+        window.location.assign(initResult.authorization_url);
+      } else {
+        throw new Error(initResult?.error || initResult?.message || 'Payment gateway did not return a valid authorization URL.');
       }
-    } else {
-      setPaystackSimulatedModal(true);
+    } catch (err: any) {
+      setIsProcessingPayment(false);
+      setProcessingBookingId(null);
+      console.error('Paystack initialization error:', err);
+      const errorMsg = err.message || 'Payment initialization failed.';
+      toast.error('Payment Initialization Failed', errorMsg);
+      setPaystackKeyNotice({
+        title: 'Payment Gateway Error',
+        detail: errorMsg,
+        suggestion: 'Please verify the booking status and ensure your network connection is active, then try again.'
+      });
     }
   };
 
@@ -458,6 +285,74 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   useEffect(() => {
     fetchDbData();
   }, [currentUser, refreshCounter]);
+
+  // Payment callback verification effect (Paystack redirect return handler)
+  useEffect(() => {
+    const handlePaystackRedirectCallback = async () => {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const reference = searchParams.get('reference') || searchParams.get('trxref');
+        const bookingIdParam = searchParams.get('bookingId') || searchParams.get('booking_id');
+
+        if (reference) {
+          console.info('Paystack payment callback detected with reference:', reference);
+          
+          // Clean the URL without page reload
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+
+          setIsProcessingPayment(true);
+
+          try {
+            // Call server-side verification Edge Function
+            const verifyResponse = await verifyPaystackPayment(reference, bookingIdParam || undefined);
+            console.info('Paystack verification response from Edge Function:', verifyResponse);
+          } catch (verErr: any) {
+            console.warn('Paystack edge function verification notification:', verErr?.message || verErr);
+          }
+
+          // Authoritatively fetch latest bookings from Supabase (single source of truth)
+          const latestBookings = await getBookings();
+          if (latestBookings) {
+            setAllBookings(latestBookings);
+            onStatusChanged();
+
+            // Locate matching booking
+            const matchedBooking = latestBookings.find(
+              b => b.paymentReference === reference || (bookingIdParam && b.id === bookingIdParam)
+            );
+
+            if (matchedBooking) {
+              if (matchedBooking.paymentStatus === 'paid') {
+                toast.success('Payment Successful', `Deposit of €${matchedBooking.listingPrice} for "${matchedBooking.listingTitle}" has been verified and confirmed!`);
+                setActionMessage(`Payment Successful - Deposit for "${matchedBooking.listingTitle}" has been confirmed.`);
+                setTimeout(() => setActionMessage(null), 6000);
+              } else if (matchedBooking.paymentStatus === 'pending') {
+                toast.info('Payment Processing', 'Your payment is currently being confirmed by the payment gateway.');
+                setActionMessage('Payment Processing - Transaction is awaiting gateway finalization.');
+                setTimeout(() => setActionMessage(null), 6000);
+              } else if (matchedBooking.paymentStatus === 'failed') {
+                toast.error('Payment Failed', 'The payment transaction could not be completed.');
+                setActionMessage('Payment Failed - The transaction could not be completed.');
+                setTimeout(() => setActionMessage(null), 6000);
+              } else if (matchedBooking.paymentStatus === 'cancelled') {
+                toast.warning('Payment Cancelled', 'The payment transaction was cancelled.');
+                setActionMessage('Payment Cancelled.');
+                setTimeout(() => setActionMessage(null), 6000);
+              }
+            }
+          }
+
+          setIsProcessingPayment(false);
+        }
+      } catch (callbackErr: any) {
+        console.error('Payment callback handler error:', callbackErr);
+        setIsProcessingPayment(false);
+      }
+    };
+
+    handlePaystackRedirectCallback();
+  }, []);
 
   // Send message with Gemini-powered agent replies
   const handleSendChatMessage = async (bookingId: string) => {
@@ -565,8 +460,6 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     );
   }
 
-  const toast = useToast();
-
   const handleManualRefresh = () => {
     setIsRefreshing(true);
     onStatusChanged();
@@ -599,7 +492,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
   const tenantPaymentDueBooking = useMemo(() => {
     return !isLandlord 
-      ? relevantBookings.find(b => b.paymentStatus === 'due_soon' || (b.status === 'confirmed' && b.nextPaymentDueDate))
+      ? relevantBookings.find(b => b.paymentStatus === 'due_soon' || ((b.status === 'completed' || (b.status as string) === 'confirmed') && b.nextPaymentDueDate))
       : null;
   }, [isLandlord, relevantBookings]);
 
@@ -609,11 +502,15 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   const displayedBookings = useMemo(() => activeTab === 'pending' ? pendingBookings : relevantBookings, [activeTab, pendingBookings, relevantBookings]);
 
   const handleQuickPayRent = () => {
-    const targetBooking = tenantPaymentDueBooking || relevantBookings.find(b => b.status === 'confirmed' || b.status === 'approved') || relevantBookings[0];
+    const targetBooking = tenantPaymentDueBooking || relevantBookings.find(b => b.status === 'approved' || b.status === 'completed' || (b.status as string) === 'confirmed') || relevantBookings[0];
     if (targetBooking) {
-      setCheckoutBooking(targetBooking);
-      setCheckoutStep(2);
-      setLeaseSignName(targetBooking.leaseSignedName || targetBooking.guestName || currentUser.name);
+      if (targetBooking.status === 'approved') {
+        handlePayWithPaystack(targetBooking);
+      } else {
+        setCheckoutBooking(targetBooking);
+        setCheckoutStep(2);
+        setLeaseSignName(targetBooking.leaseSignedName || targetBooking.guestName || currentUser.name);
+      }
     } else {
       setActionMessage('No active bookings available for payment. Browse properties to submit a rental application.');
       setTimeout(() => setActionMessage(null), 4000);
@@ -621,7 +518,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   };
 
   const handleQuickViewLease = () => {
-    const targetBooking = relevantBookings.find(b => b.status === 'confirmed' || b.status === 'approved') || relevantBookings[0];
+    const targetBooking = relevantBookings.find(b => b.status === 'completed' || (b.status as string) === 'confirmed' || b.status === 'approved') || relevantBookings[0];
     if (targetBooking) {
       setSelectedLeaseBooking(targetBooking);
     } else {
@@ -631,8 +528,18 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
   };
 
   const handleAction = async (bookingId: string, action: 'approved' | 'rejected') => {
+    if (!bookingId) {
+      toast.error('Action Failed', 'Booking ID is required.');
+      return;
+    }
     try {
-      const updated = await updateBookingStatus(bookingId, action);
+      let updated: Booking;
+      if (action === 'approved') {
+        updated = await approveBooking(bookingId);
+      } else {
+        updated = await rejectBooking(bookingId);
+      }
+
       if (updated) {
         setActionMessage(`Booking request ${action === 'approved' ? 'approved' : 'rejected'} successfully! Email alert sent to tenant.`);
         setTimeout(() => setActionMessage(null), 3500);
@@ -693,6 +600,51 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
     );
   };
 
+  // Payment Status Badge Component (Supabase Single Source of Truth)
+  const PaymentStatusBadge = ({ paymentStatus }: { paymentStatus?: Booking['paymentStatus'] }) => {
+    if (!paymentStatus) return null;
+
+    switch (paymentStatus) {
+      case 'paid':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <CheckCircle className="w-3 h-3 text-emerald-600" />
+            <span>Payment Successful</span>
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+            <Clock className="w-3 h-3 text-amber-600" />
+            <span>Payment Processing</span>
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
+            <XCircle className="w-3 h-3 text-rose-600" />
+            <span>Payment Failed</span>
+          </span>
+        );
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-slate-100 text-slate-700 border border-slate-300">
+            <XCircle className="w-3 h-3 text-slate-500" />
+            <span>Payment Cancelled</span>
+          </span>
+        );
+      case 'due_soon':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+            <AlertCircle className="w-3 h-3 text-amber-600" />
+            <span>Rent Due Soon</span>
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Landlord Stats Panel
   const renderLandlordStats = () => {
     const activeApprovedBookings = relevantBookings.filter(b => b.status === 'approved');
@@ -742,9 +694,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
           booking={tenantPaymentDueBooking}
           currentUser={currentUser}
           onPayNow={(b) => {
-            setCheckoutBooking(b);
-            setCheckoutStep(2);
-            setLeaseSignName(b.leaseSignedName || b.guestName);
+            handlePayWithPaystack(b);
           }}
         />
       )}
@@ -981,14 +931,20 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
                   {/* Date Details */}
                   <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Requested Period</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Requested Schedule</span>
                     <div className="space-y-1.5 text-xs text-slate-700">
                       <div className="flex items-center gap-2 font-medium">
                         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{new Date(booking.startDate).toLocaleDateString()}</span>
+                        <span>{new Date(booking.startDate || booking.preferredDate || '').toLocaleDateString()}</span>
                         <ArrowRight className="w-3 h-3 text-slate-300" />
                         <span>{new Date(booking.endDate).toLocaleDateString()}</span>
                       </div>
+                      {booking.preferredTime && (
+                        <div className="flex items-center gap-1.5 text-slate-500 font-medium pl-5 text-[11px]">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Preferred time: <strong>{booking.preferredTime}</strong></span>
+                        </div>
+                      )}
                       <div className="font-bold text-emerald-600 flex items-center gap-1.5 pl-5">
                         <span>Total Value:</span>
                         <span>€{booking.totalAmount}</span>
@@ -999,8 +955,9 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
                 {/* Right Side Control Bar */}
                 <div className="p-5 flex flex-col items-center justify-center border-t lg:border-t-0 border-slate-50 lg:w-[220px] bg-slate-50/20 shrink-0 gap-2">
-                  <div className="w-full flex justify-center">
+                  <div className="w-full flex flex-col items-center gap-1.5 justify-center">
                     <StatusBadge status={booking.status} />
+                    {booking.paymentStatus && <PaymentStatusBadge paymentStatus={booking.paymentStatus} />}
                   </div>
 
                   {booking.status === 'pending' ? (
@@ -1029,32 +986,48 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                       </p>
                     )
                   ) : booking.status === 'approved' ? (
-                    // Approved State, Guest has to Sign lease and Pay deposit
+                    // Approved State, Guest has to Pay deposit
                     !isLandlord ? (
-                      <button
-                        onClick={() => {
-                          setCheckoutBooking(booking);
-                          setCheckoutStep(1);
-                          setLeaseSignName(booking.guestName);
-                          setPaymentGateway('safepay');
-                          setCardNumber('');
-                          setCardExpiry('');
-                          setCardCvv('');
-                          setPaystackEmail(booking.guestEmail);
-                          setPaystackOtp('');
-                          setPaystackSimulatedModal(false);
-                        }}
-                        className="w-full mt-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer border border-indigo-500/10"
-                      >
-                        <CreditCard className="w-3.5 h-3.5 text-indigo-200" />
-                        <span>Sign & Pay Deposit</span>
-                      </button>
+                      <div className="flex flex-col gap-1.5 w-full mt-2">
+                        <button
+                          onClick={() => handlePayWithPaystack(booking)}
+                          disabled={isProcessingPayment && processingBookingId === booking.id}
+                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-500/20 disabled:opacity-50"
+                        >
+                          {isProcessingPayment && processingBookingId === booking.id ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-200" />
+                              <span>Connecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-200" />
+                              <span>Pay Now (Paystack)</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCheckoutBooking(booking);
+                            setCheckoutStep(1);
+                            setLeaseSignName(booking.guestName);
+                            setPaymentGateway('paystack');
+                            setCardNumber('');
+                            setCardExpiry('');
+                            setCardCvv('');
+                          }}
+                          className="w-full py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <FileText className="w-3 h-3 text-indigo-600" />
+                          <span>Sign Lease Agreement</span>
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-[10px] text-slate-400 mt-1 font-medium text-center">
-                        Waiting for tenant lease signature
+                        Approved • Waiting for tenant deposit
                       </span>
                     )
-                  ) : booking.status === 'confirmed' ? (
+                  ) : (booking.status === 'completed' || (booking.status as string) === 'confirmed') ? (
                     <span className="text-[11px] text-indigo-700 font-bold flex items-center gap-1 mt-1 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/20 animate-pulse">
                       <Sparkles className="w-3 h-3 text-indigo-500" />
                       Ready to Move In!
@@ -1073,7 +1046,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
               </div>
 
               {/* Lease Signed details & Landlord Refund CTA */}
-              {booking.status === 'confirmed' && (
+              {(booking.status === 'completed' || (booking.status as string) === 'confirmed') && (
                 <div className="border-t border-indigo-100/40">
                   <div className="bg-indigo-50/30 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5">
@@ -1237,7 +1210,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
               )}
 
               {/* Refunded Booking Banner */}
-              {booking.status === 'refunded' && (
+              {((booking.status as string) === 'refunded' || (booking.status === 'rejected' && booking.refundReason)) && (
                 <div className="bg-purple-50/70 border-t border-purple-200/80 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
@@ -1453,12 +1426,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setPaymentGateway('paystack');
-                        if (!paystackEmail && checkoutBooking) {
-                          setPaystackEmail(checkoutBooking.guestEmail);
-                        }
-                      }}
+                      onClick={() => setPaymentGateway('paystack')}
                       className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         paymentGateway === 'paystack'
                           ? 'bg-emerald-600 text-white shadow-sm'
@@ -1556,7 +1524,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                             await new Promise(resolve => setTimeout(resolve, 1800));
                             confirmBookingPayment(checkoutBooking.id, leaseSignName, 'safepay');
                             try {
-                              await updateBookingStatus(checkoutBooking.id, 'confirmed', {
+                              await updateBookingStatus(checkoutBooking.id, 'completed', {
                                 leaseSignedName: leaseSignName,
                                 paymentStatus: 'paid',
                                 paymentMethod: 'safepay'
@@ -1601,7 +1569,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                               <div className="text-xs font-black text-emerald-400 tracking-wide">Paystack Live Gateway</div>
                               <div className="text-[9px] text-emerald-200/80 font-medium flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                <span>Secured SSL Payment Channel</span>
+                                <span id="paystack-ssl-channel">Secured SSL Payment Channel</span>
                               </div>
                             </div>
                           </div>
@@ -1613,35 +1581,33 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                             <span className="font-mono font-bold text-emerald-200">€{checkoutBooking.listingPrice}.00 EUR</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-[9px] text-emerald-300/70 block uppercase font-bold">Local Rate Approx.</span>
-                            <span className="font-mono font-bold text-white">₦{(checkoutBooking.listingPrice * 1650).toLocaleString()} NGN</span>
+                            <span className="text-[9px] text-emerald-300/70 block uppercase font-bold">Authoritative Gateway Amount</span>
+                            <span className="font-mono font-bold text-white">Authoritative via Edge Function</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Paystack Form Fields */}
-                      <div className="space-y-3">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Customer Email Address</label>
-                          <input
-                            type="email"
-                            value={paystackEmail}
-                            onChange={(e) => setPaystackEmail(e.target.value)}
-                            placeholder="customer@example.com"
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold"
-                          />
+                      {/* Paystack Instructions Card */}
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs text-slate-600 space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                          <span>Secure Hosted Checkout</span>
                         </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          You will be securely redirected to Paystack to complete your deposit. All pricing and customer credentials are authenticated directly by the backend Edge Function.
+                        </p>
                       </div>
 
-                      {/* Paystack Launch Action Button - Paystack Checkout (Secured Payment) */}
+                      {/* Paystack Launch Action Button */}
                       <div className="pt-1">
                         <button
                           type="button"
-                          onClick={triggerPaystackHostedCheckout}
-                          disabled={!paystackEmail.includes('@') || isProcessingPayment}
+                          id="btn-paystack-checkout"
+                          onClick={() => handlePayWithPaystack(checkoutBooking)}
+                          disabled={isProcessingPayment || (processingBookingId === checkoutBooking.id)}
                           className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
-                          {isProcessingPayment ? (
+                          {isProcessingPayment && processingBookingId === checkoutBooking.id ? (
                             <>
                               <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
                               <span>Connecting to Paystack Checkout...</span>
@@ -1649,13 +1615,13 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                           ) : (
                             <>
                               <CreditCard className="w-4 h-4 text-emerald-200" />
-                              <span>Paystack Checkout (Secured Payment) - ₦{(checkoutBooking.listingPrice * 1650).toLocaleString()}</span>
+                              <span>Pay Now with Paystack</span>
                             </>
                           )}
                         </button>
                       </div>
 
-                      {/* PAYSTACK KEY NOTICE MODAL FOR INVALID/MISSING KEYS */}
+                      {/* Notice Modal */}
                       {paystackKeyNotice && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
                           <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-rose-200">
@@ -1669,18 +1635,7 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                               <p className="font-semibold text-slate-900">{paystackKeyNotice.detail}</p>
                               <p className="text-[11px] text-slate-500 mt-1 leading-normal">{paystackKeyNotice.suggestion}</p>
                             </div>
-                            <div className="space-y-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPaystackKeyNotice(null);
-                                  setPaystackSimulatedModal(true);
-                                }}
-                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                              >
-                                <Shield className="w-3.5 h-3.5 text-emerald-200" />
-                                <span>Proceed to Paystack Portal</span>
-                              </button>
+                            <div className="pt-1">
                               <button
                                 type="button"
                                 onClick={() => setPaystackKeyNotice(null)}
@@ -1689,148 +1644,6 @@ export default function BookingsView({ currentUser, onStatusChanged }: BookingsV
                                 Close Notice
                               </button>
                             </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* LIVE PAYSTACK INLINE CHECKOUT MODAL & REAL-TIME VERIFICATION */}
-                      {paystackSimulatedModal && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-                          <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl border border-slate-200">
-                            {/* Paystack Popup Top Branding Bar */}
-                            <div className="bg-[#09A5DB] p-4 text-white flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded bg-white text-[#09A5DB] font-black flex items-center justify-center text-xs">
-                                  P
-                                </div>
-                                <div>
-                                  <span className="font-extrabold text-sm tracking-wide block leading-none">Paystack Live Checkout</span>
-                                  <span className="text-[9px] text-white/80 font-mono">sec_live_gateway_v1</span>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  if (!isProcessingPayment) setPaystackSimulatedModal(false);
-                                }}
-                                disabled={isProcessingPayment}
-                                className="text-white/80 hover:text-white p-1 cursor-pointer disabled:opacity-50"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            {/* Real-time Verification Stepper Overlay */}
-                            {verificationStep > 0 ? (
-                              <div className="p-6 text-center space-y-4 animate-fade-in">
-                                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                  <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
-                                </div>
-                                <div className="space-y-1">
-                                  <h4 className="font-black text-slate-800 text-sm">Real-Time Paystack Verification</h4>
-                                  <p className="text-[11px] text-slate-500 font-mono">
-                                    {verificationStep === 1 && "Step 1/3: Handshake with api.paystack.co..."}
-                                    {verificationStep === 2 && "Step 2/3: Verifying live reference status..."}
-                                    {verificationStep === 3 && "Step 3/3: Payment Received & Confirmed!"}
-                                  </p>
-                                </div>
-
-                                {/* Step Progress Bar */}
-                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
-                                  <div 
-                                    className="bg-emerald-500 h-full transition-all duration-500 ease-out"
-                                    style={{ width: `${(verificationStep / 3) * 100}%` }}
-                                  ></div>
-                                </div>
-
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-left text-[11px] font-mono space-y-1 text-slate-600">
-                                  <div className="flex justify-between">
-                                    <span>Gateway:</span>
-                                    <span className="font-bold text-emerald-700">api.paystack.co</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Merchant:</span>
-                                    <span className="font-bold text-slate-800">Rentora Real Estate</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Status:</span>
-                                    <span className="font-bold text-emerald-600 uppercase">
-                                      {verificationStep === 3 ? "200 OK / SUCCESS" : "PROCESSING"}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-5 space-y-4 text-slate-700">
-                                <div className="border-b border-slate-100 pb-3 flex justify-between items-center text-xs">
-                                  <div>
-                                    <span className="text-slate-400 block text-[10px]">Merchant</span>
-                                    <span className="font-bold text-slate-800">Rentora Real Estate Ltd</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-slate-400 block text-[10px]">Amount Due</span>
-                                    <span className="font-extrabold text-emerald-600 text-sm">₦{(checkoutBooking.listingPrice * 1650).toLocaleString()}</span>
-                                  </div>
-                                </div>
-
-                                <div className="bg-slate-50 p-3 rounded-xl text-xs space-y-1 border border-slate-100">
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-500">Method:</span>
-                                    <span className="font-bold text-slate-800 capitalize">{paystackChannel}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-500">Customer:</span>
-                                    <span className="font-bold text-slate-800">{paystackEmail}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-500">Active Key:</span>
-                                    <span className="font-mono text-[10px] text-emerald-700 font-bold truncate max-w-[150px]">
-                                      {paystackPublicKey}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Channel instructions */}
-                                {paystackChannel === 'card' && (
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block">3D Secure Card Verification Code</label>
-                                    <input
-                                      type="text"
-                                      value={paystackOtp}
-                                      onChange={(e) => setPaystackOtp(e.target.value)}
-                                      placeholder="Enter 6-digit OTP (e.g. 123456)"
-                                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#09A5DB]"
-                                    />
-                                  </div>
-                                )}
-
-                                {paystackChannel === 'transfer' && (
-                                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs space-y-1">
-                                    <p className="font-bold text-emerald-900">Paystack Dedicated Transfer Account:</p>
-                                    <p className="font-mono font-black text-slate-800 text-sm">Wema Bank • 9928301928</p>
-                                    <p className="text-[10px] text-emerald-700">Live webhook automatically receives funds</p>
-                                  </div>
-                                )}
-
-                                {paystackChannel === 'ussd' && (
-                                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs space-y-1 text-center">
-                                    <p className="font-bold text-amber-900">Dial USSD String on Phone:</p>
-                                    <p className="font-mono font-black text-amber-950 text-sm">*737*33*{(checkoutBooking.listingPrice * 1650)}#</p>
-                                  </div>
-                                )}
-
-                                <button
-                                  onClick={() => {
-                                    const pskRef = `PSK-LIVE-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-                                    handleVerifyPaystackPayment(pskRef);
-                                  }}
-                                  disabled={isProcessingPayment}
-                                  className="w-full py-2.5 bg-[#09A5DB] hover:bg-[#0894C5] text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                                >
-                                  <CheckIcon className="w-4 h-4 text-white" />
-                                  <span>Authorize & Verify Paystack Payment</span>
-                                </button>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}

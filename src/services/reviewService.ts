@@ -1,23 +1,40 @@
 import { supabase } from './supabaseClient';
-import { PropertyReview } from '../types';
+import { PropertyReview, ReviewRow } from '../types';
 
-export function mapRowToReview(row: any): PropertyReview {
+export function mapRowToReview(row: Partial<ReviewRow> & Record<string, any>): PropertyReview {
   return {
     id: String(row.id),
-    listingId: String(row.property_id || row.listing_id || row.listingId || ''),
-    bookingId: String(row.booking_id || row.bookingId || ''),
-    guestId: String(row.guest_id || row.user_id || row.guestId || ''),
-    guestName: row.guest_name || row.guestName || 'Verified Guest',
+    listingId: String(row.property_id || row.listing_id || ''),
+    bookingId: String(row.booking_id || ''),
+    guestId: String(row.guest_id || row.user_id || ''),
+    guestName: row.guest_name || row.user_name || 'Verified Guest',
     rating: Number(row.rating || 5),
     comment: row.comment || '',
-    createdAt: row.created_at || row.createdAt || new Date().toISOString()
+    createdAt: row.created_at || new Date().toISOString()
   };
 }
+
+export const mapReviewRowToReview = mapRowToReview;
+
+export function mapReviewToDbPayload(review: Partial<PropertyReview>): Partial<ReviewRow> {
+  return {
+    property_id: review.listingId,
+    listing_id: review.listingId,
+    booking_id: review.bookingId || null,
+    guest_id: review.guestId,
+    guest_name: review.guestName || 'Verified Guest',
+    rating: review.rating != null ? Number(review.rating) : 5,
+    comment: review.comment || ''
+  };
+}
+
+export const mapReviewToInsert = mapReviewToDbPayload;
 
 /**
  * Fetch reviews for a specific property from Supabase.
  */
 export async function getReviewsForProperty(propertyId: string): Promise<PropertyReview[]> {
+  if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from('reviews')
@@ -41,6 +58,10 @@ export async function getReviewsForProperty(propertyId: string): Promise<Propert
  * Create a new property review in Supabase.
  */
 export async function createReview(review: Omit<PropertyReview, 'id' | 'createdAt'>): Promise<PropertyReview> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
   const { data: authData } = await supabase.auth.getUser();
   const guestId = authData?.user?.id || review.guestId;
   const guestName = authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || review.guestName;
@@ -49,15 +70,11 @@ export async function createReview(review: Omit<PropertyReview, 'id' | 'createdA
     throw new Error('Authentication required: You must be signed in to submit a review.');
   }
 
-  const payload = {
-    property_id: review.listingId,
-    listing_id: review.listingId,
-    booking_id: review.bookingId,
-    guest_id: guestId,
-    guest_name: guestName || 'Verified Guest',
-    rating: review.rating,
-    comment: review.comment
-  };
+  const payload = mapReviewToDbPayload({
+    ...review,
+    guestId,
+    guestName
+  });
 
   const { data, error } = await supabase
     .from('reviews')

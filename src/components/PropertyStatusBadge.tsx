@@ -12,21 +12,21 @@ export const STATUS_CONFIG: Record<
   ListingStatus,
   { label: string; bgClass: string; textClass: string; borderClass: string; dotClass: string; description: string }
 > = {
-  available: {
-    label: 'Available',
+  active: {
+    label: 'Active',
     bgClass: 'bg-emerald-50/90',
     textClass: 'text-emerald-800',
     borderClass: 'border-emerald-200/80',
     dotClass: 'bg-emerald-500',
-    description: 'Property is currently vacant and taking new tenant applications.'
+    description: 'Property is currently active and taking new tenant applications.'
   },
-  new: {
-    label: 'New',
-    bgClass: 'bg-teal-50/90',
-    textClass: 'text-teal-800',
-    borderClass: 'border-teal-200/80',
-    dotClass: 'bg-teal-500',
-    description: 'Recently published listing.'
+  pending: {
+    label: 'Pending',
+    bgClass: 'bg-amber-50/90',
+    textClass: 'text-amber-800',
+    borderClass: 'border-amber-200/80',
+    dotClass: 'bg-amber-500',
+    description: 'Under administrative review or moderation prior to going live.'
   },
   rented: {
     label: 'Rented',
@@ -36,38 +36,34 @@ export const STATUS_CONFIG: Record<
     dotClass: 'bg-blue-500',
     description: 'Occupied under active lease agreement.'
   },
-  unavailable: {
-    label: 'Unavailable',
+  inactive: {
+    label: 'Inactive',
     bgClass: 'bg-slate-100/90',
     textClass: 'text-slate-700',
     borderClass: 'border-slate-300/80',
     dotClass: 'bg-slate-400',
     description: 'Temporarily offline or undergoing maintenance.'
-  },
-  pending_review: {
-    label: 'Pending Review',
-    bgClass: 'bg-amber-50/90',
-    textClass: 'text-amber-800',
-    borderClass: 'border-amber-200/80',
-    dotClass: 'bg-amber-500',
-    description: 'Under administrative review prior to going live.'
   }
 };
 
-export default function PropertyStatusBadge({ status = 'available', size = 'sm', className = '' }: PropertyStatusBadgeProps) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.available;
+export default function PropertyStatusBadge({ status = 'active', size = 'sm', className = '' }: PropertyStatusBadgeProps) {
+  // Normalize status to canonical
+  const canonicalKey: ListingStatus = 
+    status === 'active' || status === 'rented' || status === 'inactive' || status === 'pending'
+      ? status
+      : ((status as string) === 'available' || (status as string) === 'new' ? 'active' : (status as string) === 'unavailable' ? 'inactive' : 'pending');
+
+  const config = STATUS_CONFIG[canonicalKey] || STATUS_CONFIG.active;
 
   const renderIcon = () => {
-    switch (status) {
-      case 'new':
-        return <Sparkles className="w-3 h-3 text-teal-600 shrink-0" />;
+    switch (canonicalKey) {
       case 'rented':
         return <Check className="w-3 h-3 text-blue-600 shrink-0 stroke-[3]" />;
-      case 'unavailable':
+      case 'inactive':
         return <AlertCircle className="w-3 h-3 text-slate-500 shrink-0" />;
-      case 'pending_review':
+      case 'pending':
         return <Clock className="w-3 h-3 text-amber-600 shrink-0" />;
-      case 'available':
+      case 'active':
       default:
         return <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />;
     }

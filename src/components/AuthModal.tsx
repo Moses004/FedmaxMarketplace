@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
 import { signUpWithSupabase, loginWithSupabase } from '../services/authService';
+import { supabase } from '../services/supabaseClient';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { sendWelcomeEmail } from '../services/emailService';
 import { useToast } from '../context/ToastContext';
@@ -190,7 +191,22 @@ export default function AuthModal({
         streetAddress: streetAddress.trim(),
         taxId: role === 'landlord' ? taxId.trim() : undefined,
         preferredMoveInRegion: role === 'guest' ? preferredMoveInRegion : undefined,
-      }).then((newUser) => {
+      }).then(async (newUser) => {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const hasSession = !!sessionData?.session;
+
+        if (!hasSession) {
+          toast.success(
+            'Account Created',
+            'Account created. Please check your email to verify your account.'
+          );
+        } else {
+          toast.success(
+            `Welcome to Rentora, ${newUser.name || 'Friend'}!`,
+            `Onboarding email alert successfully sent to ${newUser.email}`
+          );
+        }
+
         // Trigger onboarding welcome email notification asynchronously
         sendWelcomeEmail({
           userEmail: newUser.email,
@@ -199,11 +215,6 @@ export default function AuthModal({
           country: newUser.country,
           city: newUser.city,
           preferredMarket: newUser.preferredMoveInRegion,
-        }).then(() => {
-          toast.success(
-            `Welcome to Rentora, ${newUser.name || 'Friend'}!`,
-            `Onboarding email alert successfully sent to ${newUser.email}`
-          );
         }).catch(err => console.error("Welcome email dispatch error:", err));
 
         setIsSubmitting(false);

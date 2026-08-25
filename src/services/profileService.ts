@@ -1,35 +1,70 @@
 import { supabase } from './supabaseClient';
-import { User } from '../types';
+import { User, ProfileRow } from '../types';
 import { deriveRegionFromLocation } from '../utils/location';
 
-export function mapRowToUserProfile(row: any): User {
+export function mapRowToUserProfile(row: Partial<ProfileRow> & Record<string, any>): User {
   const country = row.country || '';
   const state = row.state || '';
   const city = row.city || '';
   const region = row.region || deriveRegionFromLocation({ country, state, city });
+  const rawRole = (row.role || 'tenant').toLowerCase();
+  const role: 'guest' | 'landlord' = rawRole === 'landlord' ? 'landlord' : 'guest';
+  const name = row.full_name || row.name || 'Rentora User';
 
   return {
     id: String(row.id),
-    name: row.full_name || row.name || 'Rentora User',
+    name,
+    fullName: name,
     email: row.email || '',
-    role: (row.role || 'guest') as 'guest' | 'landlord',
+    role,
     phone: row.phone || undefined,
     country,
     region,
     state,
     city,
-    postalCode: row.postal_code || row.postalCode || undefined,
-    streetAddress: row.street_address || row.streetAddress || undefined,
-    taxId: row.tax_id || row.taxId || undefined,
-    preferredMoveInRegion: row.preferred_move_in_region || row.preferredMoveInRegion || undefined
+    postalCode: row.postal_code || undefined,
+    streetAddress: row.street_address || undefined,
+    taxId: row.tax_id || undefined,
+    preferredMoveInRegion: row.preferred_move_in_region || undefined
   };
+}
+
+export const mapProfileRowToProfile = mapRowToUserProfile;
+
+export function mapProfileToUpdate(updates: Partial<User>): Partial<ProfileRow> {
+  const country = updates.country || '';
+  const state = updates.state || '';
+  const city = updates.city || '';
+  const region = updates.region || deriveRegionFromLocation({ country, state, city });
+
+  const payload: Partial<ProfileRow> & Record<string, any> = {};
+
+  if (updates.name !== undefined || updates.fullName !== undefined) {
+    const canonicalName = updates.fullName || updates.name || '';
+    payload.name = canonicalName;
+    payload.full_name = canonicalName;
+  }
+  if (updates.email !== undefined) payload.email = updates.email;
+  // Role changes are strictly governed by backend auth / administrative functions
+  if (updates.phone !== undefined) payload.phone = updates.phone;
+  if (updates.country !== undefined) payload.country = updates.country;
+  if (updates.state !== undefined) payload.state = updates.state;
+  if (updates.city !== undefined) payload.city = updates.city;
+  payload.region = region;
+  if (updates.postalCode !== undefined) payload.postal_code = updates.postalCode;
+  if (updates.streetAddress !== undefined) payload.street_address = updates.streetAddress;
+  if (updates.taxId !== undefined) payload.tax_id = updates.taxId;
+  if (updates.preferredMoveInRegion !== undefined) payload.preferred_move_in_region = updates.preferredMoveInRegion;
+
+  return payload;
 }
 
 /**
  * Fetch a user profile by user ID from Supabase public.profiles.
  */
 export async function getProfile(userId: string): Promise<User | null> {
-  if (!userId) return null;
+  if (!userId || !supabase) return null;
+
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -54,31 +89,20 @@ export async function getProfile(userId: string): Promise<User | null> {
  * Update a user profile in Supabase public.profiles table.
  */
 export async function updateProfile(userId: string, updates: Partial<User>): Promise<User> {
-  if (!userId) {
-    throw new Error('User ID is required to update profile.');
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
   }
 
-  const country = updates.country || '';
-  const state = updates.state || '';
-  const city = updates.city || '';
-  const region = updates.region || deriveRegionFromLocation({ country, state, city });
+  const { data: authData } = await supabase.auth.getUser();
+  const effectiveUserId = authData?.user?.id || userId;
+  if (!effectiveUserId) {
+    throw new Error('Authentication required: You must be logged in to update your profile.');
+  }
 
-  const payload: any = {
-    id: userId
+  const payload = {
+    id: effectiveUserId,
+    ...mapProfileToUpdate(updates)
   };
-
-  if (updates.name !== undefined) payload.full_name = updates.name;
-  if (updates.email !== undefined) payload.email = updates.email;
-  if (updates.role !== undefined) payload.role = updates.role;
-  if (updates.phone !== undefined) payload.phone = updates.phone;
-  if (updates.country !== undefined) payload.country = updates.country;
-  if (updates.state !== undefined) payload.state = updates.state;
-  if (updates.city !== undefined) payload.city = updates.city;
-  payload.region = region;
-  if (updates.postalCode !== undefined) payload.postal_code = updates.postalCode;
-  if (updates.streetAddress !== undefined) payload.street_address = updates.streetAddress;
-  if (updates.taxId !== undefined) payload.tax_id = updates.taxId;
-  if (updates.preferredMoveInRegion !== undefined) payload.preferred_move_in_region = updates.preferredMoveInRegion;
 
   const { data, error } = await supabase
     .from('profiles')

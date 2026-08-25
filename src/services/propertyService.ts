@@ -1,22 +1,66 @@
 import { supabase } from './supabaseClient';
-import { Listing, PropertyType } from '../types';
+import { Listing, PropertyType, PropertyRow, ListingStatus, CANONICAL_PROPERTY_STATUSES } from '../types';
 import { deriveRegionFromLocation } from '../utils/location';
+import { getProfile } from './profileService';
 
-export function mapRowToListing(row: any): Listing {
+import { deletePropertyVideoFile, uploadPropertyVideo } from './propertyMediaService';
+
+export type CanonicalPropertyStatus = ListingStatus;
+
+/**
+ * Validates a property status against canonical values ['active', 'pending', 'rented', 'inactive'].
+ * If invalid or unrecognized, normalizes it to 'pending' before sending it to Supabase.
+ */
+export function validateAndNormalizePropertyStatus(status?: string | null): CanonicalPropertyStatus {
+  if (!status) return 'active';
+  const trimmed = status.trim().toLowerCase();
+  if ((CANONICAL_PROPERTY_STATUSES as readonly string[]).includes(trimmed)) {
+    return trimmed as CanonicalPropertyStatus;
+  }
+  // Invalid status normalized to 'pending' before sending to Supabase
+  return 'pending';
+}
+
+/**
+ * Maps database row status (including legacy compatibility) to canonical ListingStatus.
+ */
+export function mapDbStatusToListingStatus(status?: string | null): CanonicalPropertyStatus {
+  if (!status) return 'active';
+  const trimmed = status.trim().toLowerCase();
+  if ((CANONICAL_PROPERTY_STATUSES as readonly string[]).includes(trimmed)) {
+    return trimmed as CanonicalPropertyStatus;
+  }
+  if (trimmed === 'available' || trimmed === 'listed' || trimmed === 'published' || trimmed === 'live' || trimmed === 'approved' || trimmed === 'new') {
+    return 'active';
+  }
+  if (trimmed === 'under_review' || trimmed === 'pending_review' || trimmed === 'draft') {
+    return 'pending';
+  }
+  if (trimmed === 'unavailable' || trimmed === 'disabled' || trimmed === 'archived') {
+    return 'inactive';
+  }
+  return 'pending';
+}
+
+export function mapRowToListing(row: Partial<PropertyRow> & Record<string, any>): Listing {
   const country = row.country || '';
   const state = row.state || '';
   const city = row.city || '';
   const region = row.region || deriveRegionFromLocation({ country, state, city });
+
+  const rawImages = Array.isArray(row.images) && row.images.length > 0
+    ? row.images
+    : (row.image ? [row.image] : ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80']);
 
   return {
     id: String(row.id),
     title: row.title || 'Untitled Property',
     description: row.description || '',
     price: Number(row.price || row.local_price || 0),
-    pricePeriod: row.price_period || row.pricePeriod || 'annual',
+    pricePeriod: (row.price_period as any) || 'annual',
     currency: row.currency || 'NGN',
-    localPrice: row.local_price != null ? Number(row.local_price) : (row.localPrice != null ? Number(row.localPrice) : Number(row.price || 0)),
-    annualDiscountPercentage: Number(row.annual_discount_percentage || row.annualDiscountPercentage || 0),
+    localPrice: row.local_price != null ? Number(row.local_price) : Number(row.price || 0),
+    annualDiscountPercentage: Number(row.annual_discount_percentage || 0),
     type: (row.property_type || row.type || 'single-room') as PropertyType,
     location: row.location || [city, state, country].filter(Boolean).join(', ') || 'Nigeria',
     country,
@@ -27,44 +71,54 @@ export function mapRowToListing(row: any): Listing {
     lng: Number(row.lng != null ? row.lng : 3.3792),
     bedrooms: Number(row.bedrooms || 1),
     bathrooms: Number(row.bathrooms || 1),
-    size: Number(row.size || 25),
+    size: Number(row.size || row.area_sqft || 25),
     amenities: Array.isArray(row.amenities) ? row.amenities : [],
-    images: Array.isArray(row.images) && row.images.length > 0 
-      ? row.images 
-      : ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'],
-    videoUrl: row.video_url || row.videoUrl || undefined,
-    landlordId: String(row.landlord_id || row.landlordId || ''),
-    landlordEmail: row.landlord_email || row.landlordEmail || undefined,
-    landlordName: row.landlord_name || row.landlordName || undefined,
-    contactRole: row.contact_role || row.contactRole || 'landlord',
-    contactPhone: row.contact_phone || row.contactPhone || undefined,
-    contactEmail: row.contact_email || row.contactEmail || undefined,
-    contactWhatsApp: row.contact_whatsapp || row.contactWhatsApp || undefined,
-    agentCompany: row.agent_company || row.agentCompany || undefined,
-    agentLicense: row.agent_license || row.agentLicense || undefined,
-    availableFrom: row.available_from || row.availableFrom || new Date().toISOString().split('T')[0],
-    status: row.status || 'available',
-    energyRating: row.energy_rating || row.energyRating || 'A+',
-    solarPowered: row.solar_powered != null ? !!row.solar_powered : (row.solarPowered != null ? !!row.solarPowered : true),
+    images: rawImages,
+    videoUrl: row.video_url || undefined,
+    videoMetadata: row.video_metadata || undefined,
+    landlordId: String(row.landlord_id || ''),
+    landlordEmail: row.landlord_email || undefined,
+    landlordName: row.landlord_name || undefined,
+    contactRole: (row.contact_role as any) || 'landlord',
+    contactPhone: row.contact_phone || undefined,
+    contactEmail: row.contact_email || undefined,
+    contactWhatsApp: row.contact_whatsapp || undefined,
+    agentCompany: row.agent_company || undefined,
+    agentLicense: row.agent_license || undefined,
+    availableFrom: row.available_from || new Date().toISOString().split('T')[0],
+    status: mapDbStatusToListingStatus(row.status),
+    energyRating: (row.energy_rating as any) || 'A+',
+    solarPowered: row.solar_powered != null ? !!row.solar_powered : true,
     views: Number(row.views || 0)
   };
 }
 
-export function mapListingToDbPayload(listing: Partial<Listing> & { landlordId?: string }) {
+export const mapPropertyRowToListing = mapRowToListing;
+
+export function mapListingToDbPayload(listing: Partial<Listing> & { landlordId?: string }): Partial<PropertyRow> {
   const country = listing.country || '';
   const state = listing.state || '';
   const city = listing.city || '';
   const region = listing.region || deriveRegionFromLocation({ country, state, city });
+  const propType = listing.type || 'single-room';
+  const sizeNum = listing.size != null ? Number(listing.size) : 25;
+  const imgs = Array.isArray(listing.images) ? listing.images : [];
+
+  // Strictly validate status against ['active', 'pending', 'rented', 'inactive']
+  // Default to 'active' for new listings, and normalize any invalid value to 'pending'
+  const rawStatus = listing.status !== undefined ? listing.status : 'active';
+  const canonicalStatus = validateAndNormalizePropertyStatus(rawStatus);
 
   return {
-    title: listing.title,
+    title: listing.title || 'Untitled Property',
     description: listing.description || '',
     price: listing.price != null ? Number(listing.price) : 0,
     price_period: listing.pricePeriod || 'annual',
     currency: listing.currency || 'NGN',
     local_price: listing.localPrice != null ? Number(listing.localPrice) : (listing.price != null ? Number(listing.price) : 0),
     annual_discount_percentage: listing.annualDiscountPercentage != null ? Number(listing.annualDiscountPercentage) : 0,
-    property_type: listing.type || 'single-room',
+    type: propType,
+    property_type: propType,
     location: listing.location || [city, state, country].filter(Boolean).join(', '),
     country,
     region,
@@ -74,10 +128,14 @@ export function mapListingToDbPayload(listing: Partial<Listing> & { landlordId?:
     lng: listing.lng != null ? Number(listing.lng) : 3.3792,
     bedrooms: listing.bedrooms != null ? Number(listing.bedrooms) : 1,
     bathrooms: listing.bathrooms != null ? Number(listing.bathrooms) : 1,
-    size: listing.size != null ? Number(listing.size) : 25,
-    amenities: Array.isArray(listing.amenities) ? listing.amenities : [],
-    images: Array.isArray(listing.images) ? listing.images : [],
+    size: sizeNum,
+    area_sqft: sizeNum,
+    amenities: listing.amenities || [],
+    images: imgs,
+    image: imgs.length > 0 ? imgs[0] : null,
     video_url: listing.videoUrl || null,
+    video_metadata: listing.videoMetadata || {},
+    virtual_tour_url: null,
     landlord_id: listing.landlordId || null,
     landlord_email: listing.landlordEmail || null,
     landlord_name: listing.landlordName || null,
@@ -88,10 +146,71 @@ export function mapListingToDbPayload(listing: Partial<Listing> & { landlordId?:
     agent_company: listing.agentCompany || null,
     agent_license: listing.agentLicense || null,
     available_from: listing.availableFrom || new Date().toISOString().split('T')[0],
-    status: listing.status || 'available',
+    status: canonicalStatus,
+    is_verified: true,
     energy_rating: listing.energyRating || 'A+',
     solar_powered: listing.solarPowered !== undefined ? listing.solarPowered : true
   };
+}
+
+export const mapListingToPropertyInsert = mapListingToDbPayload;
+
+/**
+ * Maps partial listing updates into a database payload, ensuring only provided
+ * properties are updated and untouched fields are not overwritten with defaults.
+ */
+export function mapListingUpdatesToDbPayload(updates: Partial<Listing>): Partial<PropertyRow> {
+  const payload: Partial<PropertyRow> = {};
+
+  if (updates.title !== undefined) payload.title = updates.title;
+  if (updates.description !== undefined) payload.description = updates.description;
+  if (updates.price !== undefined) payload.price = Number(updates.price);
+  if (updates.pricePeriod !== undefined) payload.price_period = updates.pricePeriod;
+  if (updates.currency !== undefined) payload.currency = updates.currency;
+  if (updates.localPrice !== undefined) payload.local_price = Number(updates.localPrice);
+  if (updates.annualDiscountPercentage !== undefined) payload.annual_discount_percentage = Number(updates.annualDiscountPercentage);
+  if (updates.type !== undefined) {
+    payload.type = updates.type;
+    payload.property_type = updates.type;
+  }
+  if (updates.location !== undefined) payload.location = updates.location;
+  if (updates.country !== undefined) payload.country = updates.country;
+  if (updates.region !== undefined) payload.region = updates.region;
+  if (updates.state !== undefined) payload.state = updates.state;
+  if (updates.city !== undefined) payload.city = updates.city;
+  if (updates.lat !== undefined) payload.lat = Number(updates.lat);
+  if (updates.lng !== undefined) payload.lng = Number(updates.lng);
+  if (updates.bedrooms !== undefined) payload.bedrooms = Number(updates.bedrooms);
+  if (updates.bathrooms !== undefined) payload.bathrooms = Number(updates.bathrooms);
+  if (updates.size !== undefined) {
+    payload.size = Number(updates.size);
+    payload.area_sqft = Number(updates.size);
+  }
+  if (updates.amenities !== undefined) payload.amenities = updates.amenities;
+  if (updates.images !== undefined) {
+    payload.images = updates.images;
+    payload.image = updates.images && updates.images.length > 0 ? updates.images[0] : null;
+  }
+  if (updates.videoUrl !== undefined) {
+    payload.video_url = updates.videoUrl ? updates.videoUrl.trim() : null;
+  }
+  if (updates.videoMetadata !== undefined) {
+    payload.video_metadata = updates.videoMetadata || {};
+  }
+  if (updates.landlordEmail !== undefined) payload.landlord_email = updates.landlordEmail;
+  if (updates.landlordName !== undefined) payload.landlord_name = updates.landlordName;
+  if (updates.contactRole !== undefined) payload.contact_role = updates.contactRole;
+  if (updates.contactPhone !== undefined) payload.contact_phone = updates.contactPhone;
+  if (updates.contactEmail !== undefined) payload.contact_email = updates.contactEmail;
+  if (updates.contactWhatsApp !== undefined) payload.contact_whatsapp = updates.contactWhatsApp;
+  if (updates.agentCompany !== undefined) payload.agent_company = updates.agentCompany;
+  if (updates.agentLicense !== undefined) payload.agent_license = updates.agentLicense;
+  if (updates.availableFrom !== undefined) payload.available_from = updates.availableFrom;
+  if (updates.status !== undefined) payload.status = validateAndNormalizePropertyStatus(updates.status);
+  if (updates.energyRating !== undefined) payload.energy_rating = updates.energyRating;
+  if (updates.solarPowered !== undefined) payload.solar_powered = updates.solarPowered;
+
+  return payload;
 }
 
 export interface PropertyLocationFilter {
@@ -109,6 +228,10 @@ export async function getProperties(
   locationFilter?: PropertyLocationFilter,
   landlordId?: string
 ): Promise<Listing[]> {
+  if (!supabase) {
+    return [];
+  }
+
   try {
     let query = supabase.from('properties').select('*');
 
@@ -154,6 +277,10 @@ export async function getProperties(
  * Fetch single property by ID from Supabase.
  */
 export async function getPropertyById(id: string): Promise<Listing | null> {
+  if (!supabase) {
+    return null;
+  }
+
   try {
     const { data, error } = await supabase
       .from('properties')
@@ -181,17 +308,31 @@ export async function getPropertyById(id: string): Promise<Listing | null> {
 export async function createProperty(
   listingData: Omit<Listing, 'id' | 'landlordId'> & { landlordId?: string }
 ): Promise<Listing> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) {
     throw new Error('Authentication required: You must be signed in to list a property on Rentora.');
   }
 
   const landlordId = authData.user.id;
-  const landlordEmail = listingData.landlordEmail || authData.user.email || '';
-  const landlordName = listingData.landlordName || authData.user.user_metadata?.name || 'Property Owner';
+  const profile = await getProfile(landlordId);
+  const landlordEmail = listingData.landlordEmail || profile?.email || authData.user.email || '';
+  const landlordName = listingData.landlordName || profile?.name || authData.user.user_metadata?.name || 'Property Owner';
+
+  const country = listingData.country || profile?.country || 'Nigeria';
+  const state = listingData.state || profile?.state || '';
+  const city = listingData.city || profile?.city || '';
+  const region = listingData.region || profile?.region || deriveRegionFromLocation({ country, state, city });
 
   const payload = mapListingToDbPayload({
     ...listingData,
+    country,
+    state,
+    city,
+    region,
     landlordId,
     landlordEmail,
     landlordName
@@ -217,12 +358,18 @@ export async function createProperty(
 
 /**
  * Update an existing property in Supabase.
+ * Uses selective update mapping to ensure untouched fields (images, amenities,
+ * description, price, location) are never accidentally overwritten.
  */
 export async function updateProperty(
   id: string,
   updates: Partial<Listing>
 ): Promise<Listing> {
-  const payload = mapListingToDbPayload(updates);
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const payload = mapListingUpdatesToDbPayload(updates);
 
   const { data, error } = await supabase
     .from('properties')
@@ -240,9 +387,99 @@ export async function updateProperty(
 }
 
 /**
+ * Removes a property's video from Supabase Storage and resets database fields.
+ */
+export async function removePropertyVideo(
+  propertyId: string,
+  currentVideoUrl?: string | null
+): Promise<Listing> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  // 1. Delete storage object if path can be safely identified
+  if (currentVideoUrl) {
+    await deletePropertyVideoFile(currentVideoUrl);
+  }
+
+  // 2. Update database record: video_url = null, video_metadata = {}
+  const { data, error } = await supabase
+    .from('properties')
+    .update({
+      video_url: null,
+      video_metadata: {}
+    })
+    .eq('id', propertyId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error(`Failed to remove property video in database (${propertyId}):`, error);
+    throw new Error(error.message || 'Unable to update property video status.');
+  }
+
+  return mapRowToListing(data);
+}
+
+/**
+ * Replaces a property's video: uploads new video first, updates DB,
+ * and only after DB succeeds deletes old storage file.
+ */
+export async function replacePropertyVideo(
+  propertyId: string,
+  newVideoFile: File,
+  oldVideoUrl?: string | null
+): Promise<Listing> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error('You must be logged in to upload property media.');
+  }
+
+  // 1. Upload new video successfully
+  const uploaded = await uploadPropertyVideo(newVideoFile, user.id, propertyId);
+
+  // 2. Update database with new URL and metadata
+  const { data, error } = await supabase
+    .from('properties')
+    .update({
+      video_url: uploaded.url,
+      video_metadata: uploaded.metadata
+    })
+    .eq('id', propertyId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error(`Failed to update property record with new video (${propertyId}):`, error);
+    throw new Error(error.message || 'Unable to save new property video.');
+  }
+
+  // 3. Only after DB update succeeds, safely delete old storage file
+  if (oldVideoUrl && oldVideoUrl !== uploaded.url) {
+    deletePropertyVideoFile(oldVideoUrl).catch(err => {
+      console.warn('Non-blocking: Failed to delete old video storage file:', err);
+    });
+  }
+
+  return mapRowToListing(data);
+}
+
+/**
  * Delete a property from Supabase.
  */
 export async function deleteProperty(id: string): Promise<void> {
+  if (!supabase) {
+    return;
+  }
+
   const { error } = await supabase
     .from('properties')
     .delete()
@@ -258,6 +495,10 @@ export async function deleteProperty(id: string): Promise<void> {
  * Increment view count for a property in Supabase.
  */
 export async function incrementPropertyViews(id: string): Promise<number> {
+  if (!supabase) {
+    return 0;
+  }
+
   try {
     const { data: prop, error: fetchErr } = await supabase
       .from('properties')
@@ -290,6 +531,10 @@ export async function incrementPropertyViews(id: string): Promise<number> {
  * Get views count for a property.
  */
 export async function getPropertyViews(id: string): Promise<number> {
+  if (!supabase) {
+    return 0;
+  }
+
   try {
     const { data, error } = await supabase
       .from('properties')
