@@ -12,7 +12,10 @@ export default defineConfig(() => {
       },
     },
     define: {
-      'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(process.env.GOOGLE_MAPS_PLATFORM_KEY || '')
+      'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(process.env.GOOGLE_MAPS_PLATFORM_KEY || ''),
+      'import.meta.env.VITE_APP_URL': JSON.stringify(process.env.VITE_APP_URL || 'https://rentora.ai.studio'),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || 'https://wctefjuoemcqhruzuicc.supabase.co'),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify((process.env.VITE_SUPABASE_ANON_KEY || '').trim()),
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

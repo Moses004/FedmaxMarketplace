@@ -18,6 +18,8 @@ import PropertyCard, { PropertyCardSkeleton } from './components/PropertyCard';
 import { BookingsViewSkeleton } from './components/BookingsView';
 import { LandlordDashboardSkeleton } from './components/LandlordDashboard';
 import AuthModal from './components/AuthModal';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import PlacesAutocompleteSearch from './components/PlacesAutocompleteSearch';
 import PromotionalBanner from './components/PromotionalBanner';
 import Footer from './components/Footer';
@@ -129,7 +131,51 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<'explore' | 'bookings' | 'dashboard' | 'favorites'>('explore');
   const [isTabLoading, setIsTabLoading] = useState<boolean>(false);
 
+  // Direct URL routing for Auth / Recovery pages (/forgot-password, /reset-password)
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      const h = window.location.hash || '';
+      const s = window.location.search || '';
+      if (p === '/reset-password' || h.includes('type=recovery') || s.includes('type=recovery') || s.includes('code=')) {
+        return '/reset-password';
+      }
+      if (p === '/forgot-password') {
+        return '/forgot-password';
+      }
+      return p || '/';
+    }
+    return '/';
+  });
+
+  const navigateToPath = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const p = window.location.pathname;
+      const h = window.location.hash || '';
+      const s = window.location.search || '';
+      if (p === '/reset-password' || h.includes('type=recovery') || s.includes('type=recovery') || s.includes('code=')) {
+        setCurrentPath('/reset-password');
+      } else {
+        setCurrentPath(p || '/');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleTabChange = (newTab: 'explore' | 'bookings' | 'dashboard' | 'favorites') => {
+    if (currentPath !== '/') {
+      navigateToPath('/');
+    }
     if (newTab === currentTab && !isTabLoading) return;
     setIsTabLoading(true);
     setCurrentTab(newTab);
@@ -493,9 +539,11 @@ export default function App() {
       }
     }).catch(() => {});
 
-    // Listen to Supabase Auth state changes (sign in, sign out, token refresh, email verification)
+    // Listen to Supabase Auth state changes (sign in, sign out, token refresh, email verification, password recovery)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigateToPath('/reset-password');
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         const user = await getCurrentSupabaseUser();
         setCurrentUser(user);
       } else if (event === 'SIGNED_OUT') {
@@ -664,10 +712,10 @@ export default function App() {
       console.warn('Supabase logout:', err);
     }
     setCurrentUser(null);
+    setFavorites([]);
     setCurrentTab('explore');
-    setAuthModalMode('login');
-    setShowAuthModal(true);
-    toast.info('Signed Out', 'Please sign in or sign up to access your account.');
+    setShowAuthDropdown(false);
+    toast.info('Signed Out', 'You have been successfully logged out.');
     refreshData();
   };
 
@@ -1216,6 +1264,16 @@ export default function App() {
                     <ShieldCheck className="w-4 h-4 text-slate-500" />
                     <span>Log In to Existing Account</span>
                   </button>
+
+                  <button
+                    onClick={() => {
+                      setShowAuthDropdown(false);
+                      navigateToPath('/forgot-password');
+                    }}
+                    className="w-full py-2 text-slate-500 hover:text-emerald-600 font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span>Forgot password? Reset here</span>
+                  </button>
                 </div>
 
                 {/* Log Out */}
@@ -1276,15 +1334,32 @@ export default function App() {
 
       {/* CORE VIEWPORT */}
       <main className={`flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-8 ${comparedListings.length > 0 ? 'mb-36 md:mb-14' : 'mb-24 md:mb-8'} overflow-hidden min-w-0 transition-all duration-300`}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-          >
-            {currentTab === 'explore' ? (
+        {currentPath === '/forgot-password' ? (
+          <ForgotPasswordPage
+            onNavigate={navigateToPath}
+            onOpenLoginModal={() => {
+              setAuthModalMode('login');
+              setShowAuthModal(true);
+            }}
+          />
+        ) : currentPath === '/reset-password' ? (
+          <ResetPasswordPage
+            onNavigate={navigateToPath}
+            onOpenLoginModal={() => {
+              setAuthModalMode('login');
+              setShowAuthModal(true);
+            }}
+          />
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              {currentTab === 'explore' ? (
               isTabLoading ? (
                 <ExploreTabSkeleton />
               ) : (
@@ -2358,6 +2433,7 @@ export default function App() {
         )}
           </motion.div>
         </AnimatePresence>
+        )}
       </main>
 
       {/* COMPREHENSIVE FOOTER SECTION */}
@@ -2515,8 +2591,8 @@ export default function App() {
 
       {/* POPUP: COMPREHENSIVE SIGN UP & AUTH MODAL */}
       <AuthModal
-        isOpen={showAuthModal || !currentUser}
-        isMandatory={!currentUser}
+        isOpen={(showAuthModal || !currentUser) && currentPath !== '/forgot-password' && currentPath !== '/reset-password'}
+        isMandatory={!currentUser && currentPath !== '/forgot-password' && currentPath !== '/reset-password'}
         onClose={() => {
           if (currentUser) {
             setShowAuthModal(false);
@@ -2526,6 +2602,7 @@ export default function App() {
         }}
         initialRole={authModalRole}
         initialMode={authModalMode}
+        onNavigate={navigateToPath}
         onSuccess={(user) => {
           setCurrentUser(user);
           setShowAuthModal(false);

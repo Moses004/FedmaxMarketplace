@@ -274,6 +274,12 @@ export async function getBookings(filter?: { guestId?: string; userId?: string; 
   }
 
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      // Protected data under RLS: do not query bookings if unauthenticated
+      return [];
+    }
+
     let query = supabase.from('bookings').select('*');
 
     const targetUserId = filter?.userId || filter?.guestId;
@@ -291,15 +297,20 @@ export async function getBookings(filter?: { guestId?: string; userId?: string; 
     const { data, error } = await query;
 
     if (error) {
+      // If permission denied under RLS, return empty array gracefully
+      if (error.code === '42501') {
+        console.warn('Supabase getBookings RLS notice: user does not have permission to view all bookings.');
+        return [];
+      }
       console.error('Supabase getBookings error:', error);
-      throw new Error(error.message || 'Failed to fetch bookings from Supabase.');
+      return [];
     }
 
     if (!data) return [];
     return data.map(mapRowToBooking);
   } catch (err: any) {
     console.error('getBookings error:', err);
-    throw err;
+    return [];
   }
 }
 

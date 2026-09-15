@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
-import { signUpWithSupabase, loginWithSupabase } from '../services/authService';
+import { signUpWithSupabase, loginWithSupabase, formatAuthErrorMessage } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { isValidEmail, normalizeEmail } from '../utils/validation';
 import { sendWelcomeEmail } from '../services/emailService';
@@ -14,13 +14,14 @@ import {
 import { 
   X, User as UserIcon, Building, Mail, Phone, MapPin, 
   Globe, ShieldCheck, Check, Sparkles, FileText, Lock, ArrowRight, Compass,
-  Search, ChevronDown, RefreshCw
+  Search, ChevronDown, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (user: User) => void;
+  onNavigate?: (path: string) => void;
   initialRole?: 'guest' | 'landlord';
   initialMode?: 'signup' | 'login';
   isMandatory?: boolean;
@@ -30,6 +31,7 @@ export default function AuthModal({
   isOpen,
   onClose,
   onSuccess,
+  onNavigate,
   initialRole = 'guest',
   initialMode = 'signup',
   isMandatory = false
@@ -41,8 +43,32 @@ export default function AuthModal({
   // Form fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('rentora_remember_me') === 'true';
+    }
+    return true;
+  });
   const [phoneCode, setPhoneCode] = useState('+34');
   const [phone, setPhone] = useState('');
+
+  // Prefill remembered email if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedEmail = localStorage.getItem('rentora_remembered_email');
+      const savedRemember = localStorage.getItem('rentora_remember_me');
+      if (savedRemember !== null) {
+        setRememberMe(savedRemember === 'true');
+      }
+      if (savedEmail && !email) {
+        setEmail(savedEmail);
+      }
+    }
+  }, [isOpen]);
   
   // Location fields (Required in sign up)
   const defaultCountry = GLOBAL_COUNTRIES.find((c) => c.name === 'Nigeria') || GLOBAL_COUNTRIES[0];
@@ -159,6 +185,14 @@ export default function AuthModal({
         setErrorMsg('Full name is required.');
         return;
       }
+      if (!password || password.trim().length < 8) {
+        setErrorMsg('Password must be at least 8 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
       if (!country) {
         setErrorMsg('Country is required.');
         return;
@@ -182,6 +216,7 @@ export default function AuthModal({
       signUpWithSupabase({
         name: name.trim(),
         email: formattedEmail,
+        password: password.trim(),
         role,
         phone: fullPhone,
         country,
@@ -222,21 +257,38 @@ export default function AuthModal({
         onClose();
       }).catch(err => {
         console.error("Sign up error:", err);
-        setErrorMsg(err.message || 'Failed to complete registration. Please try again.');
-        toast.error('Registration Failed', err.message || 'Unable to register account.');
+        const displayError = formatAuthErrorMessage(err);
+        setErrorMsg(displayError);
+        toast.error('Registration Failed', displayError);
         setIsSubmitting(false);
       });
     } else {
-      // Login mode
+      // Login mode: Validate password and authenticate with Supabase Auth
+      if (!password.trim()) {
+        setErrorMsg('Password is required.');
+        return;
+      }
+
       setIsSubmitting(true);
-      loginWithSupabase(formattedEmail, undefined, role, name.trim() || undefined).then((user) => {
+      loginWithSupabase(formattedEmail, password.trim(), role, name.trim() || undefined).then((user) => {
+        if (typeof window !== 'undefined') {
+          if (rememberMe) {
+            localStorage.setItem('rentora_remembered_email', formattedEmail);
+            localStorage.setItem('rentora_remember_me', 'true');
+          } else {
+            localStorage.removeItem('rentora_remembered_email');
+            localStorage.setItem('rentora_remember_me', 'false');
+          }
+        }
         setIsSubmitting(false);
+        toast.success(`Welcome back, ${user.name || 'User'}!`, 'Logged in successfully.');
         onSuccess(user);
         onClose();
       }).catch(err => {
         console.error("Login error:", err);
-        setErrorMsg(err.message || 'Invalid email or password. Please verify your credentials.');
-        toast.error('Login Failed', err.message || 'Invalid login credentials.');
+        const displayError = formatAuthErrorMessage(err);
+        setErrorMsg(displayError);
+        toast.error('Login Failed', displayError);
         setIsSubmitting(false);
       });
     }
@@ -447,6 +499,117 @@ export default function AuthModal({
                 )}
               </div>
             </div>
+
+            {/* Password Input Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-600 block">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                {mode === 'login' ? (
+                  <button
+                    type="button"
+                    id="auth-modal-forgot-password-btn"
+                    onClick={() => {
+                      if (onNavigate) {
+                        onNavigate('/forgot-password');
+                      } else {
+                        window.history.pushState({}, '', '/forgot-password');
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                      }
+                      onClose();
+                    }}
+                    className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                  >
+                    Forgot Password?
+                  </button>
+                ) : (
+                  <span className={`text-[10px] font-extrabold ${password.length >= 8 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {password.length >= 8 ? 'Min. 8 chars met' : 'Min. 8 characters'}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="auth-password-input"
+                  required
+                  disabled={isSubmitting}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === 'login' ? '••••••••' : 'Create a secure password (min 8 chars)'}
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors disabled:opacity-60"
+                />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {/* Remember Me Option on Login */}
+              {mode === 'login' && (
+                <div className="flex items-center justify-between mt-2 pt-0.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      id="auth-remember-me-checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-slate-600">Remember email</span>
+                  </label>
+
+                  <span className="text-[10px] text-slate-400">
+                    Saved locally on this device
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm Password field on Signup (Section 4) */}
+            {mode === 'signup' && (
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-600 block">
+                    Confirm Password <span className="text-rose-500">*</span>
+                  </label>
+                  {confirmPassword && (
+                    <span className={`text-[10px] font-extrabold ${password === confirmPassword ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    id="auth-confirm-password-input"
+                    required
+                    disabled={isSubmitting}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors disabled:opacity-60"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {mode === 'signup' && (
               <div>
@@ -827,27 +990,39 @@ export default function AuthModal({
           )}
 
           {/* Action Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <span>Processing...</span>
-              ) : mode === 'signup' ? (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Create {role === 'landlord' ? 'Landlord' : 'Tenant'} Account</span>
-                </>
-              ) : (
-                <>
-                  <ArrowRight className="w-4 h-4" />
-                  <span>Log In to Rentora</span>
-                </>
-              )}
-            </button>
-          </div>
+          {(() => {
+            const isLoginValid = mode === 'login' && email.trim().length > 0 && password.trim().length > 0;
+            const isSignupValid = mode === 'signup' && name.trim().length > 0 && email.trim().length > 0 && password.trim().length >= 8 && confirmPassword.trim().length > 0 && password === confirmPassword;
+            const isFormSubmittable = mode === 'login' ? isLoginValid : isSignupValid;
+
+            return (
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  id="auth-modal-submit-btn"
+                  disabled={isSubmitting || !isFormSubmittable}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white font-black text-xs rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>{mode === 'signup' ? 'Creating your account...' : 'Signing in to Rentora...'}</span>
+                    </>
+                  ) : mode === 'signup' ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Create {role === 'landlord' ? 'Landlord' : 'Tenant'} Account</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="w-4 h-4" />
+                      <span>Log In to Rentora</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })()}
 
           <p className="text-[11px] text-slate-400 text-center leading-normal">
             By registering, you agree to Rentora RealEstate Rental Verification terms, privacy policies, and verified tenant/owner guidelines.

@@ -258,8 +258,12 @@ export async function getProperties(
     const { data, error } = await query;
 
     if (error) {
-      console.error('Supabase getProperties query error:', error);
-      throw new Error(error.message || 'Failed to fetch properties from Supabase');
+      if (error.code === '42501') {
+        console.warn('Supabase getProperties RLS notice: permission restricted.');
+      } else {
+        console.error('Supabase getProperties query error:', error);
+      }
+      return [];
     }
 
     if (!data) {
@@ -269,7 +273,7 @@ export async function getProperties(
     return data.map(mapRowToListing);
   } catch (err: any) {
     console.error('getProperties service error:', err);
-    throw err;
+    return [];
   }
 }
 
