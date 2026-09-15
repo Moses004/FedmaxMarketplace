@@ -22,8 +22,9 @@ export default function PullToRefresh({
   const containerRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number>(0);
   const isPulling = useRef<boolean>(false);
+  const userInitiatedPull = useRef<boolean>(false);
 
-  const activeRefreshing = isRefreshing || internalRefreshing;
+  const activeRefreshing = internalRefreshing || (Boolean(isRefreshing) && userInitiatedPull.current);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (activeRefreshing) return;
@@ -55,6 +56,7 @@ export default function PullToRefresh({
     isPulling.current = false;
 
     if (pullDistance >= pullThreshold) {
+      userInitiatedPull.current = true;
       setInternalRefreshing(true);
       setPullDistance(pullThreshold);
       try {
@@ -63,6 +65,7 @@ export default function PullToRefresh({
         console.error('Pull to refresh error:', err);
       } finally {
         setTimeout(() => {
+          userInitiatedPull.current = false;
           setInternalRefreshing(false);
           setPullDistance(0);
         }, 400);
@@ -84,7 +87,7 @@ export default function PullToRefresh({
       className={`relative overflow-y-auto scrollbar-thin ${className}`}
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      {/* Pull Indicator Banner */}
+      {/* Pull Indicator Banner (Only shown when user pulls or during user-initiated pull refresh) */}
       <AnimatePresence>
         {(pullDistance > 0 || activeRefreshing) && (
           <motion.div

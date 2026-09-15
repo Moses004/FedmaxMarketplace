@@ -221,59 +221,344 @@ export interface PropertyLocationFilter {
 }
 
 /**
+ * Structured error class for property fetching and database operations.
+ * Preserves details, RLS hints, and network failure flags while presenting safe user messages.
+ */
+export class PropertyServiceError extends Error {
+  public code?: string;
+  public details?: string;
+  public hint?: string;
+  public userMessage: string;
+  public isNetworkError: boolean;
+  public isRlsError: boolean;
+  public originalError: any;
+
+  constructor(message: string, options?: {
+    code?: string;
+    details?: string;
+    hint?: string;
+    userMessage?: string;
+    isNetworkError?: boolean;
+    isRlsError?: boolean;
+    originalError?: any;
+  }) {
+    super(message);
+    this.name = 'PropertyServiceError';
+    this.code = options?.code;
+    this.details = options?.details;
+    this.hint = options?.hint;
+    this.isNetworkError = options?.isNetworkError || false;
+    this.isRlsError = options?.isRlsError || false;
+    this.originalError = options?.originalError;
+    this.userMessage = options?.userMessage || "We couldn't load properties. Please try again.";
+  }
+}
+
+/**
+ * Explicit columns retrieved for explore feed and property card catalogue.
+ * Prevents retrieving heavy payloads (uncompressed video metadata, large documents) unnecessarily.
+ */
+export const EXPLORE_PROPERTY_COLUMNS = [
+  'id',
+  'landlord_id',
+  'landlord_name',
+  'contact_role',
+  'agent_company',
+  'agent_license',
+  'contact_phone',
+  'contact_whatsapp',
+  'contact_email',
+  'title',
+  'description',
+  'price',
+  'price_period',
+  'local_price',
+  'currency',
+  'annual_discount_percentage',
+  'type',
+  'location',
+  'country',
+  'state',
+  'city',
+  'lat',
+  'lng',
+  'bedrooms',
+  'bathrooms',
+  'size',
+  'area_sqft',
+  'amenities',
+  'images',
+  'image',
+  'video_url',
+  'status',
+  'is_verified',
+  'available_from',
+  'energy_rating',
+  'solar_powered',
+  'views',
+  'created_at'
+].join(', ');
+
+export interface PropertyQueryOptions {
+  locationFilter?: PropertyLocationFilter;
+  landlordId?: string;
+  status?: string;
+  propertyType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minBedrooms?: string | number;
+  limit?: number;
+  offset?: number;
+  page?: number;
+  searchQuery?: string;
+  signal?: AbortSignal;
+  skipCache?: boolean;
+  exactMatch?: boolean;
+}
+
+export interface PropertyQueryResult {
+  properties: Listing[];
+  totalCount: number;
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+  fromCache?: boolean;
+}
+
+interface CacheEntry {
+  result: PropertyQueryResult;
+  timestamp: number;
+}
+
+const PROPERTY_CACHE_TTL_MS = 45 * 1000; // 45 seconds TTL
+const propertyQueryCache = new Map<string, CacheEntry>();
+
+/**
+ * Invalidates the client-side property query cache.
+ * Called automatically on property creates, updates, deletes, and realtime events.
+ */
+export function clearPropertyCache(): void {
+  propertyQueryCache.clear();
+}
+
+/**
+ * Builds a deterministic cache key for property query options.
+ */
+function buildCacheKey(options: PropertyQueryOptions): string {
+  const loc = options.locationFilter || {};
+  return [
+    'rentora:properties',
+    loc.country || 'all',
+    loc.state || 'all',
+    loc.city || 'all',
+    loc.region || 'all',
+    options.landlordId || 'none',
+    options.status || 'default',
+    options.propertyType || 'all',
+    options.minPrice ?? 'none',
+    options.maxPrice ?? 'none',
+    options.minBedrooms ?? 'all',
+    options.page ?? 1,
+    options.limit ?? 24
+  ].join(':').toLowerCase();
+}
+
+/**
+ * High-performance, paginated property fetcher with explicit column selection,
+ * client-side caching, and structured error reporting.
+ */
+export async function getExploreProperties(options: PropertyQueryOptions = {}): Promise<PropertyQueryResult> {
+  if (!supabase) {
+    throw new PropertyServiceError('Supabase is not configured', {
+      userMessage: 'Property service is currently unavailable. Please check your setup.'
+    });
+  }
+
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(48, Math.max(1, options.limit || 24)); // Cap page size safely
+  const offset = options.offset !== undefined ? options.offset : (page - 1) * limit;
+  const cacheKey = buildCacheKey({ ...options, page, limit });
+
+  // 1. Check client-side memory cache
+  if (!options.skipCache) {
+    const cached = propertyQueryCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < PROPERTY_CACHE_TTL_MS)) {
+      return { ...cached.result, fromCache: true };
+    }
+  }
+
+  const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
+
+  try {
+    let query = supabase
+      .from('properties')
+      .select(EXPLORE_PROPERTY_COLUMNS, { count: 'exact' });
+
+    // Landlord specific query vs public explore feed
+    if (options.landlordId) {
+      query = query.eq('landlord_id', options.landlordId);
+    } else {
+      // For explore feed, default to 'active' status if not specified
+      if (options.status && options.status !== 'all') {
+        query = query.eq('status', options.status);
+      } else if (!options.status) {
+        query = query.eq('status', 'active');
+      }
+    }
+
+    // Explicit location filters with exact matching (no greedy wildcard wrap)
+    const loc = options.locationFilter;
+    if (loc) {
+      if (loc.country && loc.country.trim() && loc.country !== 'all') {
+        query = query.ilike('country', loc.country.trim());
+      }
+      if (loc.state && loc.state.trim() && loc.state !== 'all') {
+        query = query.ilike('state', loc.state.trim());
+      }
+      if (loc.city && loc.city.trim() && loc.city !== 'all') {
+        query = query.ilike('city', loc.city.trim());
+      }
+      if (loc.region && loc.region.trim() && loc.region !== 'all') {
+        query = query.ilike('region', loc.region.trim());
+      }
+    }
+
+    // Housing Type filter if specified
+    if (options.propertyType && options.propertyType !== 'all') {
+      query = query.eq('type', options.propertyType);
+    }
+
+    // Price filters
+    if (options.minPrice !== undefined && options.minPrice > 0) {
+      query = query.gte('price', options.minPrice);
+    }
+    if (options.maxPrice !== undefined && options.maxPrice > 0) {
+      query = query.lte('price', options.maxPrice);
+    }
+
+    // Bedrooms filter
+    if (options.minBedrooms !== undefined && options.minBedrooms !== 'all') {
+      const bedNum = Number(options.minBedrooms);
+      if (!isNaN(bedNum)) {
+        query = query.gte('bedrooms', bedNum);
+      }
+    }
+
+    // Ordering: Newest first using the indexed created_at column
+    query = query.order('created_at', { ascending: false });
+
+    // Pagination bounds: MAXIMUM 24 on initial load
+    query = query.range(offset, offset + limit - 1);
+
+    if (options.signal && 'abortSignal' in (query as any)) {
+      try {
+        (query as any).abortSignal(options.signal);
+      } catch {}
+    }
+
+    const { data, count, error } = await query;
+    const duration = startTime ? Math.round(performance.now() - startTime) : 0;
+
+    // Development telemetry
+    if (typeof window !== 'undefined' && (import.meta as any).env?.DEV) {
+      console.log(
+        `%c[Rentora Property Query]%c ${duration}ms | Count: ${data?.length ?? 0} (Total: ${count ?? 'unknown'})`,
+        'color: #10b981; font-weight: bold;',
+        'color: inherit;',
+        { options, duration, resultCount: data?.length }
+      );
+    }
+
+    if (error) {
+      const isRls = error.code === '42501';
+      const isNetwork = !navigator.onLine || error.message?.toLowerCase().includes('failed to fetch');
+      const userMessage = isRls
+        ? 'Access restricted. Please sign in or check your account permissions.'
+        : isNetwork
+        ? 'Unable to connect to the Rentora network. Please check your internet connection.'
+        : "We couldn't load properties. Please try again.";
+
+      throw new PropertyServiceError(error.message || 'Failed to fetch properties from Supabase', {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        userMessage,
+        isRlsError: isRls,
+        isNetworkError: isNetwork,
+        originalError: error
+      });
+    }
+
+    const rawRows = data || [];
+    const listings = rawRows.map(mapRowToListing);
+    const totalCount = count !== null ? count : listings.length;
+    const hasMore = offset + listings.length < totalCount;
+
+    const result: PropertyQueryResult = {
+      properties: listings,
+      totalCount,
+      hasMore,
+      page,
+      pageSize: limit,
+      fromCache: false
+    };
+
+    // Store in client-side memory cache
+    propertyQueryCache.set(cacheKey, { result, timestamp: Date.now() });
+
+    return result;
+  } catch (err: any) {
+    if (err instanceof PropertyServiceError) {
+      throw err;
+    }
+    const isNetwork = typeof navigator !== 'undefined' && !navigator.onLine;
+    throw new PropertyServiceError(err.message || 'An unexpected error occurred while loading properties', {
+      userMessage: isNetwork ? 'Network connection offline. Please check your connection.' : "We couldn't load properties. Please try again.",
+      isNetworkError: isNetwork,
+      originalError: err
+    });
+  }
+}
+
+/**
  * Fetch properties directly from Supabase Database.
- * Supports location-based scoping (country, region, state, city) and landlord ID filter.
+ * Backward compatible with existing callers, using optimized field selection and pagination under the hood.
  */
 export async function getProperties(
-  locationFilter?: PropertyLocationFilter,
+  locationFilterOrOptions?: PropertyLocationFilter | PropertyQueryOptions,
   landlordId?: string
 ): Promise<Listing[]> {
   if (!supabase) {
     return [];
   }
 
+  // Detect whether caller passed PropertyQueryOptions or legacy PropertyLocationFilter
+  let options: PropertyQueryOptions = {};
+  if (locationFilterOrOptions) {
+    if ('country' in locationFilterOrOptions || 'state' in locationFilterOrOptions || 'city' in locationFilterOrOptions || 'region' in locationFilterOrOptions) {
+      options = {
+        locationFilter: locationFilterOrOptions as PropertyLocationFilter,
+        landlordId,
+        limit: landlordId ? 100 : 24
+      };
+    } else {
+      options = {
+        ...(locationFilterOrOptions as PropertyQueryOptions),
+        landlordId: landlordId || (locationFilterOrOptions as PropertyQueryOptions).landlordId
+      };
+    }
+  } else if (landlordId) {
+    options = { landlordId, limit: 100 };
+  } else {
+    options = { limit: 24 };
+  }
+
   try {
-    let query = supabase.from('properties').select('*');
-
-    if (landlordId) {
-      query = query.eq('landlord_id', landlordId);
-    } else if (locationFilter) {
-      if (locationFilter.country && locationFilter.country.trim()) {
-        query = query.ilike('country', `%${locationFilter.country.trim()}%`);
-      }
-      if (locationFilter.region && locationFilter.region.trim()) {
-        query = query.ilike('region', `%${locationFilter.region.trim()}%`);
-      }
-      if (locationFilter.state && locationFilter.state.trim() && locationFilter.state !== 'all') {
-        query = query.ilike('state', `%${locationFilter.state.trim()}%`);
-      }
-      if (locationFilter.city && locationFilter.city.trim() && locationFilter.city !== 'all') {
-        query = query.ilike('city', `%${locationFilter.city.trim()}%`);
-      }
-    }
-
-    // Sort newest first
-    query = query.order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      if (error.code === '42501') {
-        console.warn('Supabase getProperties RLS notice: permission restricted.');
-      } else {
-        console.error('Supabase getProperties query error:', error);
-      }
-      return [];
-    }
-
-    if (!data) {
-      return [];
-    }
-
-    return data.map(mapRowToListing);
+    const result = await getExploreProperties(options);
+    return result.properties;
   } catch (err: any) {
     console.error('getProperties service error:', err);
-    return [];
+    throw err;
   }
 }
 
@@ -357,6 +642,7 @@ export async function createProperty(
     throw new Error('Database error: No data returned after creating property.');
   }
 
+  clearPropertyCache();
   return mapRowToListing(data);
 }
 
@@ -387,6 +673,7 @@ export async function updateProperty(
     throw new Error(error.message || 'Failed to update property in Supabase.');
   }
 
+  clearPropertyCache();
   return mapRowToListing(data);
 }
 
@@ -493,6 +780,8 @@ export async function deleteProperty(id: string): Promise<void> {
     console.error(`Supabase deleteProperty error (${id}):`, error);
     throw new Error(error.message || 'Failed to delete property from Supabase.');
   }
+
+  clearPropertyCache();
 }
 
 /**

@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { Listing, User, Booking, PropertyType, PROPERTY_CATEGORY_OPTIONS } from './types';
 import { 
-  getProperties, 
+  getProperties,
+  getExploreProperties,
+  PropertyServiceError,
+  PropertyQueryOptions,
+  PropertyQueryResult,
+  PropertyLocationFilter,
+  clearPropertyCache,
   getBookings, 
   getFavorites, 
   toggleFavorite,
@@ -47,7 +53,7 @@ import {
   Building, Search, MapPin, Euro, Compass, Calendar, Mail, Map as MapIcon, Grid as GridIcon, Maximize2, Eye, EyeOff,
   User as UserIcon, Plus, Filter, RefreshCw, Sparkles, SlidersHorizontal, ChevronRight, ChevronLeft, LogOut, Check,
   BarChart3, Navigation, Globe, LocateFixed, UserPlus, ShieldCheck, Sun, Moon, ArrowLeftRight, Heart, Calculator, Bell,
-  Flame, Layers, Zap
+  Flame, Layers, Zap, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { LAUNCH_REGIONS, GLOBAL_COUNTRIES, CountryData, getDistanceKm, getCurrentUserCoordinates, getCoordinatesForUserLocation, getStatesForCountry, getCitiesForState, getAreasForCity, resolveLocationMeta, matchesLocationSearch } from './utils/location';
@@ -329,53 +335,37 @@ export default function App() {
   const [isLoadingListings, setIsLoadingListings] = useState<boolean>(true);
   const [isVirtualizedScroll, setIsVirtualizedScroll] = useState<boolean>(false);
 
-  // Initial load skeleton effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoadingListings(false);
-    }, 450);
-    return () => clearTimeout(timer);
-  }, []);
+  // Property pagination, caching, and network states
+  const [propertiesTotalCount, setPropertiesTotalCount] = useState<number>(0);
+  const [hasMoreProperties, setHasMoreProperties] = useState<boolean>(false);
+  const [isLoadingMoreProperties, setIsLoadingMoreProperties] = useState<boolean>(false);
+  const [propertiesPage, setPropertiesPage] = useState<number>(1);
+  const [propertyLoadError, setPropertyLoadError] = useState<PropertyServiceError | null>(null);
 
-  // Filter change skeleton shimmer effect to boost perceived performance
-  useEffect(() => {
-    setIsLoadingListings(true);
-    const timer = setTimeout(() => {
-      setIsLoadingListings(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [selectedRegionId, selectedType, maxPrice, minBedrooms, locationScopeMode, selectedCountryFilter, selectedStateFilter, selectedCityFilter, selectedAreaFilter]);
+  // In-flight request race-condition protection & debouncing refs
+  const activePropertyAbortControllerRef = useRef<AbortController | null>(null);
+  const propertyRequestSeqRef = useRef<number>(0);
+  const propertyDebounceTimerRef = useRef<any>(null);
 
   // Auto-sync location & coordinates when user logs in or registers
+  // Keeps state and city as 'all' by default so the Explore feed displays country-level homes
+  // sorted by proximity to the user's GPS/profile coordinates instead of hitting 0 listings.
   useEffect(() => {
     if (currentUser) {
       if (currentUser.country) {
         setSelectedCountryFilter(currentUser.country);
       }
-      if (currentUser.state) {
-        setSelectedStateFilter(currentUser.state);
-      } else {
-        setSelectedStateFilter('all');
-      }
-      if (currentUser.city) {
-        setSelectedCityFilter(currentUser.city);
-      } else {
-        setSelectedCityFilter('all');
-      }
-      if (currentUser.streetAddress) {
-        setSelectedAreaFilter(currentUser.streetAddress);
-      } else if (currentUser.preferredMoveInRegion) {
-        const areaName = currentUser.preferredMoveInRegion.split(',')[0].trim();
-        setSelectedAreaFilter(areaName);
-      } else {
-        setSelectedAreaFilter('all');
-      }
+      setSelectedStateFilter('all');
+      setSelectedCityFilter('all');
+      setSelectedAreaFilter('all');
 
       setLocationScopeMode('my_location');
       const coords = getCoordinatesForUserLocation(currentUser);
-      setUserGeoLocation(coords);
-      setMapCenter(coords);
-      setMapZoom(13);
+      if (coords) {
+        setUserGeoLocation(coords);
+        setMapCenter(coords);
+        setMapZoom(13);
+      }
     }
   }, [currentUser]);
 
@@ -435,41 +425,190 @@ export default function App() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isSyncingDatabase, setIsSyncingDatabase] = useState(false);
 
-  const refreshData = async (overrideFilter?: { country?: string; region?: string; state?: string; city?: string }) => {
-    setIsSyncingDatabase(true);
+  // Modular, decoupled property query handler
+  const refreshProperties = useCallback(async (options?: {
+    page?: number;
+    resetPage?: boolean;
+    silent?: boolean;
+    overrideFilter?: PropertyLocationFilter;
+    append?: boolean;
+  }) => {
+    const isAppend = Boolean(options?.append);
+    const targetPage = options?.page ?? (options?.resetPage ? 1 : propertiesPage);
+
+    if (isAppend) {
+      setIsLoadingMoreProperties(true);
+    } else if (!options?.silent) {
+      setIsLoadingListings(true);
+    }
+
+    setPropertyLoadError(null);
+
+    // Cancel any previous in-flight request
+    if (activePropertyAbortControllerRef.current) {
+      activePropertyAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    activePropertyAbortControllerRef.current = abortController;
+
+    const requestSeq = ++propertyRequestSeqRef.current;
+
     try {
-      const locFilter = overrideFilter || {
-        country: selectedCountryFilter !== 'all' ? selectedCountryFilter : (currentUser?.country || 'Nigeria'),
-        state: selectedStateFilter !== 'all' ? selectedStateFilter : (currentUser?.state || undefined),
-        city: selectedCityFilter !== 'all' ? selectedCityFilter : (currentUser?.city || undefined),
+      let locFilter: PropertyLocationFilter | undefined;
+
+      if (options?.overrideFilter) {
+        locFilter = options.overrideFilter;
+      } else if (selectedRegionId !== 'all' && selectedRegionId !== 'near_me') {
+        const region = LAUNCH_REGIONS.find((r) => r.id === selectedRegionId);
+        if (region) {
+          locFilter = { country: region.country, city: region.name };
+        }
+      } else if (locationScopeMode === 'all') {
+        locFilter = undefined;
+      } else if (locationScopeMode === 'my_location') {
+        // In my_location mode, query by country so active listings are returned and proximity-sorted
+        locFilter = {
+          country: selectedCountryFilter !== 'all' ? selectedCountryFilter : (currentUser?.country || 'Nigeria'),
+        };
+      } else {
+        // Custom mode
+        locFilter = {
+          country: selectedCountryFilter !== 'all' ? selectedCountryFilter : undefined,
+          state: selectedStateFilter !== 'all' ? selectedStateFilter : undefined,
+          city: selectedCityFilter !== 'all' ? selectedCityFilter : undefined,
+        };
+      }
+
+      const queryOptions: PropertyQueryOptions = {
+        locationFilter: locFilter,
+        propertyType: selectedType !== 'all' ? selectedType : undefined,
+        maxPrice: maxPrice < 5000 ? maxPrice : undefined,
+        minBedrooms: minBedrooms !== 'all' ? minBedrooms : undefined,
+        page: targetPage,
+        limit: 24,
+        signal: abortController.signal
       };
 
-      const [props, bks] = await Promise.all([
-        getProperties(locFilter).catch((err) => {
-          console.error('Failed to fetch properties from Supabase:', err);
-          return [];
-        }),
-        getBookings().catch((err) => {
-          console.error('Failed to fetch bookings from Supabase:', err);
-          return [];
-        })
-      ]);
+      const result = await getExploreProperties(queryOptions);
 
-      setListings(props || []);
+      // Verify this response matches the most recent request sequence
+      if (requestSeq !== propertyRequestSeqRef.current) {
+        return;
+      }
+
+      if (isAppend) {
+        setListings((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const newItems = result.properties.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...newItems];
+        });
+      } else {
+        setListings(result.properties);
+      }
+
+      setPropertiesTotalCount(result.totalCount);
+      setHasMoreProperties(result.hasMore);
+      setPropertiesPage(result.page);
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || abortController.signal.aborted) {
+        return;
+      }
+      if (requestSeq !== propertyRequestSeqRef.current) {
+        return;
+      }
+      console.error('[App] refreshProperties error:', err);
+      const serviceErr = err instanceof PropertyServiceError
+        ? err
+        : new PropertyServiceError(err?.message || 'Failed to fetch properties', {
+            userMessage: "We couldn't load properties right now. Please check your connection and try again.",
+            originalError: err
+          });
+      setPropertyLoadError(serviceErr);
+    } finally {
+      if (requestSeq === propertyRequestSeqRef.current) {
+        setIsLoadingListings(false);
+        setIsLoadingMoreProperties(false);
+      }
+    }
+  }, [
+    propertiesPage,
+    selectedRegionId,
+    locationScopeMode,
+    selectedCountryFilter,
+    selectedStateFilter,
+    selectedCityFilter,
+    selectedType,
+    maxPrice,
+    minBedrooms,
+    currentUser
+  ]);
+
+  const loadMoreProperties = () => {
+    if (!hasMoreProperties || isLoadingMoreProperties || isLoadingListings) return;
+    refreshProperties({ page: propertiesPage + 1, append: true });
+  };
+
+  // Modular sub-data refresh functions
+  const refreshBookings = useCallback(async () => {
+    try {
+      const bks = await getBookings();
       setBookings(bks || []);
+    } catch (err) {
+      console.error('[App] refreshBookings error:', err);
+    }
+  }, []);
 
+  const refreshFavorites = useCallback(async (userId?: string) => {
+    const targetUserId = userId || currentUser?.id;
+    if (!targetUserId) return;
+    try {
+      const favs = await getFavorites(targetUserId);
+      setFavorites(favs || []);
+    } catch (err) {
+      console.error('[App] refreshFavorites error:', err);
+    }
+  }, [currentUser?.id]);
+
+  const refreshCurrentUser = useCallback(async () => {
+    try {
       const sbUser = await getCurrentSupabaseUser();
       if (sbUser) {
         setCurrentUser(sbUser);
-        const favs = await getFavorites(sbUser.id);
-        setFavorites(favs || []);
+        refreshFavorites(sbUser.id);
       }
     } catch (err) {
-      console.error('refreshData exception:', err);
+      console.error('[App] refreshCurrentUser error:', err);
+    }
+  }, [refreshFavorites]);
+
+  // Backward-compatible coordinator for components passing onRefresh/onRefreshData
+  const refreshData = async (overrideFilter?: PropertyLocationFilter) => {
+    setIsSyncingDatabase(true);
+    try {
+      await Promise.allSettled([
+        refreshProperties({ resetPage: true, overrideFilter }),
+        refreshBookings(),
+        refreshCurrentUser()
+      ]);
     } finally {
       setIsSyncingDatabase(false);
     }
   };
+
+  // Trigger property re-query whenever active search filters change
+  useEffect(() => {
+    refreshProperties({ resetPage: true });
+  }, [
+    selectedRegionId,
+    selectedType,
+    maxPrice,
+    minBedrooms,
+    locationScopeMode,
+    selectedCountryFilter,
+    selectedStateFilter,
+    selectedCityFilter,
+    refreshProperties
+  ]);
 
   // Location-Based Display Currency State
   const [displayCurrency, setDisplayCurrency] = useState<string>('USD');
@@ -530,7 +669,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    refreshData();
+    // Secondary data fetches on mount (properties are fetched by filter effect above)
+    refreshBookings();
+    refreshCurrentUser();
 
     // Check for active Supabase session on mount
     getCurrentSupabaseUser().then((sbUser) => {
@@ -539,7 +680,7 @@ export default function App() {
       }
     }).catch(() => {});
 
-    // Listen to Supabase Auth state changes (sign in, sign out, token refresh, email verification, password recovery)
+    // Listen to Supabase Auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         navigateToPath('/reset-password');
@@ -552,52 +693,44 @@ export default function App() {
       }
     });
 
-    // Real-time Supabase Table & Storage Subscriptions across all application entities
-    const unsubProperties = subscribeToSupabaseChanges('properties', refreshData);
-    const unsubBookings = subscribeToSupabaseChanges('bookings', refreshData);
-    const unsubMaint = subscribeToSupabaseChanges('maintenance_requests', refreshData);
-    const unsubProfiles = subscribeToSupabaseChanges('profiles', refreshData);
-    const unsubReviews = subscribeToSupabaseChanges('reviews', refreshData);
-    const unsubFavorites = subscribeToSupabaseChanges('favorites', refreshData);
-    const unsubStorage = subscribeToStorageObjects('property-images', refreshData);
+    // Granular Real-time Supabase Subscriptions:
+    // Debounce property changes by 350ms so rapid mutations don't trigger cascading refetches
+    const unsubProperties = subscribeToSupabaseChanges('properties', () => {
+      if (propertyDebounceTimerRef.current) {
+        clearTimeout(propertyDebounceTimerRef.current);
+      }
+      propertyDebounceTimerRef.current = setTimeout(() => {
+        clearPropertyCache();
+        refreshProperties({ silent: true });
+      }, 350);
+    });
+
+    // Entity-specific listeners: refresh only what changed
+    const unsubBookings = subscribeToSupabaseChanges('bookings', refreshBookings);
+    const unsubProfiles = subscribeToSupabaseChanges('profiles', refreshCurrentUser);
+    const unsubFavorites = subscribeToSupabaseChanges('favorites', () => {
+      if (currentUser?.id) refreshFavorites(currentUser.id);
+    });
 
     const handleStoreUpdate = () => {
-      refreshData();
+      clearPropertyCache();
+      refreshProperties({ silent: true });
     };
     window.addEventListener('fedmax_store_change', handleStoreUpdate);
     window.addEventListener('storage', handleStoreUpdate);
+
     return () => {
+      if (propertyDebounceTimerRef.current) clearTimeout(propertyDebounceTimerRef.current);
+      if (activePropertyAbortControllerRef.current) activePropertyAbortControllerRef.current.abort();
       if (unsubProperties) unsubProperties();
       if (unsubBookings) unsubBookings();
-      if (unsubMaint) unsubMaint();
       if (unsubProfiles) unsubProfiles();
-      if (unsubReviews) unsubReviews();
       if (unsubFavorites) unsubFavorites();
-      if (unsubStorage) unsubStorage();
       if (authListener?.subscription) authListener.subscription.unsubscribe();
       window.removeEventListener('fedmax_store_change', handleStoreUpdate);
       window.removeEventListener('storage', handleStoreUpdate);
     };
-  }, []);
-
-  // Sync location scope & map position whenever currentUser changes
-  useEffect(() => {
-    if (currentUser?.country) {
-      setSelectedCountryFilter(currentUser.country);
-      if (currentUser.city && currentUser.city !== 'all') {
-        setSelectedCityFilter(currentUser.city);
-      }
-      if (currentUser.state && currentUser.state !== 'all') {
-        setSelectedStateFilter(currentUser.state);
-      }
-      
-      const coords = getCoordinatesForUserLocation(currentUser);
-      if (coords) {
-        setMapCenter({ lat: coords.lat, lng: coords.lng });
-        setMapZoom(12);
-      }
-    }
-  }, [currentUser]);
+  }, [refreshBookings, refreshCurrentUser, refreshFavorites, refreshProperties, currentUser?.id]);
 
   // Parse deep-link query parameter or hash on load
   useEffect(() => {
@@ -1909,12 +2042,21 @@ export default function App() {
                     {selectedRegionId === 'near_me'
                       ? 'Homes Near Your GPS Location'
                       : selectedRegionId === 'all'
-                      ? 'All Active Launch Markets'
+                      ? (locationScopeMode === 'my_location'
+                          ? `Verified Homes in ${currentUser?.country || selectedCountryFilter}`
+                          : 'All Active Launch Markets')
                       : `Homes in ${currentRegionObj?.name || selectedRegionId} ${currentRegionObj?.flag || ''}`}
                   </span>
                 </h3>
                 <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shrink-0">
-                  {filteredItems.length} properties
+                  {isLoadingListings ? (
+                    <span className="flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />
+                      <span>Checking listings...</span>
+                    </span>
+                  ) : (
+                    `${filteredItems.length} ${filteredItems.length === 1 ? 'property' : 'properties'}`
+                  )}
                 </span>
               </div>
 
@@ -2060,6 +2202,26 @@ export default function App() {
                         <PropertyCardSkeleton key={idx} />
                       ))}
                     </div>
+                  ) : propertyLoadError ? (
+                    <div className="text-center py-12 px-6 bg-white dark:bg-slate-900 border border-rose-100 dark:border-rose-900/30 rounded-3xl space-y-4 max-w-md mx-auto my-6 shadow-sm">
+                      <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
+                        <AlertCircle className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-base">Unable to load properties</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                          {propertyLoadError.userMessage || "We encountered an issue communicating with the database. Please try again."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => refreshProperties({ resetPage: true })}
+                        className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs flex items-center gap-2 mx-auto"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Retry Connection</span>
+                      </button>
+                    </div>
                   ) : filteredItems.length === 0 ? (
                     <div className="text-center py-12 px-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-4 max-w-md mx-auto my-6 shadow-sm">
                       <div className="relative w-40 h-40 mx-auto rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
@@ -2071,26 +2233,57 @@ export default function App() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-base">No rentals match your search</h4>
+                        <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-base">
+                          {selectedCityFilter !== 'all' 
+                            ? `No properties found in ${selectedCityFilter}`
+                            : selectedStateFilter !== 'all'
+                            ? `No properties found in ${selectedStateFilter}`
+                            : 'No rentals match your search'}
+                        </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                          Try adjusting your pricing filters, location radius, or property type to discover available homes.
+                          {selectedCityFilter !== 'all'
+                            ? `Properties in ${selectedCityFilter} are currently being onboarded and verified. Explore available homes across ${selectedCountryFilter || 'Nigeria'} or broaden your search.`
+                            : selectedStateFilter !== 'all'
+                            ? `Properties in ${selectedStateFilter} are currently being onboarded and verified. Explore available homes across ${selectedCountryFilter || 'Nigeria'} or broaden your search.`
+                            : 'Try adjusting your pricing filters, location radius, or property type to discover available homes.'}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedRegionId('all');
-                          setSelectedType('all');
-                          setMaxPrice(2000);
-                          setSearchQuery('');
-                          setMinBedrooms('all');
-                          setMaxDistanceKm(null);
-                          setUserGeoLocation(null);
-                        }}
-                        className="py-2 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs"
-                      >
-                        Reset All Filters
-                      </button>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                        {(selectedCityFilter !== 'all' || selectedStateFilter !== 'all' || locationScopeMode !== 'all') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStateFilter('all');
+                              setSelectedCityFilter('all');
+                              setSelectedAreaFilter('all');
+                              setLocationScopeMode('all');
+                              setSelectedRegionId('all');
+                            }}
+                            className="w-full sm:w-auto py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs"
+                          >
+                            Show All {selectedCountryFilter !== 'all' ? selectedCountryFilter : 'Global'} Homes
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRegionId('all');
+                            setSelectedType('all');
+                            setMaxPrice(5000);
+                            setSearchQuery('');
+                            setMinBedrooms('all');
+                            setMaxDistanceKm(null);
+                            setUserGeoLocation(null);
+                            setSelectedStateFilter('all');
+                            setSelectedCityFilter('all');
+                            setSelectedAreaFilter('all');
+                            setLocationScopeMode('all');
+                          }}
+                          className="w-full sm:w-auto py-2 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs"
+                        >
+                          Reset All Filters
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -2269,6 +2462,32 @@ export default function App() {
                               </button>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Server-Side Database Pagination / Load More */}
+                      {hasMoreProperties && (
+                        <div className="flex justify-center pt-2 pb-4">
+                          <button
+                            type="button"
+                            onClick={loadMoreProperties}
+                            disabled={isLoadingMoreProperties}
+                            className="px-5 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 rounded-xl font-bold text-xs shadow-2xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {isLoadingMoreProperties ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                                <span>Loading more properties from database...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Fetch More Verified Properties</span>
+                                <span className="text-slate-400 dark:text-slate-500 font-medium text-[11px]">
+                                  ({listings.length} loaded of {propertiesTotalCount})
+                                </span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       )}
                     </>

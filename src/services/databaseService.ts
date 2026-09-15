@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Listing, Booking, PropertyReview } from '../types';
 import {
   getProperties as fetchPropertiesFromDb,
+  getExploreProperties as fetchExplorePropertiesFromDb,
   getPropertyById as fetchPropertyByIdFromDb,
   createProperty as createPropertyInDb,
   updateProperty as updatePropertyInDb,
@@ -10,7 +11,11 @@ import {
   replacePropertyVideo as replacePropertyVideoInDb,
   incrementPropertyViews as incrementPropertyViewsInDb,
   getPropertyViews as getPropertyViewsInDb,
-  PropertyLocationFilter
+  clearPropertyCache as clearPropertyCacheInDb,
+  PropertyLocationFilter,
+  PropertyQueryOptions,
+  PropertyQueryResult,
+  PropertyServiceError
 } from './propertyService';
 import {
   getBookings as fetchBookingsFromDb,
@@ -49,6 +54,16 @@ import {
 export async function getProperties(locationFilter?: PropertyLocationFilter, landlordId?: string): Promise<Listing[]> {
   return fetchPropertiesFromDb(locationFilter, landlordId);
 }
+
+export async function getExploreProperties(options?: PropertyQueryOptions): Promise<PropertyQueryResult> {
+  return fetchExplorePropertiesFromDb(options);
+}
+
+export {
+  clearPropertyCacheInDb as clearPropertyCache,
+  PropertyServiceError
+};
+export type { PropertyLocationFilter, PropertyQueryOptions, PropertyQueryResult };
 
 export async function getPropertyById(id: string): Promise<Listing | null> {
   return fetchPropertyByIdFromDb(id);
@@ -312,14 +327,14 @@ export async function getPayoutTransactions(landlordId?: string): Promise<any[]>
 // REAL-TIME LISTENER FOR SUPABASE
 // ==========================================
 
-export function subscribeToSupabaseChanges(tableName: string, callback: () => void, schema = 'public'): (() => void) | null {
+export function subscribeToSupabaseChanges(tableName: string, callback: (payload?: any) => void, schema = 'public'): (() => void) | null {
   try {
     const channel = supabase
       .channel(`${schema}:${tableName}`)
       .on(
         'postgres_changes',
         { event: '*', schema, table: tableName },
-        () => callback()
+        (payload) => callback(payload)
       )
       .subscribe((status, err) => {
         if (err || status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {

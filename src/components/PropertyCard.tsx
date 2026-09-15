@@ -83,6 +83,8 @@ export default function PropertyCard({ listing, isSelected, onClick, isFavorited
         <img
           src={images[currentImageIndex] || images[0]}
           alt={listing.title}
+          loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105"
         />
