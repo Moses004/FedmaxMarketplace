@@ -3,6 +3,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script>
+      (function () {
+        function isThirdPartyExtensionError(text, source) {
+          var combined = (String(text || '') + ' ' + String(source || '')).toLowerCase();
+          return (
+            combined.indexOf('talisman') !== -1 ||
+            combined.indexOf('chrome-extension://') !== -1 ||
+            combined.indexOf('moz-extension://') !== -1 ||
+            combined.indexOf('safari-extension://') !== -1 ||
+            combined.indexOf('fijngjgcjhjmmpcmkeiomlglpeiijkld') !== -1 ||
+            combined.indexOf('continue with onboarding') !== -1 ||
+            combined.indexOf('metamask') !== -1 ||
+            combined.indexOf('inpage.js') !== -1
+          );
+        }
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            var msg =
+              (event && event.message) ||
+              (event && event.error && event.error.message) ||
+              '';
+            var stack = (event && event.error && event.error.stack) || '';
+            var filename = (event && event.filename) || '';
+            if (isThirdPartyExtensionError(msg + ' ' + stack, filename)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return false;
+            }
+          },
+          true
+        );
+
+        window.addEventListener(
+          'unhandledrejection',
+          function (event) {
+            var reason = event && event.reason;
+            var msg = '';
+            var stack = '';
+            if (typeof reason === 'string') {
+              msg = reason;
+            } else if (reason && typeof reason === 'object') {
+              msg = reason.message || String(reason);
+              stack = reason.stack || '';
+            }
+            if (isThirdPartyExtensionError(msg, stack)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return false;
+            }
+          },
+          true
+        );
+      })();
+    </script>
     
     <!-- Primary Meta Tags -->
     <title>Rentora RealEstate | Verified Property Rentals & Marketplace</title>

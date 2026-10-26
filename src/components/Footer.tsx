@@ -732,7 +732,7 @@ export default function Footer({
           onClick={scrollToTop}
           aria-label="Scroll back to top of page"
           title="Back to top"
-          className={`fixed ${languageToast ? 'bottom-20' : 'bottom-6'} right-6 z-40 bg-emerald-500 hover:bg-emerald-400 text-slate-950 p-3 rounded-2xl shadow-2xl shadow-emerald-500/25 flex items-center gap-2 border border-emerald-300 transition-all duration-300 ease-out hover:scale-110 active:scale-95 cursor-pointer group animate-fade-in`}
+          className={`fixed ${languageToast ? 'bottom-36 md:bottom-20' : 'bottom-20 md:bottom-6'} right-4 md:right-6 z-30 bg-emerald-500 hover:bg-emerald-400 text-slate-950 p-3 rounded-2xl shadow-2xl shadow-emerald-500/25 flex items-center gap-2 border border-emerald-300 transition-all duration-300 ease-out hover:scale-110 active:scale-95 cursor-pointer group animate-fade-in`}
         >
           <ArrowUp className="w-4 h-4 text-slate-950 group-hover:-translate-y-0.5 transition-transform" />
           <span className="hidden sm:inline font-black text-xs">Top</span>
@@ -741,7 +741,7 @@ export default function Footer({
 
       {/* Floating Language Notification Toast */}
       {languageToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-2xl flex items-center gap-2 border border-emerald-300 animate-bounce">
+        <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-500 text-slate-950 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-2xl flex items-center gap-2 border border-emerald-300 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-slate-950 shrink-0" />
           <span>{languageToast}</span>
         </div>

@@ -412,10 +412,6 @@ export default function LandlordDashboard({
   const handleRemoveExistingVideo = async () => {
     if (!photoManagingListing || !photoManagingListing.videoUrl) return;
 
-    if (!window.confirm('Are you sure you want to remove the video tour from this listing?')) {
-      return;
-    }
-
     setDashIsDeletingVideo(true);
     setDashVideoError(null);
 
@@ -1051,17 +1047,32 @@ disbursement from Rentora to your financial institution.
             Welcome back, {currentUser.name}. Here is how your Spanish properties are performing.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={onViewBookingClick}
+            className="flex items-center gap-1.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+          >
+            <Calendar className="w-4 h-4 text-emerald-400" />
+            <span>Owner Approvals Hub</span>
+            {bookings.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950">
+                {bookings.length}
+              </span>
+            )}
+          </button>
           {onEditProfileClick && (
             <button
+              type="button"
               onClick={onEditProfileClick}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
             >
-              <UserIcon className="w-4 h-4 text-slate-600" />
+              <UserIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
               <span>Edit Profile</span>
             </button>
           )}
           <button
+            type="button"
             onClick={onAddListingClick}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/10 active:scale-95 shrink-0 cursor-pointer"
           >

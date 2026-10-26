@@ -22,11 +22,30 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     copied: false,
   };
 
+  private static isBrowserExtensionError(error: Error | null | undefined): boolean {
+    if (!error) return false;
+    const text = `${error.message || ''} ${error.stack || ''}`.toLowerCase();
+    return (
+      text.includes('talisman') ||
+      text.includes('chrome-extension://') ||
+      text.includes('moz-extension://') ||
+      text.includes('safari-extension://') ||
+      text.includes('fijngjgcjhjmmpcmkeiomlglpeiijkld') ||
+      text.includes('continue with onboarding')
+    );
+  }
+
   public static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+    if (ErrorBoundary.isBrowserExtensionError(error)) {
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    if (ErrorBoundary.isBrowserExtensionError(error)) {
+      return;
+    }
     console.error('Uncaught application error caught by ErrorBoundary:', error, errorInfo);
     this.setState({ errorInfo });
   }

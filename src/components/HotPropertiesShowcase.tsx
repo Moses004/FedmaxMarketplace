@@ -21,6 +21,7 @@ interface HotPropertiesShowcaseProps {
   displayCurrency?: string;
   mapCenter?: { lat: number; lng: number };
   mapZoom?: number;
+  externalViewMode?: 'grid' | 'split' | 'map';
 }
 
 type ShowcaseTab = 'hot' | 'new' | 'luxury' | 'instant';
@@ -36,6 +37,7 @@ export default function HotPropertiesShowcase({
   displayCurrency = 'regional',
   mapCenter = { lat: 40.4167, lng: -3.7037 },
   mapZoom = 13,
+  externalViewMode,
 }: HotPropertiesShowcaseProps) {
   const [activeTab, setActiveTab] = useState<ShowcaseTab>('hot');
   const [viewMode, setViewMode] = useState<ViewMode>('showcase');
@@ -45,6 +47,12 @@ export default function HotPropertiesShowcase({
   const [progress, setProgress] = useState<number>(0);
   const [imageFitMode, setImageFitMode] = useState<'cover' | 'contain'>('cover');
   const [showFullScreenGallery, setShowFullScreenGallery] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (externalViewMode === 'map' && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setViewMode('map');
+    }
+  }, [externalViewMode]);
 
   const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
 

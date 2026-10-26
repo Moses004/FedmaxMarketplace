@@ -1125,7 +1125,7 @@ export default function App() {
   const activeCurrencySymbol = SUPPORTED_CURRENCIES[displayCurrency]?.symbol || '$';
 
   return (
-    <div className="min-h-screen min-h-dvh w-full max-w-full overflow-x-hidden bg-slate-50/50 flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen min-h-dvh w-full max-w-full overflow-x-hidden bg-slate-50/50 dark:bg-slate-950 flex flex-col font-sans antialiased">
       
       {/* CENTRALIZED DYNAMIC SEO METADATA MANAGER */}
       <SEOMetadataManager
@@ -1137,12 +1137,12 @@ export default function App() {
         selectedLocationName={selectedLocationName}
         currencySymbol={activeCurrencySymbol}
         topListings={filteredItems.slice(0, 10).map(item => item.listing)}
-        showInspectorTrigger={true}
+        showInspectorTrigger={false}
         hasCompareBar={comparedListings.length > 0}
       />
       
       {/* PREMIUM HEADER BAR */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm/50 px-3 sm:px-4 lg:px-8 py-3 pt-safe">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm/50 px-3 sm:px-4 lg:px-8 py-3 pt-safe">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
           {/* Logo and Tagline */}
@@ -1151,30 +1151,46 @@ export default function App() {
               <Building className="w-5.5 h-5.5 stroke-[2.5]" />
             </div>
             <div>
-              <span className="font-display font-black text-xl tracking-tight text-slate-800">Rentora</span>
-              <span className="text-[10px] text-emerald-600 font-bold block -mt-1 uppercase tracking-wider">RealEstate</span>
+              <span className="font-display font-black text-xl tracking-tight text-slate-800 dark:text-white">Rentora</span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block -mt-1 uppercase tracking-wider">RealEstate</span>
             </div>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-slate-100/70 p-1.5 rounded-2xl">
+          <nav className="hidden md:flex items-center gap-1.5 bg-slate-100/70 dark:bg-slate-800/80 p-1.5 rounded-2xl">
             <button
               onClick={() => handleTabChange('explore')}
-              className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
+              className={`px-4 lg:px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
                 currentTab === 'explore'
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
               Explore Homes
             </button>
+            <button
+              onClick={() => handleTabChange('favorites')}
+              className={`px-4 lg:px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
+                currentTab === 'favorites'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              <Heart className={`w-3.5 h-3.5 ${currentTab === 'favorites' || favorites.length > 0 ? 'text-rose-500 fill-rose-500' : ''}`} />
+              <span>Saved</span>
+              {favorites.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                  {favorites.length}
+                </span>
+              )}
+            </button>
             {currentUser?.role === 'landlord' && (
               <button
                 onClick={() => handleTabChange('dashboard')}
-                className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
+                className={`px-4 lg:px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
                   currentTab === 'dashboard'
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                 }`}
               >
                 Analytics Dashboard
@@ -1182,13 +1198,18 @@ export default function App() {
             )}
             <button
               onClick={() => handleTabChange('bookings')}
-              className={`px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
+              className={`px-4 lg:px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
                 currentTab === 'bookings'
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
-              {currentUser?.role === 'landlord' ? 'Owner Approvals Hub' : 'My Bookings'}
+              <span>{currentUser?.role === 'landlord' ? 'Owner Approvals Hub' : 'My Bookings'}</span>
+              {currentUser && bookings.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-600 text-white">
+                  {bookings.length}
+                </span>
+              )}
             </button>
           </nav>
 
@@ -1443,11 +1464,18 @@ export default function App() {
       />
 
       {/* FLOATING MAP / LIST TOGGLE BUTTON ON MOBILE (FLIPX / AIRBNB UX) */}
-      {(currentTab === 'explore' || currentTab === 'favorites') && (
+      {currentTab === 'explore' && !selectedListing && (
         <div className={`md:hidden fixed ${comparedListings.length > 0 ? 'bottom-[calc(env(safe-area-inset-bottom,0px)+10rem)]' : 'bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)]'} left-1/2 -translate-x-1/2 z-30 animate-fade-in pointer-events-auto transition-all duration-300`}>
           <button
             type="button"
-            onClick={() => handleSetMapViewMode(mapViewMode === 'map' ? (recentViewMode !== 'map' ? recentViewMode : 'grid') : 'map')}
+            onClick={() => {
+              const nextMode = mapViewMode === 'map' ? (recentViewMode !== 'map' ? recentViewMode : 'split') : 'map';
+              handleSetMapViewMode(nextMode);
+              const el = document.getElementById('property-feed-top');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
             className="bg-slate-900 text-white dark:bg-emerald-600 dark:text-white px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-black ring-4 ring-white/50 dark:ring-slate-900/50 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-700/50"
           >
             {mapViewMode === 'map' ? (
@@ -1541,15 +1569,21 @@ export default function App() {
 
                   {/* Filter Panel Toggle */}
                   <button
+                    type="button"
                     onClick={() => setShowFiltersPanel(!showFiltersPanel)}
                     className={`px-3.5 py-2 border rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
-                      showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000 || maxDistanceKm !== null
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 5000 || maxDistanceKm !== null
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
                     }`}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
                     <span>Filters</span>
+                    {(selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 5000 || maxDistanceKm !== null) && (
+                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center">
+                        {[selectedType !== 'all', minBedrooms !== 'all', maxPrice < 5000, maxDistanceKm !== null].filter(Boolean).length}
+                      </span>
+                    )}
                   </button>
 
                   {/* Rent Affordability Calculator Button */}
@@ -1966,8 +2000,8 @@ export default function App() {
               </div>
 
               {/* Row 2: Secondary Filters Drawer Panel */}
-              {(showFiltersPanel || selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 2000) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3.5 border-t border-slate-100 animate-fade-in">
+              {showFiltersPanel && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3.5 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
                   
                   {/* Filter Property Type Dropdown */}
                   <div className="space-y-1.5">
@@ -1975,7 +2009,7 @@ export default function App() {
                     <select
                       value={selectedType}
                       onChange={(e) => setSelectedType(e.target.value)}
-                      className="w-full text-xs font-bold p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full text-xs font-bold p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="all">All Real Estate Categories</option>
                       {PROPERTY_CATEGORY_OPTIONS.map((cat) => (
@@ -1989,37 +2023,55 @@ export default function App() {
                   {/* Filter Price Slider */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-baseline">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Max Price</span>
-                      <span className="text-xs font-bold text-emerald-600">€{maxPrice}/mo</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Max Monthly Rent</span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        {maxPrice >= 5000 ? '€5,000+ (Any)' : `€${maxPrice.toLocaleString()}/mo`}
+                      </span>
                     </div>
                     <input
                       type="range"
-                      min={400}
-                      max={2200}
-                      step={50}
+                      min={300}
+                      max={5000}
+                      step={100}
                       value={maxPrice}
                       onChange={(e) => setMaxPrice(parseInt(e.target.value))}
                       className="w-full accent-emerald-600 cursor-pointer"
                     />
                     <div className="flex justify-between text-[10px] text-slate-400">
-                      <span>€400</span>
-                      <span>€1,300</span>
-                      <span>€2,200+</span>
+                      <span>€300</span>
+                      <span>€2,500</span>
+                      <span>€5,000+</span>
                     </div>
                   </div>
 
                   {/* Filter Bedrooms count */}
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Minimum Bedrooms</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Minimum Bedrooms</span>
+                      {(selectedType !== 'all' || minBedrooms !== 'all' || maxPrice < 5000) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedType('all');
+                            setMinBedrooms('all');
+                            setMaxPrice(5000);
+                          }}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-600 cursor-pointer"
+                        >
+                          Reset All
+                        </button>
+                      )}
+                    </div>
                     <div className="flex gap-1.5">
                       {['all', '0', '1', '2', '3+'].map(b => (
                         <button
                           key={b}
+                          type="button"
                           onClick={() => setMinBedrooms(b)}
-                          className={`w-10 h-8 rounded-xl font-bold text-xs border flex items-center justify-center transition-all ${
+                          className={`w-10 h-8 rounded-xl font-bold text-xs border flex items-center justify-center transition-all cursor-pointer ${
                             minBedrooms === b
                               ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white border-slate-100 hover:border-slate-200 text-slate-600'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-300'
                           }`}
                         >
                           {b === 'all' ? 'Any' : b}
@@ -2174,21 +2226,25 @@ export default function App() {
             )}
 
             {/* DUAL PANE LISTING ROW */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px] h-auto lg:h-[calc(100vh-270px)]">
+            <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px] h-auto ${
+              mapViewMode === 'grid'
+                ? 'lg:h-auto'
+                : 'lg:h-[calc(100vh-180px)] lg:min-h-[640px]'
+            }`}>
               
               {/* Left Column: Property Feed */}
-              <div className={`flex flex-col h-full overflow-hidden transition-all duration-300 ${
+              <div className={`flex-col transition-all duration-300 ${
                 mapViewMode === 'grid' 
-                  ? 'lg:col-span-12' 
+                  ? 'flex h-auto lg:col-span-12' 
                   : mapViewMode === 'map' 
-                  ? 'lg:col-span-4' 
-                  : 'lg:col-span-7'
+                  ? 'hidden lg:flex h-full overflow-hidden lg:col-span-4' 
+                  : 'flex h-full overflow-hidden lg:col-span-7'
               }`}>
 
                 <PullToRefresh
                   onRefresh={refreshData}
                   isRefreshing={isSyncingDatabase}
-                  className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin"
+                  className={`flex-1 ${mapViewMode === 'grid' ? '' : 'overflow-y-auto pr-1 scrollbar-thin'} space-y-4`}
                 >
                   {isLoadingListings ? (
                     <div className={`grid gap-4 ${
@@ -2497,11 +2553,14 @@ export default function App() {
 
               {/* Right Column: Hot Properties & New Listings Showcase Reel */}
               {mapViewMode !== 'grid' && (
-                <div className={`transition-all duration-300 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm shrink-0 ${
-                  mapViewMode === 'map'
-                    ? 'lg:col-span-8 h-[580px] lg:h-full'
-                    : 'lg:col-span-5 h-[520px] sm:h-[560px] lg:h-full'
-                }`}>
+                <div
+                  id="mobile-map-showcase-anchor"
+                  className={`transition-all duration-300 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm shrink-0 ${
+                    mapViewMode === 'map'
+                      ? 'lg:col-span-8 h-[calc(100vh-220px)] min-h-[520px] lg:h-full'
+                      : 'lg:col-span-5 h-[520px] sm:h-[560px] lg:h-full'
+                  }`}
+                >
                   <HotPropertiesShowcase
                     listings={filteredItems.map(item => item.listing)}
                     selectedListing={selectedListing}
@@ -2515,6 +2574,7 @@ export default function App() {
                     displayCurrency={displayCurrency}
                     mapCenter={mapCenter}
                     mapZoom={mapZoom}
+                    externalViewMode={mapViewMode}
                   />
                 </div>
               )}
@@ -2642,7 +2702,7 @@ export default function App() {
           isTabLoading ? (
             <BookingsViewSkeleton />
           ) : (
-            <div className="animate-fade-in bg-white border border-slate-100 shadow-sm rounded-3xl p-6 lg:p-8">
+            <div className="animate-fade-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-3xl p-3.5 sm:p-6 lg:p-8">
               <BookingsView 
                 currentUser={currentUser}
                 onStatusChanged={refreshData}
